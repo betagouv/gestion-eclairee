@@ -1,0 +1,101 @@
+[project]
+name = "gestion-eclairee"
+version = "0.1.0"
+description = "Analyse des dépenses"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "django~=5.2",
+    "django-dsfr>=3.5.2",
+    "django-environ>=0.13.0",
+    "django-lasuite>=0.0.26",
+    "gunicorn>=26.0.0",
+    "ipython>=9.14.1",
+    "mozilla-django-oidc>=5.0.2",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.3",
+    "psycopg[binary]>=3.3.4",
+    "pymupdf>=1.27.2.3",
+    "python-dotenv>=1.2.2",
+    "sqlalchemy>=2.0.50",
+    "tiktoken>=0.13.0",
+    "tqdm>=4.68.2",
+    "unidecode>=1.4.0",
+    "whitenoise>=6.12.0",
+]
+
+[dependency-groups]
+dev = [
+    "django-stubs>=6.0.5",
+    "freezegun>=1.5.5",
+    "moto>=5.2.2",
+    "pandas-stubs>=3.0.3.260530",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "pytest-django>=4.12.0",
+    "pytest-factoryboy>=2.8.1",
+    "pytest-responses>=0.5.1",
+    "pytest-ruff>=0.5",
+    "ruff>=0.15.16",
+]
+
+
+[tool.ruff]
+exclude = [
+    "**/migrations/*.py",
+]
+
+[tool.ruff.lint]
+select = [
+    "I",  # isort
+    "F",  # pyflakes
+    "E",  # pycodestyle
+    "DJ",  # flake8-django
+]
+
+[tool.ruff.lint.isort]
+section-order = [
+    "future",
+    "standard-library",
+    "django",
+    "third-party",
+    "pandas",
+    "first-party",
+    "local-folder",
+]
+
+[tool.ruff.lint.isort.sections]
+# Group all Django and Pandas imports into a separate section.
+django = ["django"]
+pandas = ["pandas", "numpy"]
+
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "docia.settings"
+
+
+[tool.coverage.run]
+branch = true
+omit = [
+    # omit migrations
+    "*/migrations/*",
+]
+
+[tool.coverage.report]
+# Regexes for lines to exclude from consideration
+exclude_also = [
+    # Don't complain about missing debug-only code:
+    "if self\\.debug",
+
+    # Don't complain if tests don't hit defensive assertion code:
+    "raise AssertionError",
+    "raise NotImplementedError",
+
+    # Don't complain if non-runnable code isn't run:
+    "if 0:",
+    "if __name__ == .__main__.:",
+
+    # Don't complain about abstract methods, they aren't run:
+    "@(abc\\.)?abstractmethod",
+    ]
+
