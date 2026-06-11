@@ -10,7 +10,7 @@ Analyse des dépenses.
 pytest --no-migrations tests
 
 # With coverage
-pytest --cov=docia --cov-report html --no-migrations tests
+pytest --cov=gesec --cov-report html --no-migrations tests
 ```
 
 
