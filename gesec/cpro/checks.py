@@ -5,7 +5,7 @@ import logging
 import optparse
 import os
 import sys
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 
 import pandas as pd
 from tqdm import tqdm
@@ -165,10 +165,21 @@ def check_coherence_oda(df_oda: pd.DataFrame, df_cpro: pd.DataFrame):
 
     # Cast en Decimal
     df_oda_clean["Dépenses  2025"] = df_oda_clean["Dépenses  2025"].map(lambda x: Decimal(x))
+    df_cpro["montant_a_payer"] = df_cpro["montant_a_payer"].map(lambda x: Decimal(x))
 
     # Pré-calculer la somme des montants par EJ
     ej_to_oda_sum = df_oda_clean.groupby(key_ej_oda)['Dépenses  2025'].sum().to_dict()
-    ej_to_cpro_sum = df_cpro.groupby(key_ej_cpro)['montant_a_payer'].sum().to_dict()
+    ej_to_cpro_sum = (df_cpro.groupby(key_ej_cpro)['montant_a_payer']
+                      .sum()
+                      .apply(lambda x: x.quantize(Decimal("0.00"), rounding=ROUND_HALF_UP))
+                      .to_dict())
+
+    # Calculer les services par EJ
+    ej_to_services = {}
+    for _, row in df_cpro.iterrows():
+        ej = row[key_ej_cpro]
+        service = row["destinataire_code_service"]
+        ej_to_services.setdefault(ej, set()).add(service)
 
     for idx, row in tqdm(df_oda_clean.iterrows(), total=df_oda_clean.shape[0]):
         ej = row[key_ej_oda]
@@ -181,16 +192,25 @@ def check_coherence_oda(df_oda: pd.DataFrame, df_cpro: pd.DataFrame):
         oda_montant_total_ej = ej_to_oda_sum[ej]
         cpro_montant_total_ej = ej_to_cpro_sum[ej]
         montant_cpro_ok = oda_montant == cpro_montant_total_ej or oda_montant_total_ej == cpro_montant_total_ej
+        services = ej_to_services[ej]
+        # Exclusion de certaines lignes par service ou numéro d'EJ
+        excluded = "D04687X099" in services or ej in (".", "0")
+        check_ok = excluded or montant_cpro_ok
+        montant_diff = cpro_montant_total_ej - oda_montant_total_ej
 
         # Ajout des colonnes de résultat
         df_oda_clean.loc[idx, "oda_ej_total"] = oda_montant_total_ej
         df_oda_clean.loc[idx, "cpro_ej_total"] = cpro_montant_total_ej
+        df_oda_clean.loc[idx, "montant_diff"] = montant_diff
         df_oda_clean.loc[idx, "montant_cpro_ok"] = 1 if montant_cpro_ok else 0
+        df_oda_clean.loc[idx, "services"] = " ".join(services)
+        df_oda_clean.loc[idx, "excluded"] = 1 if excluded else 0
+        df_oda_clean.loc[idx, "check_ok"] = 1 if check_ok else 0
 
         if montant_cpro_ok:
             stats["ok"] += 1
         else:
-            print(row["Ministère"], row["V_Ministère_Service bénéficaire"], oda_montant, oda_montant_total_ej, cpro_montant_total_ej)
+            #print(row["Ministère"], row["V_Ministère_Service bénéficaire"], oda_montant, oda_montant_total_ej, cpro_montant_total_ej)
             stats["nok"] += 1
     logger.info("Check result: %s", stats)
     return df_oda_clean
