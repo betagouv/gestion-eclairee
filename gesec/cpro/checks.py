@@ -162,21 +162,21 @@ def check_coherence_oda(df_oda: pd.DataFrame, df_cpro: pd.DataFrame):
     stats = {"missing": 0, "ok": 0, "nok": 0}
 
     df_oda_clean = df_oda[(df_oda[key_ej_oda] != "#")].copy()
+    df_cpro_clean = df_cpro.copy()
 
     # Cast en Decimal
-    df_oda_clean["Dépenses  2025"] = df_oda_clean["Dépenses  2025"].map(lambda x: Decimal(x))
-    df_cpro["montant_a_payer"] = df_cpro["montant_a_payer"].map(lambda x: Decimal(x))
+    df_oda_clean["Dépenses  2025"] = df_oda_clean["Dépenses  2025"].apply(lambda x: Decimal(str(x)))
+    df_cpro_clean["montant_a_payer"] = df_cpro_clean["montant_a_payer"].apply(lambda x: x.quantize(Decimal("0.00"), rounding=ROUND_HALF_UP))
 
     # Pré-calculer la somme des montants par EJ
     ej_to_oda_sum = df_oda_clean.groupby(key_ej_oda)['Dépenses  2025'].sum().to_dict()
-    ej_to_cpro_sum = (df_cpro.groupby(key_ej_cpro)['montant_a_payer']
+    ej_to_cpro_sum = (df_cpro_clean.groupby(key_ej_cpro)['montant_a_payer']
                       .sum()
-                      .apply(lambda x: x.quantize(Decimal("0.00"), rounding=ROUND_HALF_UP))
                       .to_dict())
 
     # Calculer les services par EJ
     ej_to_services = {}
-    for _, row in df_cpro.iterrows():
+    for _, row in tqdm(df_cpro.iterrows(), total=df_cpro.shape[0]):
         ej = row[key_ej_cpro]
         service = row["destinataire_code_service"]
         ej_to_services.setdefault(ej, set()).add(service)
