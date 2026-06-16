@@ -1,0 +1,26 @@
+{% extends "gesec/base.html" %}
+
+{% load dsfr_tags static gesec %}
+
+
+{% block content %}
+
+  <h1>Gestion Éclairée</h1>
+
+  <div class="fr-mb-10v">
+    Rejoignez-nous sur Tchap et posez vos questions&nbsp;:
+    <a target="_blank" href="{{ settings.TCHAP_SUPPORT_CANAL_URL }}">
+      Support - Gestion Éclairée
+    </a>
+  </div>
+
+  {% if user.is_authenticated %}
+
+    Hello World
+
+  {% else %}
+    <a href="{% url 'login' %}">Se connecter</a>
+  {% endif %}
+
+  <div style="margin-bottom: 50vh"></div>
+{% endblock %}

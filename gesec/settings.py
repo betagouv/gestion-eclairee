@@ -10,73 +10,102 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import sys
 from pathlib import Path
+
+from django.urls import reverse_lazy
+
+import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+config = environ.Env()
+config.read_env(BASE_DIR / ".env")
+config.read_env(BASE_DIR.parent / "gesec.env")
+
+
+TESTING = "pytest" in sys.argv[0] or (
+    "manage.py" in sys.argv[0] and "test" in sys.argv[1]
+)
+if TESTING:
+    print("LOAD TEST ENVIRONMENT VARIABLES! (TESTING=True)")
+    config.read_env(BASE_DIR / "test.env", overwrite=True)
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-@euln1&w@py)%r5*em!m85f-z@e+)ala97!709k(xobrfnmd++'
+SECRET_KEY = config.str("DJANGO_SECRET")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config.bool("DJANGO_DEBUG", default=True)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = config.list("DJANGO_ALLOWED_HOSTS", default=["127.0.0.1", "localhost"])
 
+ENV = config.str("ENV", default="dev")
+
+ADMIN_BASE_URL_PATH = config.str("DJANGO_ADMIN_BASE_URL_PATH", default="")
 
 # Application definition
 
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "whitenoise.runserver_nostatic",  # white noise must be before staticfiles
+    "django.contrib.staticfiles",
+    # Django DSFR
+    "widget_tweaks",
+    "dsfr",
+    "django.forms",  # django.forms must be after dsfr
+    # External apps
+    "mozilla_django_oidc",
+    # Internal apps
+    "gesec",
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "gesec.logging.RequestMiddleware",
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = 'gesec.urls'
+ROOT_URLCONF = "gesec.front.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                "gesec.front.context_processors.settings",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'gesec.wsgi.application'
+WSGI_APPLICATION = "gesec.front.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    "default": config.db("DATABASE_URL"),
 }
 
 
@@ -85,28 +114,62 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",  # noqa: E501
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
 
+AUTH_USER_MODEL = "gesec.User"
+AUTHENTICATION_BACKENDS = [
+    "gesec.front.auth.backends.CustomOIDCBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+LOGIN_URL = reverse_lazy("login")
+OIDC_RP_CLIENT_ID = config.str("OIDC_RP_CLIENT_ID")
+OIDC_RP_CLIENT_SECRET = config.str("OIDC_RP_CLIENT_SECRET")
+OIDC_OP_DOMAIN = config.str("OIDC_RP_DOMAIN")
+OIDC_OP_BASE_URL = f"https://{OIDC_OP_DOMAIN}/api/v2/"
+OIDC_OP_AUTHORIZATION_ENDPOINT = OIDC_OP_BASE_URL + "authorize"
+OIDC_OP_TOKEN_ENDPOINT = OIDC_OP_BASE_URL + "token"
+OIDC_OP_USER_ENDPOINT = OIDC_OP_BASE_URL + "userinfo"
+OIDC_OP_JWKS_ENDPOINT = OIDC_OP_BASE_URL + "jwks"
+OIDC_CALLBACK_CLASS = "gesec.front.auth.views.CustomOIDCAuthenticationCallbackView"
+OIDC_CREATE_USER = True
+OIDC_RP_SIGN_ALGO = "RS256"
+OIDC_RP_SCOPES = "openid email given_name usual_name"
+# Specific to lasuite.oidc
+OIDC_OP_LOGOUT_ENDPOINT = OIDC_OP_BASE_URL + "session/end"
+OIDC_ALLOW_DUPLICATE_EMAILS = False
+OIDC_USERINFO_FULLNAME_FIELDS = ["given_name", "usual_name"]
+OIDC_USERINFO_SHORTNAME_FIELD = "given_name"
+OIDC_FALLBACK_TO_EMAIL_FOR_IDENTIFICATION = True
+LOGIN_REDIRECT_URL = "/"
+LOGOUT_REDIRECT_URL = "/"
+
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "fr-fr"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "Europe/Paris"
 
 USE_I18N = True
+USE_THOUSAND_SEPARATOR = True
 
 USE_TZ = True
 
@@ -114,9 +177,158 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "dist" / "static"
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
+
+
+storage_backend = config.str("STORAGE_BACKEND", default="fs")
+match storage_backend:
+    case "s3":
+        storage_backend_class = "storages.backends.s3.S3Storage"
+    case "fs":
+        storage_backend_class = "django.core.files.storage.FileSystemStorage"
+    case _:
+        raise ValueError(f"Unknown storage backend: {storage_backend}")
+
+
+STORAGES = {
+    "default": {
+        "BACKEND": storage_backend_class,
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
+
+if TESTING:
+    STORAGES["staticfiles"]["BACKEND"] = (
+        "django.contrib.staticfiles.storage.StaticFilesStorage"
+    )
+
+
+if storage_backend == "s3":
+    S3_ENDPOINT_URL = config.str("AWS_S3_ENDPOINT_URL")
+    S3_REGION_NAME = config.str("AWS_S3_REGION_NAME")
+    S3_ACCESS_KEY_ID = config.str("AWS_S3_ACCESS_KEY_ID")
+    S3_SECRET_ACCESS_KEY = config.str("AWS_S3_SECRET_ACCESS_KEY")
+    S3_BUCKET_NAME = config.str("STORAGE_S3_BUCKET_NAME")
+    STORAGES["default"]["OPTIONS"] = {
+        "endpoint_url": S3_ENDPOINT_URL,
+        "region_name": S3_REGION_NAME,
+        "access_key": S3_ACCESS_KEY_ID,
+        "secret_key": S3_SECRET_ACCESS_KEY,
+        "bucket_name": S3_BUCKET_NAME,
+        "file_overwrite": False,
+    }
+elif storage_backend == "fs":
+    STORAGES["default"]["OPTIONS"] = {
+        "location": config.str("STORAGE_LOCAL_PATH", default=str(BASE_DIR / "media")),
+        "allow_overwrite": False,
+    }
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {
+        "request_id": {
+            "()": "gesec.logging.RequestIdFilter",
+        },
+        "session_id": {
+            "()": "gesec.logging.SessionIdFilter",
+        },
+    },
+    "formatters": {
+        "simple": {
+            "()": "gesec.logging.MultiLineFormatter",
+            "format": "[%(asctime)s] %(levelname)s sid=%(session_id)s rid=%(request_id)s %(name)s %(message)s",  # noqa: E501
+            "datefmt": "%Y-%m-%dT%H:%M:%S%z",
+        },
+        "short": {
+            "()": "gesec.logging.MultiLineFormatter",
+            "format": "[%(asctime)s] %(levelname)s %(module)s %(message)s",
+            "datefmt": "%Y-%m-%dT%H:%M:%S%z",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": config.str("LOG_FORMATTER", default="simple"),
+            "filters": ["request_id", "session_id"],
+        },
+    },
+    "loggers": {
+        "gunicorn": {
+            "level": "INFO",
+        },
+        "django.request": {
+            "level": "WARNING",
+        },
+        "django.db": {
+            "level": config.str("LOG_LEVEL_DB", default="WARNING"),
+        },
+        "boto3": {
+            "level": config.str("LOG_LEVEL_BOTO3", default="WARNING"),
+        },
+        "requests": {
+            "level": config.str("LOG_LEVEL_REQUESTS", default="WARNING"),
+        },
+        "lasuite": {
+            "level": config.str("LOG_LEVEL_LASUITE", default="WARNING"),
+        },
+        "gesec": {
+            "level": config.str("LOG_LEVEL", default="INFO"),
+        },
+        "": {
+            "handlers": ["console"],
+            "level": "WARNING",
+        },
+    },
+}
+
+
+SHELL_AUTO_IMPORTS = [
+    ("collections", ("Counter",)),
+    ("django.db", ("connection",)),
+    ("django.db.transaction", ("atomic",)),
+    ("django.db.models", "*"),
+    ("django.conf", ("settings",)),
+    "time",
+    "datetime",
+    ("django.utils", ("timezone",)),
+    ("pprint", ("pprint",)),
+    ("gesec", ("models",)),
+    ("gesec.models", "*"),
+]
+
+
+FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
+DSFR_CHECK_DEPRECATED_PARAMS = DEBUG
+DSFR_USE_INTEGRITY_CHECKSUMS = False
+
+TCHAP_SUPPORT_CANAL_URL = config.str("TCHAP_SUPPORT_CANAL_URL", default="")
+
+MATOMO_URL = config.str("MATOMO_URL", default="")
+
+ALBERT_API_KEY = config.str("ALBERT_API_KEY")
+ALBERT_BASE_URL = config.str("ALBERT_BASE_URL")
+ALBERT_USE_RATE_LIMITER = config.bool("ALBERT_USE_RATE_LIMITER", default=False)
+# Limites par modèle (requêtes/min).
+# Défaut pour un modèle non listé : ALBERT_RATE_PER_MINUTE_DEFAULT.
+ALBERT_RATE_PER_MINUTE_BY_MODEL = {
+    "openweight-medium": 98,
+    "mistral-medium-2508": 98,
+    "mistral-ocr-2512": 98,
+}
+ALBERT_RATE_PER_MINUTE_DEFAULT = config.int("ALBERT_RATE_PER_MINUTE", default=100)

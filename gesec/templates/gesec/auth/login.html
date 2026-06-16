@@ -1,0 +1,17 @@
+{% extends "gesec/base.html" %}
+
+
+{% block header %}
+{% endblock header %}
+
+
+{% block footer %}
+{% endblock footer %}
+
+
+{% block content %}
+  <div>
+    <h1 class="fr-h1">Connexion</h1>
+    <a href="{% url 'oidc_authentication_init' %}{% if request.GET.next %}?next={{ request.GET.next|urlencode }}{% endif %}" class="fr-btn">Pro connect</a>
+  </div>
+{% endblock %}
