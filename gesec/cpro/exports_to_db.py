@@ -18,7 +18,9 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 # Regex pattern for CSV files: <num_ej(10 alphanum)>_<service?(alphanum)>_<start(8 digits)>_<end(8 digits)>.csv
-CSV_FILE_PATTERN = re.compile(r"^(?P<ej>[a-zA-Z0-9]{10})_((?P<service>[a-zA-Z0-9]+)_)?(?P<start>\d{8})_(?P<end>\d{8})\.csv$")
+CSV_FILE_PATTERN = re.compile(
+    r"^(?P<ej>[a-zA-Z0-9]{10})_((?P<service>[a-zA-Z0-9]+)_)?(?P<start>\d{8})_(?P<end>\d{8})\.csv$"
+)
 
 # Columns that should be parsed as dates (French format: dd/mm/yyyy)
 DATE_COLUMNS = [
@@ -311,7 +313,11 @@ def parse_args():
         "DIRECTORY is required and should contain the CSV files to process. "
         "DATABASE_URL is loaded from .env file or environment variable.",
     )
-    parser.add_option("--table-name", dest="table_name", help="Name of the target table in database (required)")
+    parser.add_option(
+        "--table-name",
+        dest="table_name",
+        help="Name of the target table in database (required)",
+    )
     options, args = parser.parse_args()
     return options, args
 

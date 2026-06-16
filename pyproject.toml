@@ -42,6 +42,7 @@ dev = [
 
 
 [tool.ruff]
+line-length = 120
 exclude = [
     "**/migrations/*.py",
 ]
@@ -72,7 +73,7 @@ pandas = ["pandas", "numpy"]
 
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "docia.settings"
+DJANGO_SETTINGS_MODULE = "gesec.settings"
 
 
 [tool.coverage.run]
