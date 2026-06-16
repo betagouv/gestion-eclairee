@@ -501,18 +501,23 @@ def read_input_file(input_file: str) -> list[tuple[str, str]]:
             services_str = row["SERVICES"].strip()
             
             assert ej, f"row with empty EJ: {row}"
-            assert services_str, f"Row with empty SERVICES: {row}"
+            assert len(ej) == 10, f"row with invalid EJ: {row}"
+            #assert services_str, f"Row with empty SERVICES: {row}"
 
-            # Split services by space
-            services = services_str.split()
-            
-            # Create a pair for each service
-            for service in services:
-                service = service.strip()
-                if service and service not in ("WFBATCH", "AIFEMNT093"):
-                    pairs.append((ej, service))
-                    logger.debug(f"Added pair: EJ={ej}, Service={service}")
-    
+            if not services_str.strip():
+                pairs.append((ej, None))
+            else:
+
+                # Split services by space
+                services = services_str.strip().split()
+
+                # Create a pair for each service
+                for service in services:
+                    service = service.strip()
+                    if service and service not in ("WFBATCH", "AIFEMNT093"):
+                        pairs.append((ej, service))
+                        logger.debug(f"Added pair: EJ={ej}, Service={service}")
+
     logger.info(f"Extracted {len(pairs)} (EJ, service) pairs from input file")
     return pairs
 
