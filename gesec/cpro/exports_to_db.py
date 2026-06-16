@@ -17,8 +17,8 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-# Regex pattern for CSV files: <num_ej(10 alphanum)>_<service(alphanum)>_<start(8 digits)>_<end(8 digits)>.csv
-CSV_FILE_PATTERN = re.compile(r"^[a-zA-Z0-9]{10}_([a-zA-Z0-9]+)_\d{8}_\d{8}\.csv$")
+# Regex pattern for CSV files: <num_ej(10 alphanum)>_<service?(alphanum)>_<start(8 digits)>_<end(8 digits)>.csv
+CSV_FILE_PATTERN = re.compile(r"^(?P<ej>[a-zA-Z0-9]{10})_((?P<service>[a-zA-Z0-9]+)_)?(?P<start>\d{8})_(?P<end>\d{8})\.csv$")
 
 # Columns that should be parsed as dates (French format: dd/mm/yyyy)
 DATE_COLUMNS = [
@@ -44,7 +44,11 @@ AMOUNT_COLUMNS = [
 
 
 def filter_csv_files(directory: str) -> list[str]:
-    """Filter CSV files matching the pattern <num_ej>_<service>_<start>_<end>.csv.
+    """Filter CSV files matching the patterns.
+
+     Patterns:
+        - <num_ej>_<service>_<start>_<end>.csv
+        - <num_ej>_<start>_<end>.csv
 
     The pattern requires:
     - num_ej: exactly 10 alphanumeric characters
@@ -128,9 +132,8 @@ def extract_source_info(filename: str) -> tuple[str, str]:
         raise ValueError(f"Filename '{filename}' doesn't match expected pattern")
 
     # Extract num_ej (first 10 characters before first underscore)
-    base_name = os.path.splitext(filename)[0]
-    num_ej = base_name[:10]
-    service = match.group(1)
+    num_ej = match.group("ej")
+    service = match.group("service") or ""
 
     return num_ej, service
 
@@ -201,7 +204,7 @@ def aggregate_csv_files(csv_files: list[str]) -> pd.DataFrame:
             reader = csv.DictReader(f, delimiter=";")
             for row in reader:
                 parsed_row = _parse_row(row)
-                assert parsed_row["Destinataire (code service)"] == service, (
+                assert not service or parsed_row["Destinataire (code service)"] == service, (
                     f"Invalid service {service!r} {parsed_row!r}"
                 )
                 assert parsed_row["Numéro du bon de commande"] == num_ej, f"Invalid num_ej {num_ej!r} {parsed_row!r}"
@@ -216,6 +219,11 @@ def aggregate_csv_files(csv_files: list[str]) -> pd.DataFrame:
 
     # Clean column names for SQL compatibility
     df = clean_dataframe_columns(df)
+
+    # Make sure there is no duplicate
+    rows_count = df.shape[0]
+    dedup_rows_count = df.drop_duplicates("identifiant_chorus_pro").shape[0]
+    assert rows_count == dedup_rows_count, f"Duplicates: {rows_count - dedup_rows_count}"
 
     logger.info(f"Aggregated {len(csv_files)} files with {len(df)} total rows")
     return df
