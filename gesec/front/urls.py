@@ -16,9 +16,11 @@ Including another URLconf
 """
 from django.conf import settings
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import include, path
 from django.views.generic import TemplateView
+
 from lasuite.oidc_login.urls import urlpatterns as oidc_urls
+
 from . import views
 
 urlpatterns = [
