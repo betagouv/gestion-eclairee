@@ -186,12 +186,14 @@ def check_coherence_oda(df_oda: pd.DataFrame, df_cpro: pd.DataFrame):
     for idx, row in tqdm(df_oda_clean.iterrows(), total=df_oda_clean.shape[0]):
         ej = row[key_ej_oda]
 
+        oda_montant_total_ej = ej_to_oda_sum[ej]
+        df_oda_clean.loc[idx, "oda_ej_total"] = oda_montant_total_ej
+
         if ej not in ej_to_cpro_sum:
             stats["missing"] += 1
             continue
 
         oda_montant = row["Dépenses  2025"]
-        oda_montant_total_ej = ej_to_oda_sum[ej]
         cpro_montant_total_ej = ej_to_cpro_sum[ej]
         montant_cpro_ok = oda_montant == cpro_montant_total_ej or oda_montant_total_ej == cpro_montant_total_ej
         services = ej_to_services[ej]
@@ -201,7 +203,6 @@ def check_coherence_oda(df_oda: pd.DataFrame, df_cpro: pd.DataFrame):
         montant_diff = cpro_montant_total_ej - oda_montant_total_ej
 
         # Ajout des colonnes de résultat
-        df_oda_clean.loc[idx, "oda_ej_total"] = oda_montant_total_ej
         df_oda_clean.loc[idx, "cpro_ej_total"] = cpro_montant_total_ej
         df_oda_clean.loc[idx, "montant_diff"] = montant_diff
         df_oda_clean.loc[idx, "montant_cpro_ok"] = 1 if montant_cpro_ok else 0

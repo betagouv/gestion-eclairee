@@ -45,6 +45,132 @@ AMOUNT_COLUMNS = [
 ]
 
 
+EXPECTED_COLUMNS = {
+    'Identifiant Chorus Pro',
+    'Numéro',
+    'État courant',
+    'Instructeur',
+    'Motif de rejet',
+    "Commentaire de l'état",
+    'Type de demande de paiement',
+    'Type facture',
+    'Type de facture de travaux',
+    'Cadre de facturation',
+    'Date Fournisseur',
+    'Date de création',
+    'Date de dépôt',
+    'Date état courant',
+    'Date échéance paiement',
+    'Valideur 1 (date de validation)',
+    'Valideur 2 (date de validation)',
+    "Fournisseur (type d'identifiant)",
+    'Fournisseur (identifiant)',
+    'Fournisseur (désignation)',
+    'Fournisseur (TVA intracommunautaire)',
+    'Fournisseur (code service)',
+    'Fournisseur (service)',
+    "Destinataire (type d'identifiant)",
+    'Destinataire (identifiant)',
+    'Destinataire (désignation)',
+    'Destinataire (TVA intracommunautaire)',
+    'Destinataire (code service)',
+    'Destinataire (service)',
+    'Mode de dépôt',
+    'Mt HT',
+    'Mt TTC',
+    'Montant à payer',
+    'Montant TTC avant remise',
+    'Montant remise globale TTC',
+    'Motif',
+    'Montant TVA',
+    'Devise de la facture',
+    'Type de TVA',
+    "Motif d'éxoneration",
+    'Certificat de dépôt n°',
+    'Identifiant numérisation',
+    "Numéro de la facture d'origine",
+    'Numéro DP mandat',
+    'Numéro du bon de commande',
+    'Numéro de marché',
+    'Coordonnées bancaires',
+    'BIC ou Swift',
+    'Mode de règlement',
+    'Document précédent (numéro)',
+    'Document précédent (type de pièce)',
+    'Document suivant (numéro)',
+    'Document suivant (type de pièce)',
+    'Dossier de facturation',
+    'Commentaire',
+    'Numéro de lot transmis',
+    'Date modification',
+    'Telechargée',
+    "Emetteur (type d'identifiant)",
+    'Emetteur (identifiant)',
+    'Emetteur (désignation)',
+    "Affactureur (type d'identifiant)",
+    'Affactureur (identifiant)',
+    'Affactureur (désignation)',
+    "Maîtrise d’oeuvre (type d'identifiant)",
+    'Maîtrise d’oeuvre (identifiant)',
+    'Maîtrise d’oeuvre (désignation)',
+    'Maîtrise d’oeuvre (TVA intracommunautaire)',
+    "Maîtrise d'oeuvre (code service)",
+    'Maîtrise d’oeuvre (service)',
+    "Maîtrise d’ouvrage (type d'identifiant)",
+    'Maîtrise d’ouvrage (identifiant)',
+    'Maîtrise d’ouvrage (désignation)',
+    'Maîtrise d’ouvrage (TVA intracommunautaire)',
+    'Maîtrise d’ouvrage (code service)',
+    'Maîtrise d’ouvrage (service)',
+    "Valideur 1 (type d'identifiant)",
+    'Valideur 1 (identifiant)',
+    'Valideur 1 (désignation)',
+    "Valideur 2 (type d'identifiant)",
+    'Valideur 2 (identifiant)',
+    'Valideur 2 (désignation)',
+}
+
+EXPECTED_CLEANED_COLUMNS = {
+    'identifiant_chorus_pro', 'numero', 'etat_courant', 'instructeur',
+    'motif_de_rejet', 'commentaire_de_l_etat',
+    'type_de_demande_de_paiement', 'type_facture',
+    'type_de_facture_de_travaux', 'cadre_de_facturation',
+    'date_fournisseur', 'date_de_creation', 'date_de_depot',
+    'date_etat_courant', 'date_echeance_paiement',
+    'valideur_1_date_de_validation', 'valideur_2_date_de_validation',
+    'fournisseur_type_d_identifiant', 'fournisseur_identifiant',
+    'fournisseur_designation', 'fournisseur_tva_intracommunautaire',
+    'fournisseur_code_service', 'fournisseur_service',
+    'destinataire_type_d_identifiant', 'destinataire_identifiant',
+    'destinataire_designation', 'destinataire_tva_intracommunautaire',
+    'destinataire_code_service', 'destinataire_service', 'mode_de_depot',
+    'mt_ht', 'mt_ttc', 'montant_a_payer', 'montant_ttc_avant_remise',
+    'montant_remise_globale_ttc', 'motif', 'montant_tva',
+    'devise_de_la_facture', 'type_de_tva', 'motif_d_exoneration',
+    'certificat_de_depot_ndeg', 'identifiant_numerisation',
+    'numero_de_la_facture_d_origine', 'numero_dp_mandat',
+    'numero_du_bon_de_commande', 'numero_de_marche',
+    'coordonnees_bancaires', 'bic_ou_swift', 'mode_de_reglement',
+    'document_precedent_numero', 'document_precedent_type_de_piece',
+    'document_suivant_numero', 'document_suivant_type_de_piece',
+    'dossier_de_facturation', 'commentaire', 'numero_de_lot_transmis',
+    'date_modification', 'telechargee', 'emetteur_type_d_identifiant',
+    'emetteur_identifiant', 'emetteur_designation',
+    'affactureur_type_d_identifiant', 'affactureur_identifiant',
+    'affactureur_designation', 'maitrise_d_oeuvre_type_d_identifiant',
+    'maitrise_d_oeuvre_identifiant', 'maitrise_d_oeuvre_designation',
+    'maitrise_d_oeuvre_tva_intracommunautaire',
+    'maitrise_d_oeuvre_code_service', 'maitrise_d_oeuvre_service',
+    'maitrise_d_ouvrage_type_d_identifiant',
+    'maitrise_d_ouvrage_identifiant', 'maitrise_d_ouvrage_designation',
+    'maitrise_d_ouvrage_tva_intracommunautaire',
+    'maitrise_d_ouvrage_code_service', 'maitrise_d_ouvrage_service',
+    'valideur_1_type_d_identifiant', 'valideur_1_identifiant',
+    'valideur_1_designation', 'valideur_2_type_d_identifiant',
+    'valideur_2_identifiant', 'valideur_2_designation'
+}
+
+
 def filter_csv_files(directory: str) -> list[str]:
     """Filter CSV files matching the patterns.
 
@@ -156,6 +282,9 @@ def _parse_row(row: dict[str, str]) -> dict[str, str | date | Decimal]:
     empty_value = row.pop("")
     assert empty_value == "", f"Value is not empty {empty_value!r}"
 
+    row_columns = set(row.keys())
+    assert row_columns == EXPECTED_COLUMNS, f"Invalid columns missings={EXPECTED_COLUMNS - row_columns} unknowns={row_columns - EXPECTED_COLUMNS}"
+
     # Parse date columns
     for date_col in DATE_COLUMNS:
         if date_col in row and row[date_col].strip():
@@ -221,6 +350,9 @@ def aggregate_csv_files(csv_files: list[str]) -> pd.DataFrame:
 
     # Clean column names for SQL compatibility
     df = clean_dataframe_columns(df)
+
+    df_columns = set(df.columns)
+    assert df_columns == EXPECTED_CLEANED_COLUMNS, f"Invalid columns missings={EXPECTED_CLEANED_COLUMNS - df_columns} unknowns={df_columns - EXPECTED_CLEANED_COLUMNS}"
 
     # Make sure there is no duplicate
     rows_count = df.shape[0]
