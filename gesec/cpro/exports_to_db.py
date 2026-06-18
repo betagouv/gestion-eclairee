@@ -10,11 +10,14 @@ from decimal import Decimal
 from django.core.files.storage import default_storage
 
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
 from tqdm import tqdm
 from unidecode import unidecode
 
 import pandas as pd
+
+from gesec.cpro.schemas import BronzeCproExportFacture
+
+from .db import create_engine, save_list_dict
 
 logger = logging.getLogger(__name__)
 
@@ -406,6 +409,9 @@ def aggregate_csv_files(csv_files: list[str]) -> list[dict]:
                 parsed_row["source"] = filepath
                 parsed_row["source_idx"] = idx
 
+                # Validate schema
+                BronzeCproExportFacture.model_validate(parsed_row)
+
                 all_rows.append(parsed_row)
 
     if not all_rows:
@@ -476,30 +482,15 @@ def export_to_database(rows: list[dict], table_name: str) -> None:
         logger.warning("No data to export, skipping database insertion")
         return
 
-    # Get database URL from environment
-    db_url = os.environ.get("DATABASE_URL")
-    db_url = db_url.replace("postgres:", "postgresql+psycopg:")
-
     logger.info(f"Exporting {len(rows)} rows to table '{table_name}' using SQLAlchemy")
 
-    # Convert rows to DataFrame
-    df = pd.DataFrame(rows)
-
     # Ensure uniqueness
-    df_uniq = df.drop_duplicates(subset=["source", "source_idx"], keep="last")
-    assert df.shape == df_uniq.shape, "Input contains duplicates"
+    uniq = set((x["source"], x["source_idx"]) for x in rows)
+    assert len(rows) == len(uniq), "Input contains duplicates"
 
-    # Create SQLAlchemy engine
-    engine = create_engine(db_url)
+    save_list_dict(rows, table_name, if_exists="replace")
 
-    # Use pandas to_sql with replace mode to handle conflicts
-    df.to_sql(
-        name=table_name,
-        con=engine,
-        if_exists="replace",
-        index=False,
-    )
-
+    engine = create_engine()
     # Create indexes on key columns using raw psycopg connection
     with engine.connect() as conn:
         create_indexes(conn, table_name)
