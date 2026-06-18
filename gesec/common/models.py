@@ -13,11 +13,6 @@ class BaseModel(models.Model):
     Includes fields common to all models: a UUID primary key and creation/update timestamps.
     """
 
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         editable=False,
