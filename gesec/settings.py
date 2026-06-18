@@ -25,9 +25,7 @@ config.read_env(BASE_DIR / ".env")
 config.read_env(BASE_DIR.parent / "gesec.env")
 
 
-TESTING = "pytest" in sys.argv[0] or (
-    "manage.py" in sys.argv[0] and "test" in sys.argv[1]
-)
+TESTING = "pytest" in sys.argv[0] or ("manage.py" in sys.argv[0] and "test" in sys.argv[1])
 if TESTING:
     print("LOAD TEST ENVIRONMENT VARIABLES! (TESTING=True)")
     config.read_env(BASE_DIR / "test.env", overwrite=True)
@@ -205,9 +203,7 @@ STORAGES = {
 
 
 if TESTING:
-    STORAGES["staticfiles"]["BACKEND"] = (
-        "django.contrib.staticfiles.storage.StaticFilesStorage"
-    )
+    STORAGES["staticfiles"]["BACKEND"] = "django.contrib.staticfiles.storage.StaticFilesStorage"
 
 
 if storage_backend == "s3":

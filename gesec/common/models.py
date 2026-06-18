@@ -1,4 +1,3 @@
-import uuid
 from typing import override
 
 from django.contrib.auth import models as auth_models
