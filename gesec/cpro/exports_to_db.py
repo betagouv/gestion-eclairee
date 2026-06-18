@@ -8,6 +8,7 @@ import sys
 from datetime import date, datetime
 from decimal import Decimal
 
+from django.core.files.storage import default_storage
 from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from tqdm import tqdm
@@ -24,24 +25,24 @@ CSV_FILE_PATTERN = re.compile(
 
 # Columns that should be parsed as dates (French format: dd/mm/yyyy)
 DATE_COLUMNS = [
-    "Date Fournisseur",
-    "Date de création",
-    "Date de dépôt",
-    "Date état courant",
-    "Date échéance paiement",
-    "Valideur 1 (date de validation)",
-    "Valideur 2 (date de validation)",
-    "Date modification",
+    "date_fournisseur",
+    "date_de_creation",
+    "date_de_depot",
+    "date_etat_courant",
+    "date_echeance_paiement",
+    "valideur_1_date_de_validation",
+    "valideur_2_date_de_validation",
+    "date_modification",
 ]
 
 # Columns that should be parsed as Decimal (amounts)
 AMOUNT_COLUMNS = [
-    "Mt HT",
-    "Mt TTC",
-    "Montant à payer",
-    "Montant TTC avant remise",
-    "Montant remise globale TTC",
-    "Montant TVA",
+    "mt_ht",
+    "mt_ttc",
+    "montant_a_payer",
+    "montant_ttc_avant_remise",
+    "montant_remise_globale_ttc",
+    "montant_tva",
 ]
 
 
@@ -192,9 +193,10 @@ def filter_csv_files(directory: str) -> list[str]:
     """
     csv_files = []
 
-    for filepath in glob.iglob(os.path.join(directory, "*.csv")):
-        filename = os.path.basename(filepath)
+    _folders, filenames = default_storage.listdir(directory)
+    for filename in filenames:
         if CSV_FILE_PATTERN.match(filename):
+            filepath = os.path.join(directory, filename)
             csv_files.append(filepath)
 
     return sorted(csv_files)
@@ -266,7 +268,7 @@ def extract_source_info(filename: str) -> tuple[str, str]:
     return num_ej, service
 
 
-def _parse_row(row: dict[str, str]) -> dict[str, str | date | Decimal]:
+def _parse_row(row: dict[str, str]) -> dict[str, str | date | Decimal | None]:
     """Parse a single CSV row, converting date and amount columns to proper types.
 
     Args:
@@ -279,47 +281,58 @@ def _parse_row(row: dict[str, str]) -> dict[str, str | date | Decimal]:
         ValueError: If date or amount parsing fails
     """
 
+    # Clean column names first
+    row = {clean_column_name(k): v for k, v in row.items()}
+
+    # Remove empty column
     empty_value = row.pop("")
     assert empty_value == "", f"Value is not empty {empty_value!r}"
 
+    # Check row schema
     row_columns = set(row.keys())
-    assert row_columns == EXPECTED_COLUMNS, f"Invalid columns missings={EXPECTED_COLUMNS - row_columns} unknowns={row_columns - EXPECTED_COLUMNS}"
+    assert row_columns == EXPECTED_CLEANED_COLUMNS, f"Invalid columns missings={EXPECTED_CLEANED_COLUMNS - row_columns} unknowns={row_columns - EXPECTED_CLEANED_COLUMNS}"
 
     # Parse date columns
     for date_col in DATE_COLUMNS:
-        if date_col in row and row[date_col].strip():
+        str_date = row[date_col].strip()
+        if str_date:
             try:
-                row[date_col] = datetime.strptime(row[date_col], "%d/%m/%Y").date()
+                row[date_col] = datetime.strptime(str_date, "%d/%m/%Y").date()
             except ValueError as e:
                 raise ValueError(f"Cannot parse '{date_col}' as date (expected dd/mm/yyyy): {e}")
+        else:
+            row[date_col] = None
 
     # Parse amount columns
     for amount_col in AMOUNT_COLUMNS:
-        if amount_col in row and row[amount_col].strip():
+        str_amount = row[amount_col].strip()
+        if str_amount:
             try:
                 # Replace French decimal separator (comma with dot)
                 row[amount_col] = Decimal(row[amount_col].replace(",", "."))
             except (ValueError, TypeError) as e:
                 raise ValueError(f"Cannot parse '{amount_col}' as Decimal: {e}")
+        else:
+            row[amount_col] = None
 
     return row
 
 
-def aggregate_csv_files(csv_files: list[str]) -> pd.DataFrame:
-    """Aggregate multiple CSV files into a single DataFrame.
+def aggregate_csv_files(csv_files: list[str]) -> list[dict]:
+    """Aggregate multiple CSV files into a list of dictionaries with source tracking.
 
     Uses csv.DictReader for optimal performance with many small files.
     - All columns are kept as string by default
     - Date columns are parsed as date (French format: dd/mm/yyyy)
     - Amount columns are converted to Decimal (from string values)
     - Shows progress with tqdm
-    - Creates a single DataFrame at the end for efficiency
+    - Each row includes source file path and source_idx (line number)
 
     Args:
         csv_files: List of CSV file paths to aggregate
 
     Returns:
-        DataFrame containing all data from the CSV files with source columns
+        List of dictionaries containing all data with source and source_idx fields
 
     Raises:
         ValueError: If a date or amount column cannot be parsed
@@ -331,36 +344,27 @@ def aggregate_csv_files(csv_files: list[str]) -> pd.DataFrame:
         filename = os.path.basename(filepath)
 
         num_ej, service = extract_source_info(filename)
-        with open(filepath, "r", encoding="utf-8-sig") as f:
+        with default_storage.open(filepath, "r") as f:
             reader = csv.DictReader(f, delimiter=";")
-            for row in reader:
+            for idx, row in enumerate(reader):
                 parsed_row = _parse_row(row)
-                assert not service or parsed_row["Destinataire (code service)"] == service, (
+                assert not service or parsed_row["destinataire_code_service"] == service, (
                     f"Invalid service {service!r} {parsed_row!r}"
                 )
-                assert parsed_row["Numéro du bon de commande"] == num_ej, f"Invalid num_ej {num_ej!r} {parsed_row!r}"
+                assert parsed_row["numero_du_bon_de_commande"] == num_ej, f"Invalid num_ej {num_ej!r} {parsed_row!r}"
+                
+                # Add source tracking
+                parsed_row['source'] = filepath
+                parsed_row['source_idx'] = idx
+                
                 all_rows.append(parsed_row)
 
     if not all_rows:
         logger.warning("No data rows found in CSV files")
-        return pd.DataFrame()
+        return []
 
-    # Create DataFrame once at the end
-    df = pd.DataFrame(all_rows)
-
-    # Clean column names for SQL compatibility
-    df = clean_dataframe_columns(df)
-
-    df_columns = set(df.columns)
-    assert df_columns == EXPECTED_CLEANED_COLUMNS, f"Invalid columns missings={EXPECTED_CLEANED_COLUMNS - df_columns} unknowns={df_columns - EXPECTED_CLEANED_COLUMNS}"
-
-    # Make sure there is no duplicate
-    rows_count = df.shape[0]
-    dedup_rows_count = df.drop_duplicates("identifiant_chorus_pro").shape[0]
-    assert rows_count == dedup_rows_count, f"Duplicates: {rows_count - dedup_rows_count}"
-
-    logger.info(f"Aggregated {len(csv_files)} files with {len(df)} total rows")
-    return df
+    logger.info(f"Aggregated {len(csv_files)} files with {len(all_rows)} total rows")
+    return all_rows
 
 
 def create_indexes(conn, table_name: str) -> None:
@@ -369,6 +373,7 @@ def create_indexes(conn, table_name: str) -> None:
     Creates indexes on:
     - numero_du_bon_de_commande
     - date_etat_courant
+    - unique constraint on source + source_idx
 
     Args:
         conn: SQLAlchemy connection
@@ -397,44 +402,60 @@ def create_indexes(conn, table_name: str) -> None:
     except Exception as e:
         logger.warning(f"Could not create index {index_name_2}: {e}")
 
+    # Unique constraint on source + source_idx
+    constraint_name = f"uq_{table_name}_source_source_idx"
+    try:
+        cursor.execute(f"ALTER TABLE {table_name} ADD CONSTRAINT {constraint_name} UNIQUE (source, source_idx)")
+        logger.info(f"Created unique constraint {constraint_name} on (source, source_idx)")
+    except Exception as e:
+        logger.warning(f"Could not create unique constraint {constraint_name}: {e}")
+
     raw_conn.commit()
 
 
-def export_to_database(df: pd.DataFrame, table_name: str, db_url: str) -> None:
-    """Export a DataFrame to a database table using SQLAlchemy.
-
-    Note: Column names should already be cleaned for SQL compatibility.
-    Creates indexes on numero_du_bon_de_commande and date_etat_courant.
+def export_to_database(rows: list[dict], table_name: str) -> None:
+    """Export data to database using pandas to_sql with SQLAlchemy.
 
     Args:
-        df: DataFrame to export (with cleaned column names)
+        rows: List of dictionaries containing row data
         table_name: Name of the target table
-        db_url: Database connection URL (postgres:// or postgresql://)
 
     Raises:
         Exception: If database export fails
     """
-    if df.empty:
+    if not rows:
         logger.warning("No data to export, skipping database insertion")
         return
 
-    logger.info(f"Exporting {len(df)} rows to table '{table_name}'")
+    # Get database URL from environment
+    db_url = os.environ.get("DATABASE_URL")
+    db_url = db_url.replace("postgres:", "postgresql+psycopg:")
 
-    try:
-        # Create SQLAlchemy engine
-        engine = create_engine(db_url)
+    logger.info(f"Exporting {len(rows)} rows to table '{table_name}' using SQLAlchemy")
 
-        # Export data
-        df.to_sql(name=table_name, con=engine, if_exists="replace", index=False)
-        logger.info(f"Successfully exported to table '{table_name}'")
+    # Convert rows to DataFrame
+    df = pd.DataFrame(rows)
 
-        # Create indexes on key columns using raw psycopg connection
-        with engine.connect() as conn:
-            create_indexes(conn, table_name)
+    # Ensure uniqueness
+    df_uniq = df.drop_duplicates(subset=["source", "source_idx"], keep="last")
+    assert df.shape == df_uniq.shape, f"Input contains duplicates"
 
-    except Exception as e:
-        logger.error(f"Error exporting to database: {e}")
-        raise
+    # Create SQLAlchemy engine
+    engine = create_engine(db_url)
+
+    # Use pandas to_sql with replace mode to handle conflicts
+    df.to_sql(
+        name=table_name,
+        con=engine,
+        if_exists="replace",
+        index=False,
+    )
+
+    # Create indexes on key columns using raw psycopg connection
+    with engine.connect() as conn:
+        create_indexes(conn, table_name)
+
+    logger.info(f"Successfully exported {len(rows)} rows to '{table_name}'")
 
 
 def parse_args():
@@ -473,7 +494,7 @@ def main():
         sys.exit(1)
 
     directory = args[0]
-    if not os.path.isdir(directory):
+    if not default_storage.exists(directory):
         logger.error(f"Error: '{directory}' is not a valid directory")
         sys.exit(1)
 
@@ -481,13 +502,6 @@ def main():
     if not options.table_name:
         logger.error("Error: --table-name is required")
         sys.exit(1)
-
-    # Get database URL from environment variable (loaded from .env or system env)
-    db_url = os.environ.get("DATABASE_URL")
-    if not db_url:
-        logger.error("Error: DATABASE_URL is required (from .env file or environment variable)")
-        sys.exit(1)
-    db_url = db_url.replace("postgres:", "postgresql+psycopg:")
 
     # Filter CSV files matching the pattern
     csv_files = filter_csv_files(directory)
@@ -500,14 +514,14 @@ def main():
         logger.debug(f"  - {os.path.basename(filepath)}")
 
     # Aggregate all CSV files
-    df = aggregate_csv_files(csv_files)
+    rows = aggregate_csv_files(csv_files)
 
-    if df.empty:
+    if not rows:
         logger.warning("No data to export")
         sys.exit(0)
 
     # Export to database
-    export_to_database(df, options.table_name, db_url)
+    export_to_database(rows, table_name=options.table_name)
 
     logger.info("Operation completed successfully")
     sys.exit(0)
