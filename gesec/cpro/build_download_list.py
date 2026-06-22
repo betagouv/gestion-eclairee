@@ -153,3 +153,10 @@ with timer("Save results to csv"):
     df = df.dropna()  # Supprime toutes les lignes avec SEDP vide
     df = pd.DataFrame(list(df.value_counts().keys()), columns=["EJ", "SERVICES"])
     df.to_csv("liste_telechargement.csv", index=False, header=True)
+    # EJs complémentaires (présents dans chorus mais pas dans oda
+    #spm_services = {"CGFHJ00075", "FAC9510075", "FACDILA075"}
+    #ej_chorus = set(df_chorus[df_chorus["SEDP"].apply(
+    #    lambda x: any(service in str(x) for service in spm_services)
+    #)]["EJ"])
+    #ej_oda = set(df_oda[key_ej])
+    #print(ej_chorus - ej_oda)
