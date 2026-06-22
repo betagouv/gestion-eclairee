@@ -1,9 +1,25 @@
 from pydantic import ValidationError
 from sqlalchemy import text
 
-from gesec.cpro.db import create_engine, load_bronze_factures_cpro_export, save_list_pydantic
-from gesec.cpro.dj_models import Facture
-from gesec.cpro.schemas import BronzeCproExportFacture, SilverCproExportFacture, SilverCproExportFactureProcessingStatus
+from gesec.data.pipeline.db import save_list_pydantic, create_engine
+from .schemas import (
+    BronzeCproExportFacture,
+    SilverCproExportFacture,
+    SilverCproExportFactureProcessingStatus,
+)
+
+from ..layer_1_bronze.cpro_export_factures import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
+
+DEFAULT_TABLE_NAME = "silver_" + __name__.split(".")[-1]
+
+
+def load_bronze_factures_cpro_export(table_name: str) -> list[BronzeCproExportFacture]:
+    """Récupère toutes les lignes d'une table et les convertit en BronzeCproExportFacture."""
+    engine = create_engine()
+    with engine.connect() as conn:
+        result = conn.execute(text(f"SELECT * FROM {table_name}"))
+        rows = result.fetchall()
+        return [BronzeCproExportFacture(**dict(row._asdict())) for row in rows]
 
 
 def transform_bronze_to_silver(
@@ -67,7 +83,8 @@ def transform_bronze_to_silver(
 
 
 def process_bronze_to_silver(
-    bronze_table_name: str, silver_table_name: str
+    bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
+    silver_table_name: str = DEFAULT_TABLE_NAME,
 ) -> tuple[list[SilverCproExportFacture], list[SilverCproExportFactureProcessingStatus]]:
     """
     Pipeline complet :
@@ -80,54 +97,3 @@ def process_bronze_to_silver(
     save_list_pydantic(silver_factures, silver_table_name, if_exists="replace")
     save_list_pydantic(silver_factures_status, silver_table_name + "_status", if_exists="replace")
     return silver_factures, silver_factures_status
-
-
-def load_silver_factures(silver_table_name: str) -> list[SilverCproExportFacture]:
-    """Récupère toutes les lignes de la table Silver et les convertit en SilverCproExportFacture."""
-    engine = create_engine()
-    with engine.connect() as conn:
-        result = conn.execute(text(f"SELECT * FROM {silver_table_name}"))
-        rows = result.fetchall()
-        return [SilverCproExportFacture(**dict(row._asdict())) for row in rows]
-
-
-def transform_silver_to_gold(silver_factures: list[SilverCproExportFacture]) -> list[Facture]:
-    """Transforme une liste de SilverCproExportFacture en liste de Facture (modèle Django)."""
-    return [
-        Facture(
-            source=silver.source,
-            source_idx=silver.source_idx,
-            identifiant_chorus_pro=silver.identifiant_chorus_pro,
-            numero=silver.numero,
-            date_etat_courant=silver.date_etat_courant,
-            date_modification=silver.date_modification,
-            montant_a_payer=silver.montant_a_payer,
-            fournisseur_type_d_identifiant=silver.fournisseur_type_d_identifiant,
-            fournisseur_identifiant=silver.fournisseur_identifiant,
-            fournisseur_designation=silver.fournisseur_designation,
-            destinataire_code_service=silver.destinataire_code_service,
-            destinataire_service=silver.destinataire_service,
-            devise_de_la_facture=silver.devise_de_la_facture,
-            numero_du_bon_de_commande=silver.numero_du_bon_de_commande,
-            numero_de_marche=silver.numero_de_marche,
-        )
-        for silver in silver_factures
-    ]
-
-
-def process_silver_to_gold(silver_table_name: str) -> None:
-    """
-    Pipeline complet :
-    1. Charge les données Silver
-    2. Les transforme en Facture (modèle Django gold)
-    3. Sauvegarde dans la table Facture avec bulk_create et update_conflicts
-    """
-    silver_factures = load_silver_factures(silver_table_name)
-    gold_factures = transform_silver_to_gold(silver_factures)
-    update_fields = [field.name for field in Facture._meta.get_fields() if field.name not in ("id", "created_at")]
-    Facture.objects.bulk_create(
-        gold_factures,
-        update_conflicts=True,
-        update_fields=update_fields,
-        unique_fields=["identifiant_chorus_pro"],
-    )

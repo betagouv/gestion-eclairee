@@ -1,7 +1,7 @@
 import csv
-import os
 import sys
 from pathlib import Path
+
 from tqdm import tqdm
 
 EXCLUDED_COLUMNS = {"id", "created_at", "updated_at"}
@@ -48,22 +48,15 @@ def compare_dicts(dict_expected: dict, dict_actual: dict) -> dict:
     for key in tqdm(common_keys, desc="Comparaison lignes"):
         row_exp = dict_expected[key]
         row_act = dict_actual[key]
-        
+
         # Comparer toutes les colonnes (sauf KEY_COLUMN qui est la clé)
         diff_cols = []
         for col in row_exp:
             if col != KEY_COLUMN and row_exp[col] != row_act.get(col):
-                diff_cols.append({
-                    "col": col,
-                    "expected": row_exp[col],
-                    "actual": row_act.get(col, "MISSING")
-                })
-        
+                diff_cols.append({"col": col, "expected": row_exp[col], "actual": row_act.get(col, "MISSING")})
+
         if diff_cols:
-            different[key] = {
-                KEY_COLUMN: key,
-                "diff_columns": diff_cols
-            }
+            different[key] = {KEY_COLUMN: key, "diff_columns": diff_cols}
 
     return {
         "equals": len(missing) == 0 and len(extra) == 0 and len(different) == 0,
@@ -88,7 +81,7 @@ def compare_csv_files(expected_path: Path, actual_path: Path) -> dict:
     if not dict_expected and not dict_actual:
         # Les deux fichiers sont vides ou n'ont pas la colonne clé
         return {"equals": True, "count_expected": 0, "count_actual": 0}
-    
+
     if not dict_expected or not dict_actual:
         # Un fichier a des données, l'autre non
         return {
@@ -162,7 +155,7 @@ def print_results(results: dict) -> None:
                     print(f"  -{missing_count} lignes manquantes")
                     sample = result.get("missing_sample", [])
                     if sample:
-                        print(f"  Sample manquantes (max 10):")
+                        print("  Sample manquantes (max 10):")
                         for key, row in sample[:10]:
                             print(f"    - {KEY_COLUMN}={key}")
 
@@ -170,7 +163,7 @@ def print_results(results: dict) -> None:
                     print(f"  +{extra_count} lignes en trop")
                     sample = result.get("extra_sample", [])
                     if sample:
-                        print(f"  Sample en trop (max 10):")
+                        print("  Sample en trop (max 10):")
                         for key, row in sample[:10]:
                             print(f"    + {KEY_COLUMN}={key}")
 
@@ -178,7 +171,7 @@ def print_results(results: dict) -> None:
                     print(f"  ~{different_count} lignes différentes")
                     sample = result.get("different_sample", [])
                     if sample:
-                        print(f"  Sample différentes (max 10):")
+                        print("  Sample différentes (max 10):")
                         for key, item in sample[:10]:
                             print(f"    ~ {KEY_COLUMN}={key}:")
                             for diff in item.get("diff_columns", []):
@@ -192,9 +185,7 @@ def main() -> None:
     """Point d'entrée principal."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Compare les CSV de deux dossiers (exclut id, created_at, updated_at)"
-    )
+    parser = argparse.ArgumentParser(description="Compare les CSV de deux dossiers (exclut id, created_at, updated_at)")
     parser.add_argument(
         "expected",
         type=Path,

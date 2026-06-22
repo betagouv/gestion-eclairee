@@ -1,10 +1,11 @@
 import sys
 from pathlib import Path
 
-import pandas as pd
 from sqlalchemy import text
 
-from gesec.cpro.db import create_engine
+import pandas as pd
+
+from gesec.data.pipeline.db import create_engine
 
 
 def get_all_tables() -> list[str]:
@@ -83,11 +84,11 @@ def dump_table(table_name: str, output_dir: Path) -> None:
     """
     print(f"Dump de la table: {table_name}")
     df = load_table_to_dataframe(table_name)
-    
+
     # Nettoyer le nom de la table pour le nom de fichier
     safe_table_name = table_name.replace(".", "_").replace(" ", "_")
     output_path = output_dir / f"{safe_table_name}.csv"
-    
+
     save_dataframe_to_csv(df, output_path)
 
 
@@ -99,6 +100,7 @@ def main() -> None:
         python dump.py bronze_* silver_* gold_*
     """
     import os
+
     import django
 
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "gesec.settings")
@@ -123,10 +125,10 @@ def main() -> None:
     )
 
     args = parser.parse_args()
-    
+
     # Étendre les motifs (ex: bronze_* -> liste de toutes les tables bronze)
     tables = expand_table_patterns(args.tables)
-    
+
     if not tables:
         print("Aucune table à dumper (les motifs ne correspondent à aucune table)", file=sys.stderr)
         sys.exit(1)

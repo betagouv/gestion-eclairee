@@ -9,17 +9,18 @@ from decimal import Decimal
 
 from django.core.files.storage import default_storage
 
-from dotenv import load_dotenv
 from tqdm import tqdm
 from unidecode import unidecode
 
 import pandas as pd
 
-from gesec.cpro.schemas import BronzeCproExportFacture
+from gesec.data.pipeline.db import create_engine, save_list_dict
 
-from .db import create_engine, save_list_dict
+from .schemas import BronzeCproExportFacture
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_TABLE_NAME = "bronze_" + __name__.split(".")[-1]
 
 # Regex pattern for CSV files: <num_ej(10 alphanum)>_<service?(alphanum)>_<start(8 digits)>_<end(8 digits)>.csv
 CSV_FILE_PATTERN = re.compile(
@@ -468,7 +469,7 @@ def create_indexes(conn, table_name: str) -> None:
     raw_conn.commit()
 
 
-def export_to_database(rows: list[dict], table_name: str) -> None:
+def export_to_database(rows: list[dict], table_name: str = DEFAULT_TABLE_NAME) -> None:
     """Export data to database using pandas to_sql with SQLAlchemy.
 
     Args:
@@ -498,6 +499,30 @@ def export_to_database(rows: list[dict], table_name: str) -> None:
     logger.info(f"Successfully exported {len(rows)} rows to '{table_name}'")
 
 
+def process_csvs_to_silver(directory: str, table_name: str = DEFAULT_TABLE_NAME) -> None:
+    # Filter CSV files matching the pattern
+    csv_files = filter_csv_files(directory)
+    if not csv_files:
+        logger.warning(f"No CSV files matching the pattern found in {directory}")
+        return
+
+    logger.info(f"Found {len(csv_files)} matching CSV files")
+    for filepath in csv_files:
+        logger.debug(f"  - {os.path.basename(filepath)}")
+
+    # Aggregate all CSV files
+    rows = aggregate_csv_files(csv_files)
+
+    if not rows:
+        logger.warning("No data to export")
+        return
+
+    # Export to database
+    export_to_database(rows, table_name=table_name)
+
+    logger.info("Operation completed successfully")
+
+
 def parse_args():
     """Parse command line arguments."""
     parser = optparse.OptionParser(
@@ -510,6 +535,7 @@ def parse_args():
         "--table-name",
         dest="table_name",
         help="Name of the target table in database (required)",
+        default=DEFAULT_TABLE_NAME,
     )
     options, args = parser.parse_args()
     return options, args
@@ -517,14 +543,6 @@ def parse_args():
 
 def main():
     """Main entry point for the script."""
-    # Load environment variables from .env file
-    load_dotenv()
-
-    # Setup logging
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
 
     options, args = parse_args()
 
@@ -543,29 +561,12 @@ def main():
         logger.error("Error: --table-name is required")
         sys.exit(1)
 
-    # Filter CSV files matching the pattern
-    csv_files = filter_csv_files(directory)
-    if not csv_files:
-        logger.warning(f"No CSV files matching the pattern found in {directory}")
-        sys.exit(0)
-
-    logger.info(f"Found {len(csv_files)} matching CSV files")
-    for filepath in csv_files:
-        logger.debug(f"  - {os.path.basename(filepath)}")
-
-    # Aggregate all CSV files
-    rows = aggregate_csv_files(csv_files)
-
-    if not rows:
-        logger.warning("No data to export")
-        sys.exit(0)
-
-    # Export to database
-    export_to_database(rows, table_name=options.table_name)
-
-    logger.info("Operation completed successfully")
-    sys.exit(0)
+    process_csvs_to_silver(directory, table_name=options.table_name)
 
 
 if __name__ == "__main__":
+    import django
+
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "gesec.settings")
+    django.setup()
     main()
