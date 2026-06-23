@@ -88,7 +88,7 @@ def parse_args():
 def init_context(headless: bool = True):
     """Initialize browser context with cookies and download handler."""
     logger.info("Initializing context...")
-    os.makedirs("../downloads", exist_ok=True)
+    os.makedirs("../downloads/gesec", exist_ok=True)
     ctx = launch_context(headless=headless)
     ctx.add_cookies(
         [
@@ -356,7 +356,7 @@ def download_items_bulk(
         end_date,
         page_number,
     )
-    filepath = f"../downloads/bulk/{filename}"
+    filepath = f"../downloads/gesec/bulk/{filename}"
 
     if os.path.exists(filepath):
         logger.info(
@@ -496,7 +496,7 @@ def download_items(page, params: Optional[SearchParams] = None):
             continue
 
         filename = f"facture_{id_chorus}.zip"
-        filepath = f"../downloads/factures/{filename}"
+        filepath = f"../downloads/gesec/factures/{filename}"
 
         if os.path.exists(filepath):
             logger.info(f"File {filename} already exists, skipping download for id_chorus={id_chorus}")
@@ -588,7 +588,7 @@ def read_input_file(input_file: str) -> list[tuple[str, str]]:
 def build_export_filename(params: SearchParams) -> str:
     """Build export CSV filename based on search parameters.
 
-    Format: ../downloads/exports/<num_ej>_<service>_<provider>_<start>_<end>.csv
+    Format: ../downloads/gesec/exports/<num_ej>_<service>_<provider>_<start>_<end>.csv
 
     Args:
         params: SearchParams containing all search criteria
@@ -614,7 +614,7 @@ def build_export_filename(params: SearchParams) -> str:
         parts.append(params.end_date.strftime("%Y%m%d"))
 
     filename = "_".join(parts) + ".csv"
-    return f"../downloads/exports/{filename}"
+    return f"../downloads/gesec/exports/{filename}"
 
 
 def download_export_csv(page, params: SearchParams) -> str:
@@ -635,7 +635,7 @@ def download_export_csv(page, params: SearchParams) -> str:
     filepath = build_export_filename(params)
 
     # Create exports directory if it doesn't exist
-    os.makedirs("../downloads/exports", exist_ok=True)
+    os.makedirs("../downloads/gesec/exports", exist_ok=True)
 
     if os.path.exists(filepath):
         logger.info(f"Export file {filepath} already exists, skipping download")
