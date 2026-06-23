@@ -5,6 +5,9 @@ from gesec.data.pipeline import layer_3_gold as gold
 
 def launch_pipeline():
     exports_folder = "gesec/exports"
-    bronze.cpro_export_factures.process_csvs_to_silver(exports_folder)
+    oda_filepath = "gesec/oda/ODA_2025_Complet.csv"
+    bronze.cpro_export_factures.process_csvs_to_bronze(exports_folder)
+    bronze.oda_export_row.process_csvs_to_bronze(oda_filepath)
     silver.cpro_export_factures.process_bronze_to_silver()
+    silver.oda_export_ej_gm_mapping.process_bronze_to_silver()
     gold.factures.process_silver_to_gold()

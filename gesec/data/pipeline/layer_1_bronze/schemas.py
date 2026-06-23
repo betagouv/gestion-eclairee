@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BronzeCproExportFacture(BaseModel):
@@ -131,3 +131,130 @@ class BronzeCproExportFacture(BaseModel):
     valideur_2_type_d_identifiant: Optional[str] = None
     valideur_2_identifiant: Optional[str] = None
     valideur_2_designation: Optional[str] = None
+
+
+class BronzeODAExportRow(BaseModel):
+    """Données importées depuis un export CSV ODA."""
+
+    # Source tracking
+    source: str
+    source_idx: int
+
+    # Domaine
+    domaine: str = Field(validation_alias="Domaine")
+    domaine_libelle: str = Field(validation_alias="Domaine libellé")
+
+    # Segment
+    segment: str = Field(validation_alias="Segment")
+    libelle_du_segment: str = Field(validation_alias="Libellé du segment")
+
+    # Groupe de marchandises
+    groupe_de_marchandises_p_cle: str = Field(
+        validation_alias="Groupe de marchandises (P) - Clé"
+    )
+    gdm_libelle: str = Field(validation_alias="GdM_Libellé ")
+
+    # Ministère
+    ministere: str = Field(validation_alias="Ministère")
+    v_ministere_service_beneficaire: Optional[str] = Field(
+        default=None, validation_alias="V_Ministère_Service bénéficaire"
+    )
+
+    # Région
+    v_region_dae_carto: Optional[str] = Field(default=None, validation_alias="V_Région_DAE_Carto")
+    region_cartographie_detaillee: Optional[str] = Field(
+        default=None, validation_alias="Région Cartographie détaillée"
+    )
+    region_cartographie_regroupee: Optional[str] = Field(
+        default=None, validation_alias="Région Cartographie regroupée"
+    )
+
+    # Programme
+    prog_bop: Optional[str] = Field(default=None, validation_alias="Prog-BOP")
+    cf: Optional[str] = Field(default=None, validation_alias="CF")
+
+    # Centre de coûts
+    centre_de_couts_p_cle_non_composee: Optional[str] = Field(
+        default=None, validation_alias="Centre de coûts (P) - Clé (non composée)"
+    )
+
+    # Direction
+    direction: Optional[str] = Field(default=None, validation_alias="Direction")
+
+    # Compte général
+    compte_general_p_cle_non_composee: Optional[str] = Field(
+        default=None, validation_alias="Compte général (P) - Clé (non composée)"
+    )
+    compte_general_p: Optional[str] = Field(default=None, validation_alias="Compte général (P)")
+
+    # Fournisseur
+    nom_fournisseur_cle: Optional[str] = Field(default=None, validation_alias="Nom fournisseur - Clé")
+    siren_fournisseur: Optional[str] = Field(default=None, validation_alias="SIREN fournisseur")
+    type_de_fournisseur: Optional[str] = Field(default=None, validation_alias="Type de fournisseur")
+    code_naf_fournisseur_siren: Optional[str] = Field(
+        default=None, validation_alias="Code NAF fournisseur (SIREN)"
+    )
+    pays_fournisseur: Optional[str] = Field(default=None, validation_alias="Pays fournisseur")
+    region_fournisseur: Optional[str] = Field(default=None, validation_alias="Région fournisseur")
+    v_region_insee_fournisseur: Optional[str] = Field(
+        default=None, validation_alias="V_région INSEE Fournisseur"
+    )
+    categorie_d_entreprise: Optional[str] = Field(default=None, validation_alias="Catégorie d'entreprise")
+    type_fournisseur_ea: Optional[str] = Field(default=None, validation_alias="Type fournisseur EA")
+    type_fournisseur_siae: Optional[str] = Field(default=None, validation_alias="Type fournisseur SIAE")
+    role_partenaire_fournisseur_p: Optional[str] = Field(
+        default=None, validation_alias="Rôle partenaire fournisseur (P)"
+    )
+    schema_regroupement_partenaire_e: Optional[str] = Field(
+        default=None, validation_alias="Schéma regroupement partenaire (E)"
+    )
+
+    # Opération
+    type_d_operation_ej_precedent_e: Optional[str] = Field(
+        default=None, validation_alias="Type d'opération EJ précédent (E)"
+    )
+    macro_type_ej_notifie_ou_non: Optional[str] = Field(
+        default=None, validation_alias="Macro Type EJ Notifié ou non"
+    )
+    notifie: Optional[str] = Field(default=None, validation_alias="Notifié ?")
+
+    # Accord-cadre
+    numero_accord_cadre_e_cle: Optional[str] = Field(
+        default=None, validation_alias="Numéro accord-cadre (E) - Clé"
+    )
+    numero_accord_cadre_e_texte_descriptif: Optional[str] = Field(
+        default=None, validation_alias="Numéro accord-cadre (E) - Texte descriptif"
+    )
+
+    # EJ (Engagement Juridique)
+    numero_ej_precedent_p: Optional[str] = Field(default=None, validation_alias="Numéro EJ précédent (P)")
+    numero_ej_reference_facture: Optional[str] = Field(
+        default=None, validation_alias="Numéro EJ référencé facture"
+    )
+
+    # Clauses
+    clause_environnementale_e: Optional[str] = Field(
+        default=None, validation_alias="Clause environnementale (E)"
+    )
+    clause_sociale_e: Optional[str] = Field(default=None, validation_alias="Clause sociale (E)")
+
+    # CPV
+    code_cpv_principal_e: Optional[str] = Field(default=None, validation_alias="Code CPV principal (E)")
+
+    # Description
+    description_de_l_ej: Optional[str] = Field(default=None, validation_alias="Description de l'EJ")
+
+    # Dates
+    date_notification_e: Optional[date] = Field(default=None, validation_alias="Date notification (E)")
+    date_fin_de_marche_e: Optional[date] = Field(default=None, validation_alias="Date fin de marché (E)")
+
+    # Acheteur
+    siret_acheteur_e_cle: Optional[str] = Field(
+        default=None, validation_alias="SIRET acheteur (E) - Clé"
+    )
+    siret_acheteur_e_texte_descriptif: Optional[str] = Field(
+        default=None, validation_alias="SIRET acheteur (E) - Texte descriptif"
+    )
+
+    # Montant
+    depenses_2025: Decimal = Field(validation_alias="Dépenses  2025")

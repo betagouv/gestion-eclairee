@@ -7,6 +7,7 @@ from gesec.data.pipeline.db import create_engine
 logger = logging.getLogger(__name__)
 
 from ..layer_2_silver.cpro_export_factures import DEFAULT_TABLE_NAME as SILVER_DEFAULT_TABLE_NAME
+from ..layer_2_silver.oda_export_ej_gm_mapping import DEFAULT_TABLE_NAME as SILVER_EJ_GM_MAPPING_DEFAULT_TABLE_NAME
 from ..layer_2_silver.schemas import SilverCproExportFacture
 
 
@@ -19,10 +20,28 @@ def load_silver_factures(silver_table_name: str) -> list[SilverCproExportFacture
         return [SilverCproExportFacture(**dict(row._asdict())) for row in rows]
 
 
-def transform_silver_to_gold(silver_factures: list[SilverCproExportFacture]) -> list[Facture]:
+def load_silver_oda_ej_to_gm_mapping(silver_table_name: str) -> list[dict[str, list[str]]]:
+    engine = create_engine()
+    with engine.connect() as conn:
+        result = conn.execute(text(f"""
+            SELECT numero_ej_reference_facture, segment 
+            FROM {silver_table_name}""")
+        )
+        rows = result.fetchall()
+    mapping = {}
+    for ej, gm in rows:
+        mapping.setdefault(ej, set()).add(gm)
+    for ej, gm_list in mapping.items():
+        mapping[ej] = sorted(gm_list)
+    return mapping
+
+
+def transform_silver_to_gold(silver_factures: list[SilverCproExportFacture], silver_ej_to_gm_mapping: list[dict[str, list[str]]]) -> list[Facture]:
     """Transforme une liste de SilverCproExportFacture en liste de Facture (modèle Django)."""
-    return [
-        Facture(
+    result = []
+    for silver in silver_factures:
+        gm_list = silver_ej_to_gm_mapping.get(silver.numero_du_bon_de_commande, None)
+        fac = Facture(
             source=silver.source,
             source_idx=silver.source_idx,
             identifiant_chorus_pro=silver.identifiant_chorus_pro,
@@ -38,12 +57,19 @@ def transform_silver_to_gold(silver_factures: list[SilverCproExportFacture]) -> 
             devise_de_la_facture=silver.devise_de_la_facture,
             numero_du_bon_de_commande=silver.numero_du_bon_de_commande,
             numero_de_marche=silver.numero_de_marche,
+
+            gm=gm_list[0] if gm_list else None,
+            gm_list=gm_list if gm_list else None,
+            gm_multi=(len(gm_list) > 1) if gm_list else None,
         )
-        for silver in silver_factures
-    ]
+        result.append(fac)
+    return result
 
 
-def process_silver_to_gold(silver_table_name: str = SILVER_DEFAULT_TABLE_NAME) -> None:
+def process_silver_to_gold(
+        silver_table_name: str = SILVER_DEFAULT_TABLE_NAME,
+        silver_ej_gm_mapping_table_name: str = SILVER_EJ_GM_MAPPING_DEFAULT_TABLE_NAME,
+) -> None:
     """
     Pipeline complet :
     1. Charge les données Silver
@@ -52,8 +78,10 @@ def process_silver_to_gold(silver_table_name: str = SILVER_DEFAULT_TABLE_NAME) -
     """
     silver_factures = load_silver_factures(silver_table_name)
     logger.info(f"Chargé {len(silver_factures)} items depuis la table silver {silver_table_name}")
+    silver_ej_to_gm_mapping = load_silver_oda_ej_to_gm_mapping(silver_ej_gm_mapping_table_name)
+    logger.info(f"Chargé {len(silver_ej_to_gm_mapping)} items depuis la table silver {silver_table_name}")
 
-    gold_factures = transform_silver_to_gold(silver_factures)
+    gold_factures = transform_silver_to_gold(silver_factures, silver_ej_to_gm_mapping)
     logger.info(f"Transformé en {len(gold_factures)} lignes gold après transformation")
 
     update_fields = [field.name for field in Facture._meta.get_fields() if field.name not in ("id", "created_at")]

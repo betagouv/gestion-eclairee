@@ -13,11 +13,9 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 
 from tqdm import tqdm
-from unidecode import unidecode
-
-import pandas as pd
 
 from gesec.data.pipeline.db import create_engine, save_list_dict
+from .utils import clean_column_name
 
 from .schemas import BronzeCproExportFacture
 
@@ -252,45 +250,6 @@ def filter_csv_files(directory: str) -> list[str]:
             csv_files.append(filepath)
 
     return sorted(csv_files)
-
-
-def clean_column_name(col: str) -> str:
-    """Clean a column name to be SQL-compatible.
-
-    First converts accented characters to ASCII using unidecode,
-    then replaces special characters with underscores, removes multiple/leading/trailing
-    underscores, and converts to lowercase.
-
-    Args:
-        col: Original column name
-
-    Returns:
-        SQL-compatible column name
-    """
-    # Convert accented characters to ASCII first (e.g., é -> e, ç -> c)
-    col = unidecode(col)
-    # Replace any non-alphanumeric/underscore character with underscore
-    col = re.sub(r"[^a-zA-Z0-9_]", "_", col)
-    # Remove multiple consecutive underscores
-    col = re.sub(r"_+", "_", col)
-    # Remove leading and trailing underscores
-    col = col.strip("_")
-    # Convert to lowercase
-    col = col.lower()
-    return col
-
-
-def clean_dataframe_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Clean all column names in a DataFrame to be SQL-compatible.
-
-    Args:
-        df: DataFrame with original column names
-
-    Returns:
-        DataFrame with cleaned column names
-    """
-    df.columns = [clean_column_name(col) for col in df.columns]
-    return df
 
 
 def extract_source_info(filename: str) -> tuple[str, str]:
@@ -535,7 +494,7 @@ def export_to_database(rows: list[dict], table_name: str = DEFAULT_TABLE_NAME) -
     logger.info(f"Successfully exported {len(rows)} rows to '{table_name}'")
 
 
-def process_csvs_to_silver(directory: str, table_name: str = DEFAULT_TABLE_NAME, n_workers: int | None = None) -> None:
+def process_csvs_to_bronze(directory: str, table_name: str = DEFAULT_TABLE_NAME, n_workers: int | None = None) -> None:
     # Filter CSV files matching the pattern
     csv_files = filter_csv_files(directory)
     if not csv_files:
@@ -604,7 +563,7 @@ def main():
         logger.error("Error: --table-name is required")
         sys.exit(1)
 
-    process_csvs_to_silver(directory, table_name=options.table_name, n_workers=options.workers)
+    process_csvs_to_bronze(directory, table_name=options.table_name, n_workers=options.workers)
 
 
 if __name__ == "__main__":

@@ -49,3 +49,4 @@ def save_df(
 ) -> None:
     engine = create_engine()
     df.to_sql(name=table_name, con=engine, if_exists=if_exists, index=False)
+    logger.info(f"Saved {df.shape[0]} rows in {table_name}")
