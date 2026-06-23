@@ -1,3 +1,5 @@
+import logging
+
 from pydantic import ValidationError
 from sqlalchemy import text
 
@@ -9,6 +11,8 @@ from .schemas import (
     SilverCproExportFacture,
     SilverCproExportFactureProcessingStatus,
 )
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_TABLE_NAME = "silver_" + __name__.split(".")[-1]
 
@@ -93,7 +97,12 @@ def process_bronze_to_silver(
     3. Sauvegarde dans la table Silver (drop + recrée)
     """
     bronze_factures = load_bronze_factures_cpro_export(bronze_table_name)
+    logger.info(f"Chargé {len(bronze_factures)} items depuis la table bronze {bronze_table_name}")
+
     silver_factures, silver_factures_status = transform_bronze_to_silver(bronze_factures)
+    logger.info(f"Transformé en {len(silver_factures)} lignes silver après filtrage et dédoublonnage")
+
     save_list_pydantic(silver_factures, silver_table_name, if_exists="replace")
     save_list_pydantic(silver_factures_status, silver_table_name + "_status", if_exists="replace")
+    logger.info("Process bronze_to_silver terminé avec succès")
     return silver_factures, silver_factures_status

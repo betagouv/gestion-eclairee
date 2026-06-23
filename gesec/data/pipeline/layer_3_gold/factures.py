@@ -1,7 +1,10 @@
+import logging
 from sqlalchemy import text
 
 from gesec.data.dj_models import Facture
 from gesec.data.pipeline.db import create_engine
+
+logger = logging.getLogger(__name__)
 
 from ..layer_2_silver.cpro_export_factures import DEFAULT_TABLE_NAME as SILVER_DEFAULT_TABLE_NAME
 from ..layer_2_silver.schemas import SilverCproExportFacture
@@ -48,7 +51,11 @@ def process_silver_to_gold(silver_table_name: str = SILVER_DEFAULT_TABLE_NAME) -
     3. Sauvegarde dans la table Facture avec bulk_create et update_conflicts
     """
     silver_factures = load_silver_factures(silver_table_name)
+    logger.info(f"Chargé {len(silver_factures)} items depuis la table silver {silver_table_name}")
+
     gold_factures = transform_silver_to_gold(silver_factures)
+    logger.info(f"Transformé en {len(gold_factures)} lignes gold après transformation")
+
     update_fields = [field.name for field in Facture._meta.get_fields() if field.name not in ("id", "created_at")]
     Facture.objects.bulk_create(
         gold_factures,
@@ -56,3 +63,4 @@ def process_silver_to_gold(silver_table_name: str = SILVER_DEFAULT_TABLE_NAME) -
         update_fields=update_fields,
         unique_fields=["identifiant_chorus_pro"],
     )
+    logger.info("Process silver_to_gold terminé avec succès")
