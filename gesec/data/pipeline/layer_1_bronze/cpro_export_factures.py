@@ -4,9 +4,12 @@ import optparse
 import os
 import re
 import sys
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Optional
 
+from django.conf import settings
 from django.core.files.storage import default_storage
 
 from tqdm import tqdm
@@ -371,8 +374,41 @@ def _parse_row(row: dict[str, str]) -> dict[str, str | date | Decimal | None]:
     return row
 
 
-def aggregate_csv_files(csv_files: list[str]) -> list[dict]:
-    """Aggregate multiple CSV files into a list of dictionaries with source tracking.
+def _process_csv_file(filepath: str) -> list[dict]:
+    """Traite un fichier CSV et retourne ses lignes."""
+    local_logger = logging.getLogger(__name__)
+    local_logger.debug(f"Processing {filepath}")
+
+    filename = os.path.basename(filepath)
+    num_ej, service = extract_source_info(filename)
+
+    rows = []
+    with default_storage.open(filepath, "r") as f:
+        reader = csv.DictReader(f, delimiter=";")
+        for idx, row in enumerate(reader):
+            try:
+                parsed_row = _parse_row(row)
+                assert not service or parsed_row["destinataire_code_service"] == service, (
+                    f"Invalid service {service!r} {parsed_row!r}"
+                )
+                assert parsed_row["numero_du_bon_de_commande"] == num_ej, f"Invalid num_ej {num_ej!r} {parsed_row!r}"
+
+                parsed_row["source"] = filepath
+                parsed_row["source_idx"] = idx
+                BronzeCproExportFacture.model_validate(parsed_row)
+                rows.append(parsed_row)
+            except Exception as e:
+                local_logger.error(f"Error in {filepath} line {idx}: {e}")
+                raise
+
+    return rows
+
+
+def aggregate_csv_files(
+    csv_files: list[str],
+    n_workers: Optional[int] = None,
+) -> list[dict]:
+    """Aggregate multiple CSV files
 
     Uses csv.DictReader for optimal performance with many small files.
     - All columns are kept as string by default
@@ -383,6 +419,7 @@ def aggregate_csv_files(csv_files: list[str]) -> list[dict]:
 
     Args:
         csv_files: List of CSV file paths to aggregate
+        n_workers: Number of worker processes
 
     Returns:
         List of dictionaries containing all data with source and source_idx fields
@@ -392,32 +429,31 @@ def aggregate_csv_files(csv_files: list[str]) -> list[dict]:
     """
     all_rows = []
 
-    for filepath in tqdm(csv_files, desc="Aggregating CSV files"):
-        logger.debug(f"Reading {filepath}")
-        filename = os.path.basename(filepath)
+    if n_workers is None:
+        if settings.STORAGE_BACKEND == "s3":
+            n_workers = 10
+        else:
+            n_workers = 1
 
-        num_ej, service = extract_source_info(filename)
-        with default_storage.open(filepath, "r") as f:
-            reader = csv.DictReader(f, delimiter=";")
-            for idx, row in enumerate(reader):
-                parsed_row = _parse_row(row)
-                assert not service or parsed_row["destinataire_code_service"] == service, (
-                    f"Invalid service {service!r} {parsed_row!r}"
-                )
-                assert parsed_row["numero_du_bon_de_commande"] == num_ej, f"Invalid num_ej {num_ej!r} {parsed_row!r}"
+    if n_workers <= 1:
+        for filepath in tqdm(csv_files, desc="Aggregatin CSV files"):
+            try:
+                rows = _process_csv_file(filepath)
+                all_rows.extend(rows)
+            except Exception as e:
+                logger.error(f"Failed to process {filepath}: {e}")
+                raise
+    else:
+        with ProcessPoolExecutor(max_workers=n_workers) as executor:
+            futures = {executor.submit(_process_csv_file, filepath): filepath for filepath in csv_files}
 
-                # Add source tracking
-                parsed_row["source"] = filepath
-                parsed_row["source_idx"] = idx
-
-                # Validate schema
-                BronzeCproExportFacture.model_validate(parsed_row)
-
-                all_rows.append(parsed_row)
-
-    if not all_rows:
-        logger.warning("No data rows found in CSV files")
-        return []
+            for future in tqdm(as_completed(futures), total=len(csv_files), desc="Aggregating CSV files"):
+                try:
+                    all_rows.extend(future.result())
+                except Exception as e:
+                    filepath = futures[future]
+                    logger.error(f"Failed to process {filepath}: {e}")
+                    raise
 
     logger.info(f"Aggregated {len(csv_files)} files with {len(all_rows)} total rows")
     return all_rows
@@ -499,7 +535,7 @@ def export_to_database(rows: list[dict], table_name: str = DEFAULT_TABLE_NAME) -
     logger.info(f"Successfully exported {len(rows)} rows to '{table_name}'")
 
 
-def process_csvs_to_silver(directory: str, table_name: str = DEFAULT_TABLE_NAME) -> None:
+def process_csvs_to_silver(directory: str, table_name: str = DEFAULT_TABLE_NAME, n_workers: int | None = None) -> None:
     # Filter CSV files matching the pattern
     csv_files = filter_csv_files(directory)
     if not csv_files:
@@ -511,7 +547,7 @@ def process_csvs_to_silver(directory: str, table_name: str = DEFAULT_TABLE_NAME)
         logger.debug(f"  - {os.path.basename(filepath)}")
 
     # Aggregate all CSV files
-    rows = aggregate_csv_files(csv_files)
+    rows = aggregate_csv_files(csv_files, n_workers=n_workers)
 
     if not rows:
         logger.warning("No data to export")
@@ -537,6 +573,13 @@ def parse_args():
         help="Name of the target table in database (required)",
         default=DEFAULT_TABLE_NAME,
     )
+    parser.add_option(
+        "--workers",
+        dest="workers",
+        type="int",
+        default=None,
+        help="Number of worker processes",
+    )
     options, args = parser.parse_args()
     return options, args
 
@@ -561,7 +604,7 @@ def main():
         logger.error("Error: --table-name is required")
         sys.exit(1)
 
-    process_csvs_to_silver(directory, table_name=options.table_name)
+    process_csvs_to_silver(directory, table_name=options.table_name, n_workers=options.workers)
 
 
 if __name__ == "__main__":

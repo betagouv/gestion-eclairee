@@ -182,14 +182,14 @@ STATICFILES_DIRS = [
 ]
 
 
-storage_backend = config.str("STORAGE_BACKEND", default="fs")
-match storage_backend:
+STORAGE_BACKEND = config.str("STORAGE_BACKEND", default="fs")
+match STORAGE_BACKEND:
     case "s3":
         storage_backend_class = "storages.backends.s3.S3Storage"
     case "fs":
         storage_backend_class = "django.core.files.storage.FileSystemStorage"
     case _:
-        raise ValueError(f"Unknown storage backend: {storage_backend}")
+        raise ValueError(f"Unknown storage backend: {STORAGE_BACKEND}")
 
 
 STORAGES = {
@@ -206,7 +206,7 @@ if TESTING:
     STORAGES["staticfiles"]["BACKEND"] = "django.contrib.staticfiles.storage.StaticFilesStorage"
 
 
-if storage_backend == "s3":
+if STORAGE_BACKEND == "s3":
     S3_ENDPOINT_URL = config.str("AWS_S3_ENDPOINT_URL")
     S3_REGION_NAME = config.str("AWS_S3_REGION_NAME")
     S3_ACCESS_KEY_ID = config.str("AWS_S3_ACCESS_KEY_ID")
@@ -220,7 +220,7 @@ if storage_backend == "s3":
         "bucket_name": S3_BUCKET_NAME,
         "file_overwrite": False,
     }
-elif storage_backend == "fs":
+elif STORAGE_BACKEND == "fs":
     STORAGES["default"]["OPTIONS"] = {
         "location": config.str("STORAGE_LOCAL_PATH", default=str(BASE_DIR / "media")),
         "allow_overwrite": False,
