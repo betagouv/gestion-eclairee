@@ -4,7 +4,7 @@ from typing import Literal
 
 import sqlalchemy
 from pydantic import BaseModel
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine
 
 import pandas as pd
 

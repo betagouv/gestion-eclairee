@@ -1,14 +1,14 @@
 from pydantic import ValidationError
 from sqlalchemy import text
 
-from gesec.data.pipeline.db import save_list_pydantic, create_engine
+from gesec.data.pipeline.db import create_engine, save_list_pydantic
+
+from ..layer_1_bronze.cpro_export_factures import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
 from .schemas import (
     BronzeCproExportFacture,
     SilverCproExportFacture,
     SilverCproExportFactureProcessingStatus,
 )
-
-from ..layer_1_bronze.cpro_export_factures import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
 
 DEFAULT_TABLE_NAME = "silver_" + __name__.split(".")[-1]
 
