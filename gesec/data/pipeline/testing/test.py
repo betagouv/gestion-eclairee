@@ -11,7 +11,12 @@ KEY_COLUMMS = {
     "public_silver_cpro_export_factures.csv": ["identifiant_chorus_pro"],
     "public_silver_cpro_export_factures_status.csv": ["identifiant_chorus_pro"],
     "public_silver_services.csv": ["code"],
-    "public_silver_oda_export_ej_gm_mapping.csv": ["domaine","segment","groupe_de_marchandises_p_cle","numero_ej_reference_facture"],
+    "public_silver_oda_export_ej_gm_mapping.csv": [
+        "domaine",
+        "segment",
+        "groupe_de_marchandises_p_cle",
+        "numero_ej_reference_facture",
+    ],
     "gesec_facture.csv": ["identifiant_chorus_pro"],
 }
 DEFAULT_KEY_COLUMNS = ["source", "source_idx"]

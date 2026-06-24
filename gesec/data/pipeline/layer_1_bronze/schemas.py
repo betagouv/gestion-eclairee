@@ -149,9 +149,7 @@ class BronzeODAExportRow(BaseModel):
     libelle_du_segment: str = Field(validation_alias="Libellé du segment")
 
     # Groupe de marchandises
-    groupe_de_marchandises_p_cle: str = Field(
-        validation_alias="Groupe de marchandises (P) - Clé"
-    )
+    groupe_de_marchandises_p_cle: str = Field(validation_alias="Groupe de marchandises (P) - Clé")
     gdm_libelle: str = Field(validation_alias="GdM_Libellé ")
 
     # Ministère
@@ -162,12 +160,8 @@ class BronzeODAExportRow(BaseModel):
 
     # Région
     v_region_dae_carto: Optional[str] = Field(default=None, validation_alias="V_Région_DAE_Carto")
-    region_cartographie_detaillee: Optional[str] = Field(
-        default=None, validation_alias="Région Cartographie détaillée"
-    )
-    region_cartographie_regroupee: Optional[str] = Field(
-        default=None, validation_alias="Région Cartographie regroupée"
-    )
+    region_cartographie_detaillee: Optional[str] = Field(default=None, validation_alias="Région Cartographie détaillée")
+    region_cartographie_regroupee: Optional[str] = Field(default=None, validation_alias="Région Cartographie regroupée")
 
     # Programme
     prog_bop: Optional[str] = Field(default=None, validation_alias="Prog-BOP")
@@ -191,14 +185,10 @@ class BronzeODAExportRow(BaseModel):
     nom_fournisseur_cle: Optional[str] = Field(default=None, validation_alias="Nom fournisseur - Clé")
     siren_fournisseur: Optional[str] = Field(default=None, validation_alias="SIREN fournisseur")
     type_de_fournisseur: Optional[str] = Field(default=None, validation_alias="Type de fournisseur")
-    code_naf_fournisseur_siren: Optional[str] = Field(
-        default=None, validation_alias="Code NAF fournisseur (SIREN)"
-    )
+    code_naf_fournisseur_siren: Optional[str] = Field(default=None, validation_alias="Code NAF fournisseur (SIREN)")
     pays_fournisseur: Optional[str] = Field(default=None, validation_alias="Pays fournisseur")
     region_fournisseur: Optional[str] = Field(default=None, validation_alias="Région fournisseur")
-    v_region_insee_fournisseur: Optional[str] = Field(
-        default=None, validation_alias="V_région INSEE Fournisseur"
-    )
+    v_region_insee_fournisseur: Optional[str] = Field(default=None, validation_alias="V_région INSEE Fournisseur")
     categorie_d_entreprise: Optional[str] = Field(default=None, validation_alias="Catégorie d'entreprise")
     type_fournisseur_ea: Optional[str] = Field(default=None, validation_alias="Type fournisseur EA")
     type_fournisseur_siae: Optional[str] = Field(default=None, validation_alias="Type fournisseur SIAE")
@@ -213,29 +203,21 @@ class BronzeODAExportRow(BaseModel):
     type_d_operation_ej_precedent_e: Optional[str] = Field(
         default=None, validation_alias="Type d'opération EJ précédent (E)"
     )
-    macro_type_ej_notifie_ou_non: Optional[str] = Field(
-        default=None, validation_alias="Macro Type EJ Notifié ou non"
-    )
+    macro_type_ej_notifie_ou_non: Optional[str] = Field(default=None, validation_alias="Macro Type EJ Notifié ou non")
     notifie: Optional[str] = Field(default=None, validation_alias="Notifié ?")
 
     # Accord-cadre
-    numero_accord_cadre_e_cle: Optional[str] = Field(
-        default=None, validation_alias="Numéro accord-cadre (E) - Clé"
-    )
+    numero_accord_cadre_e_cle: Optional[str] = Field(default=None, validation_alias="Numéro accord-cadre (E) - Clé")
     numero_accord_cadre_e_texte_descriptif: Optional[str] = Field(
         default=None, validation_alias="Numéro accord-cadre (E) - Texte descriptif"
     )
 
     # EJ (Engagement Juridique)
     numero_ej_precedent_p: Optional[str] = Field(default=None, validation_alias="Numéro EJ précédent (P)")
-    numero_ej_reference_facture: Optional[str] = Field(
-        default=None, validation_alias="Numéro EJ référencé facture"
-    )
+    numero_ej_reference_facture: Optional[str] = Field(default=None, validation_alias="Numéro EJ référencé facture")
 
     # Clauses
-    clause_environnementale_e: Optional[str] = Field(
-        default=None, validation_alias="Clause environnementale (E)"
-    )
+    clause_environnementale_e: Optional[str] = Field(default=None, validation_alias="Clause environnementale (E)")
     clause_sociale_e: Optional[str] = Field(default=None, validation_alias="Clause sociale (E)")
 
     # CPV
@@ -249,9 +231,7 @@ class BronzeODAExportRow(BaseModel):
     date_fin_de_marche_e: Optional[date] = Field(default=None, validation_alias="Date fin de marché (E)")
 
     # Acheteur
-    siret_acheteur_e_cle: Optional[str] = Field(
-        default=None, validation_alias="SIRET acheteur (E) - Clé"
-    )
+    siret_acheteur_e_cle: Optional[str] = Field(default=None, validation_alias="SIRET acheteur (E) - Clé")
     siret_acheteur_e_texte_descriptif: Optional[str] = Field(
         default=None, validation_alias="SIRET acheteur (E) - Texte descriptif"
     )

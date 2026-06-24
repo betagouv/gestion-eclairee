@@ -11,8 +11,8 @@ DEFAULT_TABLE_NAME = "silver_" + __name__.split(".")[-1]
 
 
 def process_bronze_to_silver(
-        bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
-        silver_table_name: str = DEFAULT_TABLE_NAME,
+    bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
+    silver_table_name: str = DEFAULT_TABLE_NAME,
 ):
     engine = create_engine()
     with engine.connect() as conn:
@@ -31,7 +31,4 @@ def process_bronze_to_silver(
         )
         rows = result.fetchall()
 
-    save_list_dict([
-        row._asdict()
-        for row in rows
-    ], silver_table_name, if_exists="replace")
+    save_list_dict([row._asdict() for row in rows], silver_table_name, if_exists="replace")

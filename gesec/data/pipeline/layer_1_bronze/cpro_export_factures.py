@@ -15,9 +15,9 @@ from django.core.files.storage import default_storage
 from tqdm import tqdm
 
 from gesec.data.pipeline.db import create_engine, save_list_dict
-from .utils import clean_column_name
 
 from .schemas import BronzeCproExportFacture
+from .utils import clean_column_name
 
 logger = logging.getLogger(__name__)
 

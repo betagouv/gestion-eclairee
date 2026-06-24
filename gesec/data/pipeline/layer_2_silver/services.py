@@ -3,9 +3,9 @@ from typing import TypedDict
 
 from sqlalchemy import text
 
-from .schemas import SilverService
 from ..db import create_engine, save_list_pydantic
 from ..layer_1_bronze.cpro_export_factures import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
+from .schemas import SilverService
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +38,6 @@ def load_services_from_cpro_export(bronze_table_name: str) -> list[BronzeService
         for row in rows
         if row.destinataire_service and row.destinataire_code_service
     ]
-
-
 
 
 def transform(bronze_services: list[BronzeService]) -> list[SilverService]:
@@ -78,8 +76,8 @@ def map_service(code: str, name: str) -> str:
 
 
 def process_bronze_to_silver(
-        bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
-        silver_table_name: str = DEFAULT_TABLE_NAME,
+    bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
+    silver_table_name: str = DEFAULT_TABLE_NAME,
 ):
     bronze_services = load_services_from_cpro_export(bronze_table_name)
     silver_services = transform(bronze_services)

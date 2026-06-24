@@ -1,15 +1,16 @@
 import logging
+
 from sqlalchemy import text
 
 from gesec.data.dj_models import Facture
 from gesec.data.pipeline.db import create_engine
 
-logger = logging.getLogger(__name__)
-
 from ..layer_2_silver.cpro_export_factures import DEFAULT_TABLE_NAME as SILVER_DEFAULT_TABLE_NAME
 from ..layer_2_silver.oda_export_ej_gm_mapping import DEFAULT_TABLE_NAME as SILVER_EJ_GM_MAPPING_DEFAULT_TABLE_NAME
-from ..layer_2_silver.services import DEFAULT_TABLE_NAME as SILVER_SERVICES_DEFAULT_TABLE_NAME
 from ..layer_2_silver.schemas import SilverCproExportFacture, SilverService
+from ..layer_2_silver.services import DEFAULT_TABLE_NAME as SILVER_SERVICES_DEFAULT_TABLE_NAME
+
+logger = logging.getLogger(__name__)
 
 
 def load_silver_factures(silver_table_name: str) -> list[SilverCproExportFacture]:
@@ -24,7 +25,8 @@ def load_silver_factures(silver_table_name: str) -> list[SilverCproExportFacture
 def load_silver_oda_ej_to_gm_mapping(silver_table_name: str) -> dict[str, list[str]]:
     engine = create_engine()
     with engine.connect() as conn:
-        result = conn.execute(text(f"""
+        result = conn.execute(
+            text(f"""
             SELECT numero_ej_reference_facture, segment 
             FROM {silver_table_name}""")
         )
@@ -46,16 +48,13 @@ def load_silver_services(table_name: str) -> list[SilverService]:
 
 
 def transform_silver_to_gold(
-        silver_factures: list[SilverCproExportFacture],
-        silver_ej_to_gm_mapping: dict[str, list[str]],
-        silver_services: list[SilverService],
+    silver_factures: list[SilverCproExportFacture],
+    silver_ej_to_gm_mapping: dict[str, list[str]],
+    silver_services: list[SilverService],
 ) -> list[Facture]:
     """Transforme une liste de SilverCproExportFacture en liste de Facture (modèle Django)."""
     result = []
-    service_by_code: dict[str, SilverService] = {
-        service.code: service
-        for service in silver_services
-    }
+    service_by_code: dict[str, SilverService] = {service.code: service for service in silver_services}
     for silver in silver_factures:
         gm_list = silver_ej_to_gm_mapping.get(silver.numero_du_bon_de_commande)
         service = service_by_code.get(silver.destinataire_code_service)
@@ -75,12 +74,10 @@ def transform_silver_to_gold(
             devise_de_la_facture=silver.devise_de_la_facture,
             numero_du_bon_de_commande=silver.numero_du_bon_de_commande,
             numero_de_marche=silver.numero_de_marche,
-
             # GM
             gm=gm_list[0] if gm_list else None,
             gm_list=gm_list if gm_list else None,
             gm_multi=(len(gm_list) > 1) if gm_list else None,
-
             # Ministere
             ministere=service.ministere if service else "INCONNU",
         )
@@ -89,9 +86,9 @@ def transform_silver_to_gold(
 
 
 def process_silver_to_gold(
-        silver_table_name: str = SILVER_DEFAULT_TABLE_NAME,
-        silver_ej_gm_mapping_table_name: str = SILVER_EJ_GM_MAPPING_DEFAULT_TABLE_NAME,
-        silver_services_table_name: str = SILVER_SERVICES_DEFAULT_TABLE_NAME,
+    silver_table_name: str = SILVER_DEFAULT_TABLE_NAME,
+    silver_ej_gm_mapping_table_name: str = SILVER_EJ_GM_MAPPING_DEFAULT_TABLE_NAME,
+    silver_services_table_name: str = SILVER_SERVICES_DEFAULT_TABLE_NAME,
 ) -> None:
     """
     Pipeline complet :

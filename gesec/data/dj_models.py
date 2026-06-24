@@ -33,7 +33,7 @@ class Facture(BaseModel):
     devise_de_la_facture = models.CharField()
     numero_du_bon_de_commande = models.CharField()
     numero_de_marche = models.CharField()
-    gm = models.CharField(null=True)
+    gm = models.CharField(null=True)  # noqa: DJ001
     gm_list = ArrayField(models.CharField(), null=True)
     gm_multi = models.BooleanField(blank=True, null=True)
     ministere = models.CharField()
