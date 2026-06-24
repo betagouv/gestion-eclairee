@@ -36,6 +36,7 @@ class Facture(BaseModel):
     gm = models.CharField(null=True)
     gm_list = ArrayField(models.CharField(), null=True)
     gm_multi = models.BooleanField(blank=True, null=True)
+    ministere = models.CharField()
 
     class Meta:
         verbose_name = "Facture"

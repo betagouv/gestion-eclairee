@@ -23,7 +23,7 @@ def load_bronze_factures_cpro_export(table_name: str) -> list[BronzeCproExportFa
     with engine.connect() as conn:
         result = conn.execute(text(f"SELECT * FROM {table_name}"))
         rows = result.fetchall()
-        return [BronzeCproExportFacture(**dict(row._asdict())) for row in rows]
+    return [BronzeCproExportFacture(**row._asdict()) for row in rows]
 
 
 def transform_bronze_to_silver(

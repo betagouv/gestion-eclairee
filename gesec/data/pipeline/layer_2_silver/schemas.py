@@ -140,3 +140,9 @@ class SilverCproExportFactureProcessingStatus(BronzeCproExportFacture):
 
     status: str
     status_details: Optional[str]
+
+
+class SilverService(BaseModel):
+    code: str
+    name: str
+    ministere: Optional[str] = None

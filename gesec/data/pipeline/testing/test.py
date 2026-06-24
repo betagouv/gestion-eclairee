@@ -1,15 +1,31 @@
 import csv
+import os
 import sys
 from pathlib import Path
 
 from tqdm import tqdm
 
 EXCLUDED_COLUMNS = {"id", "created_at", "updated_at"}
-KEY_COLUMN = "identifiant_chorus_pro"
+KEY_COLUMMS = {
+    "public_bronze_cpro_export_factures.csv": ["identifiant_chorus_pro"],
+    "public_silver_cpro_export_factures.csv": ["identifiant_chorus_pro"],
+    "public_silver_cpro_export_factures_status.csv": ["identifiant_chorus_pro"],
+    "public_silver_services.csv": ["code"],
+    "public_silver_oda_export_ej_gm_mapping.csv": ["domaine","segment","groupe_de_marchandises_p_cle","numero_ej_reference_facture"],
+    "gesec_facture.csv": ["identifiant_chorus_pro"],
+}
+DEFAULT_KEY_COLUMNS = ["source", "source_idx"]
+KEY_COLUMN = "_key"
+
+
+def build_key(row: dict, key_columns: list[str]) -> tuple[str]:
+    return tuple(row[key] for key in key_columns)
 
 
 def load_csv_to_dict(filepath: Path) -> dict:
     """Charge un CSV dans un dict {identifiant_chorus_pro: row_dict}."""
+    filename = os.path.basename(filepath)
+    key_columns = KEY_COLUMMS.get(filename, DEFAULT_KEY_COLUMNS)
     result = {}
     with open(filepath, "r", newline="", encoding="utf-8") as f:
         print(f"Lecture {filepath}")
@@ -17,7 +33,8 @@ def load_csv_to_dict(filepath: Path) -> dict:
         for row in reader:
             # Nettoyer la ligne : supprimer les colonnes exclues
             clean_row = {k: v for k, v in row.items() if k not in EXCLUDED_COLUMNS}
-            key = clean_row.get(KEY_COLUMN)
+            key = build_key(clean_row, key_columns)
+            clean_row[KEY_COLUMN] = key
             if key is not None:
                 result[key] = clean_row
     return result
