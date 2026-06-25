@@ -1,14 +1,20 @@
 import base64
 import io
+import logging
 import os
 import re
 import shutil
 import zipfile
 
 import xmltodict
+from tqdm import tqdm
 
-from .factur_x import read_facture_x
+from .facture_x import read_facture_x
 from .models.pivots_xml import PJ, CPPFacturePivot
+
+
+logger = logging.getLogger(__name__)
+
 
 LIST_KEYS = ["ParametreIndiv", "CPPFacturePivotUnitaire", "TVA", "Ligne", "PJ", "ValidationUnitaire"]
 
@@ -92,8 +98,9 @@ def save_file_content(pj: PJ, dirpath: str, name_suffix="") -> str:
     zip_content = base64.b64decode(pj.Contenu)
     os.makedirs(dirpath, exist_ok=True)
     zip_filepath = os.path.join(dirpath, pj_nom + ".zip")
-    with open(zip_filepath, "wb") as f:
-        f.write(zip_content)
+    # Save the .zip
+    #with open(zip_filepath, "wb") as f:
+    #    f.write(zip_content)
     zip_info = zipfile.ZipFile(io.BytesIO(zip_content))
     assert len(zip_info.filelist) == 1, f"Multiple files in zip file {zip_filepath}: {zip_info.filelist}"
     file_info = zip_info.filelist[0]
@@ -115,9 +122,18 @@ def save_file_content(pj: PJ, dirpath: str, name_suffix="") -> str:
     return filepath
 
 
-def extract_pivot(pivot: CPPFacturePivot, output_dir: str):
+def extract_pivot_obj(pivot: CPPFacturePivot, output_dir: str, flat_dir: bool):
+    """
+
+    Args:
+        flat_dir: True to put all extracted files directly in output_dir
+                  False to create a subdirectory per invoice
+    """
     for facture in pivot.CPPFactures.CPPFacturePivotUnitaire:
-        dirpath = f"{facture.Fournisseur.Identifiant}_{facture.DonneesFacture.Id}"
+        if flat_dir:
+            dirpath = "."
+        else:
+            dirpath = f"{facture.Fournisseur.Identifiant}_{facture.DonneesFacture.Id}"
         names = set()
         for i, pj in enumerate(facture.PJ, 1):
             if pj.NomPJ in names:
@@ -125,7 +141,14 @@ def extract_pivot(pivot: CPPFacturePivot, output_dir: str):
             else:
                 suffix = ""
             names.add(pj.NomPJ)
-            _extract_filepath = save_file_content(pj, os.path.join(output_dir, dirpath), name_suffix=suffix)
+            save_file_content(pj, os.path.join(output_dir, dirpath), name_suffix=suffix)
+
+
+def extract_pivot_file(filepath: str, output_dir: str, flat_dir: bool) -> None:
+    with open(filepath, "r") as f:
+        xml = f.read()
+    pivot = parse_xml_to_obj(xml)
+    extract_pivot_obj(pivot, output_dir, flat_dir=flat_dir)
 
 
 def find_files_by_name(directory, pattern):
@@ -136,3 +159,23 @@ def find_files_by_name(directory, pattern):
         for file in files:
             if re.match(pattern, file):
                 yield os.path.join(root, file)
+
+
+def extract_facture(filepath: str, base_output_dir: str) -> None:
+    name = os.path.splitext(os.path.basename(filepath))[0]
+    output_dir = os.path.join(base_output_dir, name)
+    if os.path.exists(output_dir):
+        logger.info(f"{output_dir} already exists, skipping")
+        return
+    with zipfile.ZipFile(filepath) as zip_ref:
+        zip_ref.extractall(output_dir)
+    pivot_path = os.path.join(output_dir, "PivotS.xml")
+    pivot_extract_dir = os.path.join(output_dir, "pivot")
+    extract_pivot_file(pivot_path, pivot_extract_dir, flat_dir=True)
+
+
+def extract_factures(ids: list[str], input_dir: str, output_dir: str) -> None:
+    for id in tqdm(ids):
+        filename = f"facture_{id}.zip"
+        filepath = os.path.join(input_dir, filename)
+        extract_facture(filepath, output_dir)
