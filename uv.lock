@@ -482,6 +482,7 @@ dependencies = [
     { name = "tqdm" },
     { name = "unidecode" },
     { name = "whitenoise" },
+    { name = "xmltodict" },
 ]
 
 [package.dev-dependencies]
@@ -521,6 +522,7 @@ requires-dist = [
     { name = "tqdm", specifier = ">=4.68.2" },
     { name = "unidecode", specifier = ">=1.4.0" },
     { name = "whitenoise", specifier = ">=6.12.0" },
+    { name = "xmltodict", specifier = ">=1.0.4" },
 ]
 
 [package.metadata.requires-dev]
