@@ -153,7 +153,7 @@ def check_coherence_oda(df_oda: pd.DataFrame, df_cpro: pd.DataFrame):
 
     df_oda = pd.read_csv("oda.csv", dtype={key_ej: "str", "Dépenses  2025": "str"},
         parse_dates=["Date notification (E)", "Date fin de marché (E)"])
-    l = exports_to_db.filter_csv_files("../downloads/exports/")
+    l = exports_to_db.filter_csv_files("cpro/exports")
     df.exports_to_db.aggregate_csv_files(l)
     df_result = check_coherence_oda(df_oda, df)
     """
