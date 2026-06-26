@@ -51,7 +51,7 @@ def filter_files(directory: str) -> list[tuple[str, str]]:
     """Renvoie la liste (id_cpro, path) des fichiers factures xml."""
     result = []
     facture_folders, _ = default_storage.listdir(directory)
-    for facture_folder in facture_folders:
+    for facture_folder in tqdm(facture_folders, "Recherche des factures XML"):
         id_cpro = re.match(r"facture_(\d+)", facture_folder).group(1)
         pivot_dir = os.path.join(directory, facture_folder, "pivot")
         _, files = default_storage.listdir(pivot_dir)
@@ -73,28 +73,19 @@ def build_rows(files, n_workers: int | None = None) -> list[BronzeCproExportFact
             n_workers = 1
 
     schema = get_schema()
-    if n_workers <= 1:
-        for id_cpro, filepath in tqdm(files, desc="Chargement des factures XML"):
-            try:
-                row = load_file(id_cpro, filepath, schema=schema)
-                all_rows.append(row)
-            except Exception as e:
-                logger.error(f"Failed to process {filepath}: {e}")
-                raise
-    else:
-        with ThreadPoolExecutor(max_workers=n_workers) as executor:
-            futures = {
-                executor.submit(load_file, id_cpro, filepath, schema): (id_cpro, filepath)
-                for id_cpro, filepath in files
-            }
+    with ThreadPoolExecutor(max_workers=n_workers) as executor:
+        futures = {
+            executor.submit(load_file, id_cpro, filepath, schema): (id_cpro, filepath)
+            for id_cpro, filepath in files
+        }
 
-            for future in tqdm(as_completed(futures), total=len(files), desc="Chargement des factures XML"):
-                try:
-                    all_rows.append(future.result())
-                except Exception as e:
-                    id_cpro, filepath = futures[future]
-                    logger.error(f"Failed to process {id_cpro} {filepath}: {e}")
-                    raise
+        for future in tqdm(as_completed(futures), total=len(files), desc="Chargement des factures XML"):
+            try:
+                all_rows.append(future.result())
+            except Exception as e:
+                id_cpro, filepath = futures[future]
+                logger.error(f"Failed to process {id_cpro} {filepath}: {e}")
+                raise
 
     logger.info(f"Aggregated {len(files)} files with {len(all_rows)} total rows")
     return all_rows

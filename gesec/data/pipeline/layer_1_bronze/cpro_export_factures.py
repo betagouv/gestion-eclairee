@@ -394,25 +394,16 @@ def aggregate_csv_files(
         else:
             n_workers = 1
 
-    if n_workers <= 1:
-        for filepath in tqdm(csv_files, desc="Aggregating CSV files"):
+    with ThreadPoolExecutor(max_workers=n_workers) as executor:
+        futures = {executor.submit(_process_csv_file, filepath): filepath for filepath in csv_files}
+
+        for future in tqdm(as_completed(futures), total=len(csv_files), desc="Aggregating CSV files"):
             try:
-                rows = _process_csv_file(filepath)
-                all_rows.extend(rows)
+                all_rows.extend(future.result())
             except Exception as e:
+                filepath = futures[future]
                 logger.error(f"Failed to process {filepath}: {e}")
                 raise
-    else:
-        with ThreadPoolExecutor(max_workers=n_workers) as executor:
-            futures = {executor.submit(_process_csv_file, filepath): filepath for filepath in csv_files}
-
-            for future in tqdm(as_completed(futures), total=len(csv_files), desc="Aggregating CSV files"):
-                try:
-                    all_rows.extend(future.result())
-                except Exception as e:
-                    filepath = futures[future]
-                    logger.error(f"Failed to process {filepath}: {e}")
-                    raise
 
     logger.info(f"Aggregated {len(csv_files)} files with {len(all_rows)} total rows")
     return all_rows
