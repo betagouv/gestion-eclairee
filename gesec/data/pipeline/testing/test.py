@@ -8,19 +8,25 @@ from tqdm import tqdm
 EXCLUDED_COLUMNS = {"id", "created_at", "updated_at"}
 KEY_COLUMMS = {
     "public_bronze_cpro_export_factures.csv": ["identifiant_chorus_pro"],
+    "public_bronze_cpro_export_facture_xml.csv": ["id_cpro"],
     "public_silver_cpro_export_factures.csv": ["identifiant_chorus_pro"],
     "public_silver_cpro_export_factures_status.csv": ["identifiant_chorus_pro"],
-    "public_silver_services.csv": ["code"],
     "public_silver_oda_export_ej_gm_mapping.csv": [
         "domaine",
         "segment",
         "groupe_de_marchandises_p_cle",
         "numero_ej_reference_facture",
     ],
+    "public_silver_services.csv": ["code"],
     "gesec_facture.csv": ["identifiant_chorus_pro"],
+    "gesec_facture_ligne.csv": ["id_cpro"],
 }
 DEFAULT_KEY_COLUMNS = ["source", "source_idx"]
 KEY_COLUMN = "_key"
+
+# Increase the field size limit (1MB)
+csv.field_size_limit(1024 * 1024)  # 1MB
+
 
 
 def build_key(row: dict, key_columns: list[str]) -> tuple[str]:
@@ -36,9 +42,9 @@ def load_csv_to_dict(filepath: Path) -> dict:
         print(f"Lecture {filepath}")
         reader = csv.DictReader(f)
         for row in reader:
+            key = build_key(row, key_columns)
             # Nettoyer la ligne : supprimer les colonnes exclues
             clean_row = {k: v for k, v in row.items() if k not in EXCLUDED_COLUMNS}
-            key = build_key(clean_row, key_columns)
             clean_row[KEY_COLUMN] = key
             if key is not None:
                 result[key] = clean_row
