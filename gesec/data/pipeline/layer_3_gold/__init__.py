@@ -1,5 +1,6 @@
-from . import factures
+from . import facture, facture_ligne
 
 __all__ = [
-    "factures",
+    "facture",
+    "facture_ligne",
 ]

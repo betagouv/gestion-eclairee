@@ -18,7 +18,12 @@ class Facture(BaseModel):
     date_modification = models.DateField()
 
     # Montants
+    mt_ht = models.DecimalField(max_digits=20, decimal_places=10)
+    mt_ttc = models.DecimalField(max_digits=20, decimal_places=10)
+    montant_tva = models.DecimalField(max_digits=20, decimal_places=10)
     montant_a_payer = models.DecimalField(max_digits=20, decimal_places=10)
+    montant_ttc_avant_remise = models.DecimalField(max_digits=20, decimal_places=10, null=True)
+    montant_remise_globale_ttc = models.DecimalField(max_digits=20, decimal_places=10, null=True)
 
     # Fournisseur
     fournisseur_type_d_identifiant = models.CharField()

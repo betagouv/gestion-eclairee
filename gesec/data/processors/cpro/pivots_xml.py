@@ -12,7 +12,6 @@ from tqdm import tqdm
 from .facture_x import read_facture_x
 from .models.pivots_xml import PJ, CPPFacturePivot
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -99,7 +98,7 @@ def save_file_content(pj: PJ, dirpath: str, name_suffix="") -> str:
     os.makedirs(dirpath, exist_ok=True)
     zip_filepath = os.path.join(dirpath, pj_nom + ".zip")
     # Save the .zip
-    #with open(zip_filepath, "wb") as f:
+    # with open(zip_filepath, "wb") as f:
     #    f.write(zip_content)
     zip_info = zipfile.ZipFile(io.BytesIO(zip_content))
     assert len(zip_info.filelist) == 1, f"Multiple files in zip file {zip_filepath}: {zip_info.filelist}"

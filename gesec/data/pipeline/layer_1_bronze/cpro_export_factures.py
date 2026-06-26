@@ -4,7 +4,7 @@ import optparse
 import os
 import re
 import sys
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
@@ -395,7 +395,7 @@ def aggregate_csv_files(
             n_workers = 1
 
     if n_workers <= 1:
-        for filepath in tqdm(csv_files, desc="Aggregatin CSV files"):
+        for filepath in tqdm(csv_files, desc="Aggregating CSV files"):
             try:
                 rows = _process_csv_file(filepath)
                 all_rows.extend(rows)
@@ -403,7 +403,7 @@ def aggregate_csv_files(
                 logger.error(f"Failed to process {filepath}: {e}")
                 raise
     else:
-        with ProcessPoolExecutor(max_workers=n_workers) as executor:
+        with ThreadPoolExecutor(max_workers=n_workers) as executor:
             futures = {executor.submit(_process_csv_file, filepath): filepath for filepath in csv_files}
 
             for future in tqdm(as_completed(futures), total=len(csv_files), desc="Aggregating CSV files"):

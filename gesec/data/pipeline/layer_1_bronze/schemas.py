@@ -238,3 +238,9 @@ class BronzeODAExportRow(BaseModel):
 
     # Montant
     depenses_2025: Decimal = Field(validation_alias="Dépenses  2025")
+
+
+class BronzeCproExportFactureXml(BaseModel):
+    id_cpro: str
+    xml_schema: str
+    content: dict
