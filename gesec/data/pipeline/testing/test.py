@@ -150,8 +150,62 @@ def compare_directories(expected_dir: Path, actual_dir: Path) -> dict:
             results[filename] = {"status": "MISSING_IN_ACTUAL", "file": str(expected_path)}
         else:
             results[filename] = compare_csv_files(expected_path, actual_path)
+        
+        # Affichage immédiat du résultat pour ce fichier
+        print_single_result(filename, results[filename])
 
     return results
+
+
+def print_single_result(filename: str, result: dict) -> bool:
+    """Affiche le résultat de comparaison pour un seul fichier. Returns True si différences."""
+    has_differences = False
+    if isinstance(result, dict):
+        if "status" in result:
+            has_differences = True
+            print(f"\n{filename}: {result['status']}")
+            if "file" in result:
+                print(f"  File: {result['file']}")
+        elif result.get("equals"):
+            count = result.get("count_expected", "?")
+            print(f"✓ {filename}: OK ({count} lignes)")
+        else:
+            has_differences = True
+            print(f"\n✗ {filename}: DIFFÉRENCES")
+            count_exp = result.get("count_expected", 0)
+            count_act = result.get("count_actual", 0)
+            print(f"  Expected: {count_exp} lignes, Actual: {count_act} lignes")
+
+            missing_count = result.get("missing_count", 0)
+            extra_count = result.get("extra_count", 0)
+            different_count = result.get("different_count", 0)
+
+            if missing_count > 0:
+                print(f"  -{missing_count} lignes manquantes")
+                sample = result.get("missing_sample", [])
+                if sample:
+                    print("  Sample manquantes (max 10):")
+                    for key, row in sample[:10]:
+                        print(f"    - {KEY_COLUMN}={key}")
+
+            if extra_count > 0:
+                print(f"  +{extra_count} lignes en trop")
+                sample = result.get("extra_sample", [])
+                if sample:
+                    print("  Sample en trop (max 10):")
+                    for key, row in sample[:10]:
+                        print(f"    + {KEY_COLUMN}={key}")
+
+            if different_count > 0:
+                print(f"  ~{different_count} lignes différentes")
+                sample = result.get("different_sample", [])
+                if sample:
+                    print("  Sample différentes (max 10):")
+                    for key, item in sample[:10]:
+                        print(f"    ~ {KEY_COLUMN}={key}:")
+                        for diff in item.get("diff_columns", []):
+                            print(f"      {diff['col']}: {diff['expected']} -> {diff['actual']}")
+    return has_differences
 
 
 def print_results(results: dict) -> None:
@@ -159,51 +213,8 @@ def print_results(results: dict) -> None:
     has_differences = False
 
     for filename, result in results.items():
-        if isinstance(result, dict):
-            if "status" in result:
-                has_differences = True
-                print(f"\n{filename}: {result['status']}")
-                if "file" in result:
-                    print(f"  File: {result['file']}")
-            elif result.get("equals"):
-                count = result.get("count_expected", "?")
-                print(f"✓ {filename}: OK ({count} lignes)")
-            else:
-                has_differences = True
-                print(f"\n✗ {filename}: DIFFÉRENCES")
-                count_exp = result.get("count_expected", 0)
-                count_act = result.get("count_actual", 0)
-                print(f"  Expected: {count_exp} lignes, Actual: {count_act} lignes")
-
-                missing_count = result.get("missing_count", 0)
-                extra_count = result.get("extra_count", 0)
-                different_count = result.get("different_count", 0)
-
-                if missing_count > 0:
-                    print(f"  -{missing_count} lignes manquantes")
-                    sample = result.get("missing_sample", [])
-                    if sample:
-                        print("  Sample manquantes (max 10):")
-                        for key, row in sample[:10]:
-                            print(f"    - {KEY_COLUMN}={key}")
-
-                if extra_count > 0:
-                    print(f"  +{extra_count} lignes en trop")
-                    sample = result.get("extra_sample", [])
-                    if sample:
-                        print("  Sample en trop (max 10):")
-                        for key, row in sample[:10]:
-                            print(f"    + {KEY_COLUMN}={key}")
-
-                if different_count > 0:
-                    print(f"  ~{different_count} lignes différentes")
-                    sample = result.get("different_sample", [])
-                    if sample:
-                        print("  Sample différentes (max 10):")
-                        for key, item in sample[:10]:
-                            print(f"    ~ {KEY_COLUMN}={key}:")
-                            for diff in item.get("diff_columns", []):
-                                print(f"      {diff['col']}: {diff['expected']} -> {diff['actual']}")
+        if print_single_result(filename, result):
+            has_differences = True
 
     if not has_differences:
         print("\n✓ Tous les fichiers sont identiques !")
