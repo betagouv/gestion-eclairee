@@ -11,6 +11,22 @@ from gesec.data.pipeline.layer_3_gold.schemas import GoldCproExportFactureLigne
 TABLE_NAME = "gesec_facture_ligne"
 
 
+def rget(d: dict, key: str) -> any:
+    """Reccursive get for dictionnaries using dotted key."""
+    if "." in key:
+        prefix, tail = key.split(".", 1)
+    else:
+        prefix, tail = key, ""
+    v = d.get(prefix)
+    if tail:
+        if isinstance(v, dict):
+            return rget(v, tail)
+        else:
+            return None
+    else:
+        return v
+
+
 def load_bronze_rows(table_name: str) -> list[BronzeCproExportFactureXml]:
     engine = create_engine()
     with engine.connect() as conn:
@@ -34,7 +50,12 @@ def transform_xml_to_gold(content: dict, id_cpro: str, xml_schema: str) -> list[
                 tax_categories = item["cac:ClassifiedTaxCategory"]
                 assert len(tax_categories) == 1, f"Many tax categories: {tax_categories}"
                 tax_category = tax_categories[0]
-                assert tax_category["cac:TaxScheme"]["cbc:TaxTypeCode"] == "TVA"
+                assert (
+                    # 2.0 // UGAP
+                    rget(tax_category, "cac:TaxScheme.cbc:TaxTypeCode") == "TVA"
+                    # 2.1 // SCC
+                    or rget(tax_category, "cac:TaxScheme.cbc:ID") == "VAT"
+                )
                 tax_percent = Decimal(tax_category["cbc:Percent"])
                 line_amount_tax = line_amount_excl_tax * tax_percent / Decimal("100")
             else:

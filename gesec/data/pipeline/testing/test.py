@@ -25,7 +25,7 @@ DEFAULT_KEY_COLUMNS = ["source", "source_idx"]
 KEY_COLUMN = "_key"
 
 # Increase the field size limit (1MB)
-csv.field_size_limit(1024 * 1024)  # 1MB
+csv.field_size_limit(5 * 1024 * 1024)  # 1MB
 
 
 
