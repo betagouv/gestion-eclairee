@@ -2,13 +2,13 @@ import datetime
 import logging
 import os
 from decimal import Decimal
-from typing import Literal, Type, Union, get_args, get_origin
+from typing import Literal, Union, get_args, get_origin, Optional, Any, Sequence
 from uuid import UUID
 
 import sqlalchemy
-from pydantic import BaseModel
-from sqlalchemy import Engine
+from sqlalchemy import Engine, Executable, Row
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.engine.interfaces import _CoreAnyExecuteParams
 
 import pandas as pd
 
@@ -22,6 +22,14 @@ def create_engine() -> Engine:
 
     # Create SQLAlchemy engine
     return sqlalchemy.create_engine(db_url)
+
+
+def execute_sql(statement: Executable, parameters: Optional[_CoreAnyExecuteParams] = None) -> Sequence[Row[Any]]:
+    engine = create_engine()
+    with engine.connect() as conn:
+        result = conn.execute(statement, parameters)
+        rows = result.fetchall()
+        return rows
 
 
 def save_list_dict(

@@ -7,9 +7,10 @@ def launch_pipeline():
     exports_folder = "cpro/exports"
     oda_filepath = "oda/ODA_2025_Complet.csv"
     unzipped_folder = "cpro/factures_unzipped"
+    ministere = "SPM"
 
     # Bronze
-    bronze.cpro_export_facture_xml.process_files_to_bronze(unzipped_folder)
+    bronze.cpro_export_facture_xml.process_files_to_bronze(unzipped_folder, ministere=ministere)
     bronze.cpro_export_factures.process_csvs_to_bronze(exports_folder)
     bronze.oda_export_row.process_csvs_to_bronze(oda_filepath)
 

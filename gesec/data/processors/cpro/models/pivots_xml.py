@@ -14,6 +14,8 @@ class CategoriePJ(str, Enum):
     ANNEXE = "Document annexe"
     PJ_STANDARD = "Pièce jointe standard"
     BORDEREAU_DE_SUIVI = "Bordereau de suivi"
+    BORDEREAU_DE_SUIVI_DE_VALIDATION = "Bordereau de suivi de validation"
+    COORDONNEE_BANCAIRE = "Coordonnée bancaire"
 
 
 class TypePJ(str, Enum):
