@@ -28,7 +28,6 @@ KEY_COLUMN = "_key"
 csv.field_size_limit(5 * 1024 * 1024)  # 1MB
 
 
-
 def build_key(row: dict, key_columns: list[str]) -> tuple[str]:
     return tuple(row[key] for key in key_columns)
 
@@ -150,7 +149,7 @@ def compare_directories(expected_dir: Path, actual_dir: Path) -> dict:
             results[filename] = {"status": "MISSING_IN_ACTUAL", "file": str(expected_path)}
         else:
             results[filename] = compare_csv_files(expected_path, actual_path)
-        
+
         # Affichage immédiat du résultat pour ce fichier
         print_single_result(filename, results[filename])
 

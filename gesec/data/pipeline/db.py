@@ -2,10 +2,11 @@ import datetime
 import logging
 import os
 from decimal import Decimal
-from typing import Literal, Union, get_args, get_origin, Optional, Any, Sequence
+from typing import Any, Literal, Optional, Sequence, Type, Union, get_args, get_origin
 from uuid import UUID
 
 import sqlalchemy
+from pydantic import BaseModel
 from sqlalchemy import Engine, Executable, Row
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine.interfaces import _CoreAnyExecuteParams
