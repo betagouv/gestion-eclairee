@@ -7,6 +7,7 @@ import shutil
 import zipfile
 
 import xmltodict
+from django.core.files.storage import default_storage
 from tqdm import tqdm
 
 from .facture_x import read_facture_x
@@ -173,8 +174,39 @@ def extract_facture(filepath: str, base_output_dir: str) -> None:
     extract_pivot_file(pivot_path, pivot_extract_dir, flat_dir=True)
 
 
-def extract_factures(ids: list[str], input_dir: str, output_dir: str) -> None:
-    for id in tqdm(ids):
-        filename = f"facture_{id}.zip"
+def extract_factures(input_dir: str, output_dir: str, ids: list[str] | None = None) -> None:
+    _, files = default_storage.listdir(input_dir)
+    filtered_files = []
+    for filename in files:
+        if filename.endswith(".zip"):
+            if ids is not None:
+                facture_id = re.match(r".*_(\d+).zip", filename).groups(1)
+                if facture_id in ids:
+                    filtered_files.append(filename)
+            elif filename.endswith(".zip"):
+                filtered_files.append(filename)
+    for filename in tqdm(filtered_files):
         filepath = os.path.join(input_dir, filename)
         extract_facture(filepath, output_dir)
+
+
+if __name__ == "__main__":
+    import django
+
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "gesec.settings")
+    django.setup()
+
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Extract factures from pivot XML files")
+    parser.add_argument(
+        "ids", nargs="*", help="List of facture IDs to process (without 'facture_' prefix)"
+    )
+    parser.add_argument(
+        "-i", "--input-dir", required=True, help="Input directory containing facture_X.zip files"
+    )
+    parser.add_argument(
+        "-o", "--output-dir", required=True, help="Output directory for extracted files"
+    )
+    args = parser.parse_args()
+    extract_factures(args.input_dir, args.output_dir, ids=args.ids or None)

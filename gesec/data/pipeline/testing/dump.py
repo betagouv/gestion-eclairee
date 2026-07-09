@@ -6,6 +6,7 @@ from sqlalchemy import text
 import pandas as pd
 
 from gesec.data.pipeline.db import create_engine
+from .test import KEY_COLUMMS, DEFAULT_KEY_COLUMNS
 
 
 def get_all_tables() -> list[str]:
@@ -59,7 +60,9 @@ def load_table_to_dataframe(table_name: str) -> pd.DataFrame:
     """
     engine = create_engine()
     with engine.connect() as conn:
-        df = pd.read_sql(f"SELECT * FROM {table_name}", conn)
+        key_columns = KEY_COLUMMS.get(f"{table_name}.csv", DEFAULT_KEY_COLUMNS)
+        select = f"SELECT * FROM {table_name} ORDER BY {','.join(key_columns)}"
+        df = pd.read_sql(select, conn)
     return df
 
 

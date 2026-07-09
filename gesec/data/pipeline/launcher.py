@@ -3,11 +3,10 @@ from gesec.data.pipeline import layer_2_silver as silver
 from gesec.data.pipeline import layer_3_gold as gold
 
 
-def launch_pipeline():
+def launch_pipeline(ministere: str | None = None):
     exports_folder = "cpro/exports"
     oda_filepath = "oda/ODA_2025_Complet.csv"
     unzipped_folder = "cpro/factures_unzipped"
-    ministere = "SPM"
 
     # Bronze
     bronze.cpro_export_facture_xml.process_files_to_bronze(unzipped_folder, ministere=ministere)

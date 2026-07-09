@@ -20,8 +20,6 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TABLE_NAME = "bronze_" + __name__.split(".")[-1]
 
-schema_path = settings.BASE_DIR / "gesec/data/processors/cpro/models/xsd/UBL-2.0/maindoc/UBL-Invoice-2.0.xsd"
-
 
 def get_xsd_schema_path(version: str) -> str:
     path = settings.BASE_DIR / f"gesec/data/processors/cpro/models/xsd/UBL-{version}/maindoc/UBL-Invoice-{version}.xsd"
@@ -102,7 +100,7 @@ def filter_files(directory: str, ids_cpro: list[str] | None = None) -> list[tupl
     result = []
     facture_folders, _ = default_storage.listdir(directory)
     for facture_folder in tqdm(facture_folders, "Recherche des factures XML"):
-        id_cpro = re.match(r"facture_(\d+)", facture_folder).group(1)
+        id_cpro = re.match(r".*facture_(\d+)", facture_folder).group(1)
         if ids_cpro is not None:
             if id_cpro not in ids_cpro:
                 continue

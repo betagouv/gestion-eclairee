@@ -245,7 +245,7 @@ def filter_csv_files(directory: str) -> list[str]:
 
     _folders, filenames = default_storage.listdir(directory)
     for filename in filenames:
-        if CSV_FILE_PATTERN.match(filename):
+        if filename.endswith(".csv"):
             filepath = os.path.join(directory, filename)
             csv_files.append(filepath)
 
@@ -255,24 +255,16 @@ def filter_csv_files(directory: str) -> list[str]:
 def extract_source_info(filename: str) -> tuple[str, str]:
     """Extract num_ej and service from a CSV filename.
 
-    The filename is expected to match the pattern: <num_ej>_<service>_<start>_<end>.csv
-    Uses the same CSV_FILE_PATTERN regex for consistency.
-
-    Args:
-        filename: The CSV filename (without path)
+    If the filename does not match the expected pattern, then ("", "") is returned.
 
     Returns:
         Tuple of (num_ej, service)
-
-    Raises:
-        ValueError: If the filename doesn't match the expected pattern
     """
     match = CSV_FILE_PATTERN.match(filename)
 
     if not match:
-        raise ValueError(f"Filename '{filename}' doesn't match expected pattern")
+        return "", ""
 
-    # Extract num_ej (first 10 characters before first underscore)
     num_ej = match.group("ej")
     service = match.group("service") or ""
 
@@ -339,7 +331,7 @@ def _process_csv_file(filepath: str) -> list[dict]:
     local_logger.debug(f"Processing {filepath}")
 
     filename = os.path.basename(filepath)
-    num_ej, service = extract_source_info(filename)
+    file_num_ej, file_service = extract_source_info(filename)
 
     rows = []
     with default_storage.open(filepath, "r") as f:
@@ -347,10 +339,10 @@ def _process_csv_file(filepath: str) -> list[dict]:
         for idx, row in enumerate(reader):
             try:
                 parsed_row = _parse_row(row)
-                assert not service or parsed_row["destinataire_code_service"] == service, (
-                    f"Invalid service {service!r} {parsed_row!r}"
+                assert not file_service or parsed_row["destinataire_code_service"] == file_service, (
+                    f"Invalid service {file_service!r} {parsed_row!r}"
                 )
-                assert parsed_row["numero_du_bon_de_commande"] == num_ej, f"Invalid num_ej {num_ej!r} {parsed_row!r}"
+                assert not file_num_ej or parsed_row["numero_du_bon_de_commande"] == file_num_ej, f"Invalid num_ej {file_num_ej!r} {parsed_row!r}"
 
                 parsed_row["source"] = filepath
                 parsed_row["source_idx"] = idx

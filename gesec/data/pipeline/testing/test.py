@@ -246,6 +246,8 @@ def main() -> None:
         sys.exit(1)
 
     results = compare_directories(args.expected, args.actual)
+
+    print("\n", "Results:")
     print_results(results)
 
 

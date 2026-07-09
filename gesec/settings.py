@@ -9,7 +9,7 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
 import sys
 from pathlib import Path
 
@@ -21,8 +21,12 @@ import environ
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 config = environ.Env()
-config.read_env(BASE_DIR / ".env")
-config.read_env(BASE_DIR.parent / "gesec.env")
+
+env_file = os.environ.get("ENV_FILE", None)
+if env_file:
+    config.read_env(env_file)
+else:
+    config.read_env(BASE_DIR.parent / "gesec.env")
 
 
 TESTING = "pytest" in sys.argv[0] or ("manage.py" in sys.argv[0] and "test" in sys.argv[1])
