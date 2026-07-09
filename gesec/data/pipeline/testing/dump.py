@@ -6,7 +6,8 @@ from sqlalchemy import text
 import pandas as pd
 
 from gesec.data.pipeline.db import create_engine
-from .test import KEY_COLUMMS, DEFAULT_KEY_COLUMNS
+
+from .test import DEFAULT_KEY_COLUMNS, KEY_COLUMMS
 
 
 def get_all_tables() -> list[str]:

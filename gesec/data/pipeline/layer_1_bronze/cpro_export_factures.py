@@ -342,7 +342,9 @@ def _process_csv_file(filepath: str) -> list[dict]:
                 assert not file_service or parsed_row["destinataire_code_service"] == file_service, (
                     f"Invalid service {file_service!r} {parsed_row!r}"
                 )
-                assert not file_num_ej or parsed_row["numero_du_bon_de_commande"] == file_num_ej, f"Invalid num_ej {file_num_ej!r} {parsed_row!r}"
+                assert not file_num_ej or parsed_row["numero_du_bon_de_commande"] == file_num_ej, (
+                    f"Invalid num_ej {file_num_ej!r} {parsed_row!r}"
+                )
 
                 parsed_row["source"] = filepath
                 parsed_row["source_idx"] = idx

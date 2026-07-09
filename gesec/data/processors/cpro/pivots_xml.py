@@ -6,8 +6,9 @@ import re
 import shutil
 import zipfile
 
-import xmltodict
 from django.core.files.storage import default_storage
+
+import xmltodict
 from tqdm import tqdm
 
 from .facture_x import read_facture_x
@@ -199,14 +200,8 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="Extract factures from pivot XML files")
-    parser.add_argument(
-        "ids", nargs="*", help="List of facture IDs to process (without 'facture_' prefix)"
-    )
-    parser.add_argument(
-        "-i", "--input-dir", required=True, help="Input directory containing facture_X.zip files"
-    )
-    parser.add_argument(
-        "-o", "--output-dir", required=True, help="Output directory for extracted files"
-    )
+    parser.add_argument("ids", nargs="*", help="List of facture IDs to process (without 'facture_' prefix)")
+    parser.add_argument("-i", "--input-dir", required=True, help="Input directory containing facture_X.zip files")
+    parser.add_argument("-o", "--output-dir", required=True, help="Output directory for extracted files")
     args = parser.parse_args()
     extract_factures(args.input_dir, args.output_dir, ids=args.ids or None)
