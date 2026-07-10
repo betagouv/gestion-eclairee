@@ -250,3 +250,16 @@ class BronzeCproExportFactureXmlStatus(BaseModel):
     id_cpro: str
     status: str
     status_details: Optional[str] = None
+
+
+class BronzeCproExportFacturX(BaseModel):
+    id_cpro: str
+    xml_schema: str
+    content: dict
+    errors: str
+
+
+class BronzeCproExportFacturXStatus(BaseModel):
+    id_cpro: str
+    status: str
+    status_details: Optional[str] = None

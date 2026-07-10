@@ -2,18 +2,21 @@ import datetime
 import logging
 import os
 from decimal import Decimal
-from typing import Any, Literal, Optional, Sequence, Type, Union, get_args, get_origin
+from typing import Any, Literal, Optional, Sequence, Type, Union, get_args, get_origin, TypeVar
 from uuid import UUID
 
 import sqlalchemy
 from pydantic import BaseModel
-from sqlalchemy import Engine, Executable, Row
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Engine, Executable, Row, text
+from sqlalchemy.dialects.postgresql import JSONB, HSTORE
 from sqlalchemy.engine.interfaces import _CoreAnyExecuteParams
 
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+
+T = TypeVar('T')
 
 
 def create_engine() -> Engine:
@@ -97,6 +100,7 @@ def pydantic_model_to_dtype(model_class: Type[BaseModel]) -> dict:
         float: sqlalchemy.types.FLOAT,
         bool: sqlalchemy.types.BOOLEAN,
         dict: JSONB,
+        list: HSTORE,
         datetime.date: sqlalchemy.types.DATE,
         datetime.datetime: sqlalchemy.types.TIMESTAMP,
         datetime.time: sqlalchemy.types.TIME,
@@ -127,3 +131,8 @@ def pydantic_model_to_dtype(model_class: Type[BaseModel]) -> dict:
         dtype[field_name] = final_type
 
     return dtype
+
+
+def load_rows_from_table(table_name: str, row_model: Type[T]) -> list[T]:
+    rows = execute_sql(text(f"SELECT * FROM {table_name}"))
+    return [row_model(**row._asdict()) for row in rows]

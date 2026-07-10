@@ -1,97 +1,76 @@
-"""Insert facture xml in DB"""
+"""Insert factur-x in DB"""
 
 import logging
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from decimal import Decimal
+from typing import Literal
 
 from django.conf import settings
 from django.core.files.storage import default_storage
 
 from tqdm import tqdm
-from xmlschema import XMLSchema, XMLSchemaValidationError
+from xmlschema import XMLSchema, XMLSchemaValidationError, XMLSchemaException
 
 from gesec.data.pipeline.db import save_list_pydantic
-from .schemas import BronzeCproExportFactureXml, BronzeCproExportFactureXmlStatus
+from .schemas import BronzeCproExportFacturX, BronzeCproExportFacturXStatus
 from .utils import get_ids_cpro_for_ministere
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_TABLE_NAME = "bronze_" + __name__.split(".")[-1]
+DEFAULT_SCHEMA_PROFILE = "EN16931"
+DEFAULT_SCHEMA_VERSION = "1.09"
+XsdProfile = Literal["MINIMUM", "EN16931"]
 
 
-def get_xsd_schema_path(version: str) -> str:
-    path = settings.BASE_DIR / f"gesec/data/processors/cpro/models/xsd/UBL-{version}/maindoc/UBL-Invoice-{version}.xsd"
+def get_xsd_schema_path(profile: XsdProfile, version: str) -> str:
+    path = settings.BASE_DIR / f"gesec/data/processors/cpro/models/xsd/Factur-X_{version}_{profile}/Factur-X_{version}_{profile}.xsd"
     if not os.path.exists(path):
-        raise ValueError(f"Unknown xsd version {version}")
+        raise ValueError(f"Unknown xsd {profile} {version}")
     return path
 
 
-def get_xsd_schema(version: str) -> XMLSchema:
-    path = get_xsd_schema_path(version)
+def get_xsd_schema(profile: XsdProfile, version: str) -> XMLSchema:
+    path = get_xsd_schema_path(profile, version)
     return XMLSchema(path)
 
 
-def detect_schema_version(xml: str) -> str | None:
-    version = None
-    re_tag_version = re.compile("<cbc:UBLVersionID>(.*?)</cbc:UBLVersionID>")
-    tags_2 = [
-        'xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"',
-    ]
-    tags_2_0 = [
-        "UBL-Invoice-2.0.xsd",
-    ]
-
-    xml_header = xml[:2000]
-
-    t = re_tag_version.search(xml_header)
-    if t:
-        version = t.group(1)
-
-    # Si la version n'a pas pu être déterminée via UBLVersionID, test avec des chaines hardcodées
-    if version is None:
-        for tag_version, tag_list in [("2.0", tags_2_0), ("2", tags_2)]:
-            for tag in tag_list:
-                if tag in xml_header:
-                    version = tag_version
-                    break
-
-    return version
+def detect_schema_version(xml: str) -> tuple[str, str]:
+    return DEFAULT_SCHEMA_PROFILE, DEFAULT_SCHEMA_VERSION
 
 
-def load_file(id_cpro: str, file_path: str, schema: XMLSchema = None) -> BronzeCproExportFactureXml:
+def load_file(id_cpro: str, file_path: str, schema: XMLSchema = None) -> BronzeCproExportFacturX:
     if schema is None:
-        schema = get_xsd_schema("2.4")
+        schema = get_xsd_schema(DEFAULT_SCHEMA_PROFILE, DEFAULT_SCHEMA_VERSION)
 
     with default_storage.open(file_path, "r") as f:
         xml = f.read()
 
-    schema_version = detect_schema_version(xml)
-    if schema_version is None:
-        raise ValueError(f"Cannot determine schema version for {id_cpro} {file_path}")
+    schema_profile, schema_version = detect_schema_version(xml)
 
-    # Nettoyage des tags vides
-    xml = xml.replace('<cbc:AllowanceTotalAmount currencyID="EUR"/>', "")
-    xml = xml.replace('<cbc:Amount currencyID="EUR"/>', '<cbc:Amount currencyID="EUR">0.0</cbc:Amount>')
+    content, errors = schema.to_dict(xml, validation="lax")
+    str_errors = ""
+    for err in errors:
+        if isinstance(err, XMLSchemaValidationError):
+            str_errors += f"Path: {err.path}, Reason: {err.reason}\n"
+        else:
+            str_errors += repr(err) + "\n"
 
-    try:
-        content = schema.to_dict(xml)
-    except XMLSchemaValidationError:
-        raise
-
-    return BronzeCproExportFactureXml(
+    return BronzeCproExportFacturX(
         id_cpro=id_cpro,
-        xml_schema=f"UBL-Invoice-{schema_version}",
+        xml_schema=f"Factur-X_{schema_version}_{schema_profile}",
         content=content,
+        errors=str_errors,
     )
 
 
 def filter_files(directory: str, ids_cpro: list[str] | None = None) -> list[tuple[str, str]]:
-    """Renvoie la liste (id_cpro, path) des fichiers factures xml."""
+    """Renvoie la liste (id_cpro, path) des fichiers factur-x."""
     result = []
     facture_folders, _ = default_storage.listdir(directory)
-    for facture_folder in tqdm(facture_folders, "Recherche des factures XML"):
+    for facture_folder in tqdm(facture_folders, "Recherche des factur-x"):
         id_cpro = re.match(r".*facture_(\d+)", facture_folder).group(1)
         if ids_cpro is not None:
             if id_cpro not in ids_cpro:
@@ -99,15 +78,15 @@ def filter_files(directory: str, ids_cpro: list[str] | None = None) -> list[tupl
         pivot_dir = os.path.join(directory, facture_folder, "pivot")
         _, files = default_storage.listdir(pivot_dir)
         for file in files:
-            if file.endswith(".xml") and not file.endswith(".factur-x.xml"):
+            if file.endswith(".factur-x.xml"):
                 filepath = os.path.join(pivot_dir, file)
                 result.append((id_cpro, filepath))
     return result
 
 
 def build_rows(
-    files, n_workers: int | None = None
-) -> tuple[list[BronzeCproExportFactureXml], list[BronzeCproExportFactureXmlStatus]]:
+        files, n_workers: int | None = None
+) -> tuple[list[BronzeCproExportFacturX], list[BronzeCproExportFacturXStatus]]:
 
     all_rows = []
     all_status = []
@@ -118,31 +97,37 @@ def build_rows(
         else:
             n_workers = 1
 
-    schema = get_xsd_schema("2.4")
+    schema = get_xsd_schema(DEFAULT_SCHEMA_PROFILE, DEFAULT_SCHEMA_VERSION)
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
         futures = {
             executor.submit(load_file, id_cpro, filepath, schema): (id_cpro, filepath) for id_cpro, filepath in files
         }
 
-        for future in tqdm(as_completed(futures), total=len(files), desc="Chargement des factures XML"):
+        for future in tqdm(as_completed(futures), total=len(files), desc="Chargement des facture-x"):
             id_cpro, filepath = futures[future]
             try:
                 result = future.result()
                 all_rows.append(result)
                 all_status.append(
-                    BronzeCproExportFactureXmlStatus(
+                    BronzeCproExportFacturXStatus(
                         id_cpro=id_cpro,
                         status="Ok",
                     )
                 )
-            except XMLSchemaValidationError as e:
+            except XMLSchemaException as e:
                 id_cpro, filepath = futures[future]
-                logger.warning("Validation Error for %s %s: %s", id_cpro, filepath, (e.reason, e.path))
+                if isinstance(e, XMLSchemaValidationError):
+                    status = "Validation error"
+                    details = f"Path: {e.path} Reason: {e.reason}\n{e}"
+                else:
+                    status = str(e.__class__.__name__)
+                    details = str(e)
+                logger.warning("Validation Error for %s %s: %s", id_cpro, filepath, details)
                 all_status.append(
-                    BronzeCproExportFactureXmlStatus(
+                    BronzeCproExportFacturXStatus(
                         id_cpro=id_cpro,
-                        status="Validation error",
-                        status_details=f"Path: {e.path}\nReason: {e.reason}\n{e}",
+                        status=status,
+                        status_details=details,
                     )
                 )
             except Exception as e:
@@ -164,9 +149,9 @@ def clean_decimals(obj: dict) -> dict:
 
 
 def export_to_database(
-    rows: list[BronzeCproExportFactureXml],
-    rows_status: list[BronzeCproExportFactureXmlStatus],
-    table_name: str = DEFAULT_TABLE_NAME,
+        rows: list[BronzeCproExportFacturX],
+        rows_status: list[BronzeCproExportFacturXStatus],
+        table_name: str = DEFAULT_TABLE_NAME,
 ) -> None:
     if not rows:
         logger.warning("No data to export, skipping database insertion")
@@ -183,11 +168,11 @@ def export_to_database(
 
 
 def process_files_to_bronze(
-    directory: str,
-    table_name: str = DEFAULT_TABLE_NAME,
-    n_workers: int | None = None,
-    ids_cpro: list[str] | None = None,
-    ministere: str | None = None,
+        directory: str,
+        table_name: str = DEFAULT_TABLE_NAME,
+        n_workers: int | None = None,
+        ids_cpro: list[str] | None = None,
+        ministere: str | None = None,
 ) -> None:
     """
     Args:
@@ -202,7 +187,7 @@ def process_files_to_bronze(
     # Filter CSV files matching the pattern
     files = filter_files(directory, ids_cpro)
 
-    logger.info(f"Found {len(files)} matching facture XML files")
+    logger.info(f"Found {len(files)} matching factur-x files")
     for id_cpro, filepath in files:
         logger.debug(f"  - {id_cpro} {os.path.basename(filepath)}")
 

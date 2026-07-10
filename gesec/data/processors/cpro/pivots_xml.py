@@ -11,7 +11,7 @@ from django.core.files.storage import default_storage
 import xmltodict
 from tqdm import tqdm
 
-from .facture_x import read_facture_x
+from .factur_x import read_factur_x
 from .models.pivots_xml import PJ, CPPFacturePivot
 
 logger = logging.getLogger(__name__)
@@ -113,7 +113,7 @@ def save_file_content(pj: PJ, dirpath: str, name_suffix="") -> str:
     with zip_info.open(file_info.filename) as f:
         content = f.read()
         if file_info.filename.endswith(".pdf"):
-            factur_x_xml = read_facture_x(stream=content)
+            factur_x_xml = read_factur_x(stream=content)
         else:
             factur_x_xml = None
     if factur_x_xml is not None:

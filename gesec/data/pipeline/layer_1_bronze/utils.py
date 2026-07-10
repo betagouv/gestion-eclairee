@@ -1,8 +1,11 @@
 import re
 
+from sqlalchemy import text
 from unidecode import unidecode
 
 import pandas as pd
+
+from gesec.data.pipeline.db import execute_sql
 
 
 def clean_column_name(col: str) -> str:
@@ -42,3 +45,11 @@ def clean_dataframe_columns(df: pd.DataFrame) -> pd.DataFrame:
     """
     df.columns = [clean_column_name(col) for col in df.columns]
     return df
+
+
+def get_ids_cpro_for_ministere(ministere: str) -> list[str]:
+    rows = execute_sql(
+        text("select identifiant_chorus_pro from gesec_facture where ministere = :ministere"),
+        {"ministere": ministere},
+    )
+    return [row.identifiant_chorus_pro for row in rows]

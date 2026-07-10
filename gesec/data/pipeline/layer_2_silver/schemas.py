@@ -146,3 +146,35 @@ class SilverService(BaseModel):
     code: str
     name: str
     ministere: Optional[str] = None
+
+
+class SilverCproExportFacturXLigne(BaseModel):
+    id_cpro: str
+    xml_schema: str
+    line_id: str
+    item_name: str
+    item_description: str
+    item_reference: Optional[str]
+    quantity: Decimal
+    quantity_unit_code: str
+    unit_price: Decimal
+    line_amount_excl_tax: Decimal
+    line_amount_incl_tax: Decimal
+    line_amount_vat: Decimal
+    currency: str
+
+
+class SilverCproExportFactureXmlLigne(BaseModel):
+    id_cpro: str
+    xml_schema: str
+    line_id: str
+    item_name: str
+    item_description: str
+    item_reference: Optional[str]
+    quantity: Decimal
+    quantity_unit_code: str
+    unit_price: Decimal
+    line_amount_excl_tax: Decimal
+    line_amount_incl_tax: Decimal
+    line_amount_vat: Decimal
+    currency: str
