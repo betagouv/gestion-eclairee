@@ -17,6 +17,18 @@ def rget(d: dict[str, Any], key: str) -> Any:
         return v
 
 
+def xml_value(xml):
+    """Extract value from xml object.
+
+    Ex : {"total": "value"} or {"total": {"@currencyID": "EUR", "$": "value"}}
+    should return "value"
+    """
+    if isinstance(xml, dict):
+        return xml["$"]
+    else:
+        return xml
+
+
 def force_string(value: str | list[str], sep: str = " ") -> str:
     if isinstance(value, str):
         return value

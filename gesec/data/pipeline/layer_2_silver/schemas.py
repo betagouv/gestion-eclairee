@@ -164,6 +164,12 @@ class SilverCproExportFacturXLigne(BaseModel):
     currency: str
 
 
+class SilverCproExportFacturXLigneStatus(BaseModel):
+    id_cpro: str
+    status: str
+    status_details: Optional[str] = None
+
+
 class SilverCproExportFactureXmlLigne(BaseModel):
     id_cpro: str
     xml_schema: str
