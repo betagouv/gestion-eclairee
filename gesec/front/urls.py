@@ -28,6 +28,7 @@ urlpatterns = [
     path("", views.home, name="home"),
     path("login", TemplateView.as_view(template_name="gesec/auth/login.html"), name="login"),
     path("oidc/", include(oidc_urls)),
+    path("s3/<path:path>", views.s3_file, name="s3_file"),
 ]
 
 if settings.ADMIN_BASE_URL_PATH:
