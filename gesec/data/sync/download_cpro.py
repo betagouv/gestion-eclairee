@@ -11,6 +11,7 @@ from datetime import date, datetime
 from typing import Optional
 
 from cloakbrowser import launch_context
+from django.core.files.storage import default_storage
 from playwright._impl._errors import TimeoutError as PlaywrightTimeoutError
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,6 @@ def parse_args():
 def init_context(headless: bool = True):
     """Initialize browser context with cookies and download handler."""
     logger.info("Initializing context...")
-    os.makedirs("../downloads/gesec", exist_ok=True)
     ctx = launch_context(headless=headless)
     ctx.add_cookies(
         [
@@ -324,68 +324,7 @@ def build_filename(
     return "_".join(parts) + ".zip"
 
 
-def download_items_bulk(
-    page,
-    service: str,
-    provider_siret: str = None,
-    provider_siren: str = None,
-    num_ej: str = None,
-    start_date: date = None,
-    end_date: date = None,
-):
-    """Select all items on the current page and trigger bulk download.
-
-    Args:
-        page: The Playwright page object
-        service: The service code
-        provider_siret: Optional provider SIRET to include in filename
-        provider_siren: Optional provider SIREN to include in filename
-        num_ej: Optional numéro EJ to include in filename
-        start_date: Optional start date to include in filename
-        end_date: Optional end date to include in filename
-    """
-    # Get current page number from value attribute of the active page button
-    page_number = get_current_page_number(page)
-
-    filename = build_filename(
-        service,
-        provider_siret,
-        provider_siren,
-        num_ej,
-        start_date,
-        end_date,
-        page_number,
-    )
-    filepath = f"../downloads/gesec/bulk/{filename}"
-
-    if os.path.exists(filepath):
-        logger.info(
-            f"File {filename} already exists, skipping download for "
-            f"service={service}, start_date={start_date}, end_date={end_date}, page={page_number}"
-        )
-        return
-
-    # Verify date fields have the expected values (only if start_date and end_date are provided)
-    if start_date and end_date:
-        check_form_arguments(page, start_date, end_date)
-
-    logger.info(
-        f"Downloading items for service={service}, start_date={start_date}, end_date={end_date}, page={page_number}"
-    )
-
-    checkbox = page.locator("#actualiserDEFAULT-1")
-    checkbox.locator("xpath=ancestor::span").click()
-    page.click("#Synthese_Btn_TelechargerEnMasse")
-
-    with page.expect_download(timeout=5 * 60 * 1000) as download_info:
-        page.click("#GDP_Telechargementfacture_BoutonTelecharger")
-    download = download_info.value
-    assert download_info.is_done(), "Download should be done."
-    download.save_as(filepath)
-    logger.info(f"Saved as {filename}")
-
-
-def verify_download_integrity(filepath: str) -> bool:
+def verify_download_integrity(filepath: str, id_cpro: str | None) -> bool:
     """Verify that a downloaded zip file is not corrupted by checking IdCPRO in PivotS.xml.
 
     Opens the zip file, finds PivotS.xml inside, and reads it until finding
@@ -394,13 +333,17 @@ def verify_download_integrity(filepath: str) -> bool:
 
     Args:
         filepath: Path to the downloaded zip file
+        id_cpro (optional): Expected id cpro, default: extracted from filename
 
     Returns:
         True if the IdCPRO matches the id_chorus from filename, False otherwise
     """
     # Extract id chorus from filename (facture_<idchorus>.zip)
     filename = os.path.split(filepath)[-1]
-    expected_id_chorus = os.path.splitext(filename)[0].split("_")[-1]
+    if id_cpro:
+        expected_id_chorus = id_cpro
+    else:
+        expected_id_chorus = os.path.splitext(filename)[0].split("_")[-1]
     try:
         with zipfile.ZipFile(filepath, "r") as zip_ref:
             # Find PivotS.xml in the zip
@@ -496,9 +439,9 @@ def download_items(page, params: Optional[SearchParams] = None):
             continue
 
         filename = f"facture_{id_chorus}.zip"
-        filepath = f"../downloads/gesec/factures/{filename}"
+        filepath = f"cpro/factures/{filename}"
 
-        if os.path.exists(filepath):
+        if default_storage.exists(filepath):
             logger.info(f"File {filename} already exists, skipping download for id_chorus={id_chorus}")
             stats["skip"] += 1
             continue
@@ -515,7 +458,15 @@ def download_items(page, params: Optional[SearchParams] = None):
 
                 download = download_info.value
                 assert download_info.is_done(), "Download should be done."
-                download.save_as(filepath)
+                download_path = download.path()
+
+                # Verify download integrity
+                if not verify_download_integrity(download_path, id_cpro=id_chorus):
+                    logger.warning(f"Download verification failed for {filename} {params_str}")
+
+                # Save file
+                with open(download_path, "rb") as src:
+                    default_storage.save(filepath, src)
                 logger.info(f"Saved as {filename}")
                 download_success = True
                 break
@@ -529,10 +480,6 @@ def download_items(page, params: Optional[SearchParams] = None):
         if not download_success:
             stats["error"] += 1
             continue
-
-        # Verify download integrity
-        if not verify_download_integrity(filepath):
-            logger.warning(f"Download verification failed for {filename} {params_str}")
 
         stats["download"] += 1
 
@@ -588,7 +535,7 @@ def read_input_file(input_file: str) -> list[tuple[str, str]]:
 def build_export_filename(params: SearchParams) -> str:
     """Build export CSV filename based on search parameters.
 
-    Format: ../downloads/gesec/exports/<num_ej>_<service>_<provider>_<start>_<end>.csv
+    Format: cpro/exports/<num_ej>_<service>_<provider>_<start>_<end>.csv
 
     Args:
         params: SearchParams containing all search criteria
@@ -614,7 +561,7 @@ def build_export_filename(params: SearchParams) -> str:
         parts.append(params.end_date.strftime("%Y%m%d"))
 
     filename = "_".join(parts) + ".csv"
-    return f"../downloads/gesec/exports/{filename}"
+    return f"cpro/exports/{filename}"
 
 
 def download_export_csv(page, params: SearchParams) -> str:
@@ -634,10 +581,7 @@ def download_export_csv(page, params: SearchParams) -> str:
     # Build filename
     filepath = build_export_filename(params)
 
-    # Create exports directory if it doesn't exist
-    os.makedirs("../downloads/gesec/exports", exist_ok=True)
-
-    if os.path.exists(filepath):
+    if default_storage.exists(filepath):
         logger.info(f"Export file {filepath} already exists, skipping download")
         return filepath
 
@@ -647,7 +591,9 @@ def download_export_csv(page, params: SearchParams) -> str:
 
     download = download_info.value
     assert download_info.is_done(), "Download should be done."
-    download.save_as(filepath)
+    download_path = download.path()
+    with open(download_path, "rb") as src:
+        default_storage.save(filepath, src)
 
     logger.info(f"Export CSV saved as {filepath}")
     return filepath
@@ -698,6 +644,11 @@ def search_and_download(page, params: SearchParams):
 
 
 if __name__ == "__main__":
+    import django
+
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "gesec.settings")
+    django.setup()
+
     options = parse_args()
 
     # Setup logging
@@ -714,16 +665,8 @@ if __name__ == "__main__":
         file_handler = logging.FileHandler(log_filepath, encoding="utf-8")
         file_handler.setLevel(log_level)
         file_handler.setFormatter(logging.Formatter(log_format))
-
-    # Configure basic logging (stdout)
-    logging.basicConfig(
-        level=log_level,
-        format=log_format,
-        handlers=[
-            logging.StreamHandler(sys.stdout),
-        ]
-        + ([file_handler] if file_handler else []),
-    )
+        root_logger = logging.getLogger("")
+        root_logger.addHandler(file_handler)
 
     # Parse optional date range
     start_date = date.fromisoformat(options.start) if options.start else None

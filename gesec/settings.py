@@ -291,6 +291,9 @@ LOGGING = {
         "gesec": {
             "level": config.str("LOG_LEVEL", default="INFO"),
         },
+        "__main__": {
+            "level": config.str("LOG_LEVEL", default="INFO"),
+        },
         "": {
             "handlers": ["console"],
             "level": "WARNING",
