@@ -5,14 +5,16 @@ from gesec.data.pipeline import layer_3_gold as gold
 
 def launch_pipeline(ministere: str | None = None):
     exports_folder = "cpro/exports"
+    cpro_annuaire_filepath = "cpro/annuaire/annuaire_services_20260720.csv"
     oda_filepath = "oda/ODA_2025_Complet.csv"
     unzipped_folder = "cpro/factures_unzipped"
 
     # Bronze
+    bronze.cpro_annuaire.process_csv_to_bronze(cpro_annuaire_filepath)
+    bronze.oda_export_row.process_csvs_to_bronze(oda_filepath)
     bronze.cpro_export_facture_xml.process_files_to_bronze(unzipped_folder, ministere=ministere)
     bronze.cpro_export_factur_x.process_files_to_bronze(unzipped_folder, ministere=ministere)
     bronze.cpro_export_factures.process_csvs_to_bronze(exports_folder)
-    bronze.oda_export_row.process_csvs_to_bronze(oda_filepath)
 
     ## Silver
     silver.services.process_bronze_to_silver()

@@ -75,6 +75,10 @@ def save_dataframe_to_csv(df: pd.DataFrame, output_path: Path) -> None:
         output_path: Chemin vers le fichier CSV de sortie
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    if "created_at" in df.columns:
+        df.drop(columns=["created_at", "updated_at"], inplace=True)
+    if "id" in df.columns:
+        df.drop(columns=["id"], inplace=True)
     df.to_csv(output_path, index=False)
     print(f"Sauvegardé: {output_path} ({len(df)} lignes)")
 

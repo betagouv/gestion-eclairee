@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class BronzeCproExportFacture(BaseModel):
@@ -263,3 +263,23 @@ class BronzeCproExportFacturXStatus(BaseModel):
     id_cpro: str
     status: str
     status_details: Optional[str] = None
+
+
+class BronzeCproAnnuaireService(BaseModel):
+
+    model_config = ConfigDict(validate_by_alias=True, validate_by_name=True)
+
+    # Source tracking
+    source: str
+    source_idx: int
+
+    # Fields
+    identifiant: str = Field(validation_alias="Identifiant")
+    designation: str = Field(validation_alias="Désignation")
+    libelle_service: str = Field(validation_alias="Libelle service")
+    code_service: str = Field(validation_alias="Code service")
+    statut: str = Field(validation_alias="Statut")
+    service_obligatoire: str = Field(validation_alias="Service obligatoire")
+    engagement_obligatoire: str = Field(validation_alias="Engagement obligatoire")
+    service_ou_engagement_obligatoire: str = Field(validation_alias="Service ou engagement obligatoire")
+    numero_tva: str = Field(validation_alias="Numéro TVA intracommunautaire")
