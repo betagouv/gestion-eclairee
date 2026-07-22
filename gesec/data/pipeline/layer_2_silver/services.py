@@ -10,8 +10,16 @@ logger = logging.getLogger(__name__)
 DEFAULT_TABLE_NAME = "silver_" + __name__.split(".")[-1]
 
 KNOWN_SERVICES = {
+    # CGF Hautes Juridictions
     "CGFHJ00075": "SPM",
+    # Direction de l'Information Légale et Administrative
     "FACDILA075": "SPM",
+    # Autorité de Contrôle des Nuisances Aéroportuaires
+    "AAIACNU075": "AAI",
+    # Autorité de Sûreté Nucleaire
+    "AAIASN1075": "AAI",
+    # Commission de Régulation de l'Energie
+    "AAIRE00075": "AAI",
 }
 
 
@@ -53,8 +61,19 @@ def map_service(code: str, name: str) -> str:
         return "SPM"
     elif "agriculture" in name:
         return "AGRICULTURE"
-    elif "finances" in name:
+    elif "min aff etr" in name:
+        return "MEAE"
+    elif "finances" in name or "centre de gestion financière" in name:
         return "FINANCES"
+    elif "cpcm" in name:
+        cpcm_agri = ["Lorraine", "Haute-Normandie"]
+        for cpcm in cpcm_agri:
+            if cpcm in name:
+                return "AGRICULTURE"
+        else:
+            return "ECOLOGIE"
+    elif "ecologie" in name or "metl":
+        return "ECOLOGIE"
     else:
         return "INCONNU"
 
