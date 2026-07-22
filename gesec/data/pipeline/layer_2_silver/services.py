@@ -55,7 +55,7 @@ def map_service(code: str, name: str) -> str:
         return "JUSTICE"
     elif "défense" in name:
         return "DEFENSE"
-    elif "culture" in name:
+    elif " culture" in name:
         return "CULTURE"
     elif "services du premier ministre" in name:
         return "SPM"
