@@ -72,7 +72,7 @@ def map_service(code: str, name: str) -> str:
                 return "AGRICULTURE"
         else:
             return "ECOLOGIE"
-    elif "ecologie" in name or "metl":
+    elif "ecologie" in name or "metl" in name:
         return "ECOLOGIE"
     else:
         return "INCONNU"
