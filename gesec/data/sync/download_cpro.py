@@ -89,7 +89,7 @@ def parse_args():
 def init_context(headless: bool = True):
     """Initialize browser context with cookies and download handler."""
     logger.info("Initializing context...")
-    ctx = launch_context(headless=headless)
+    ctx = launch_context(headless=headless, locale="fr-FR")
     ctx.add_cookies(
         [
             {
