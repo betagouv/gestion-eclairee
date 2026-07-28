@@ -282,3 +282,33 @@ class BronzeCproAnnuaireService(BaseModel):
     engagement_obligatoire: str = Field(validation_alias="Engagement obligatoire")
     service_ou_engagement_obligatoire: str = Field(validation_alias="Service ou engagement obligatoire")
     numero_tva: str = Field(validation_alias="Numéro TVA intracommunautaire")
+
+
+class BronzeBudatExportAugdt(BaseModel):
+    model_config = ConfigDict(validate_by_alias=True, validate_by_name=True)
+
+    # Source tracking
+    source: str
+    source_idx: int
+
+    annee: str = Field(validation_alias="ANNEE")
+    facture: str = Field(validation_alias="FACTURE")
+    facture_ref: str = Field(validation_alias="REF_FAC")
+    facture_date: str = Field(validation_alias="DATE_FAC")
+    facture_montant: str = Field(validation_alias="MNT_FAC")
+    date_payment: str = Field(validation_alias="DATE_PY")
+    ej: str = Field(validation_alias="EJ")
+    marche: str = Field(validation_alias="MARCHE")
+    seej: str = Field(validation_alias="SEEJ")
+    gm: str = Field(validation_alias="GM")
+    libelle: str = Field(validation_alias="LIBELLE")
+    fournisseur: str = Field(validation_alias="FOURN")
+    fournisseur_siren: str = Field(validation_alias="SIREN")
+    facture_fi: str = Field(validation_alias="FACTURE_FI")
+    societe: str = Field(validation_alias="SOCIETE")
+    service: str = Field(validation_alias="SEDP")
+    cc: str = Field(validation_alias="CC")
+    pce: str = Field(validation_alias="PCE")
+    txt50: str = Field(validation_alias="TXT50")
+    activite: str = Field(validation_alias="ACTIVIT")
+    description: str = Field(validation_alias="DESCRIPTION")
