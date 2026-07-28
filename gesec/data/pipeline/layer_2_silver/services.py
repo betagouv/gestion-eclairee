@@ -2,8 +2,8 @@ import logging
 
 from ..db import load_rows_from_table, save_list_pydantic
 from ..layer_1_bronze.cpro_annuaire import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
-from .schemas import SilverService
 from ..layer_1_bronze.schemas import BronzeCproAnnuaireService
+from .schemas import SilverService
 
 logger = logging.getLogger(__name__)
 

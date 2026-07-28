@@ -19,7 +19,7 @@ def load_csv(filepath: str) -> list[BronzeCproAnnuaireService]:
 
     rows = []
     with default_storage.open(filepath, "rb") as f:
-        text_f = io.TextIOWrapper(f, encoding='utf-8-sig')
+        text_f = io.TextIOWrapper(f, encoding="utf-8-sig")
         reader = csv.DictReader(text_f, delimiter=";")
         for idx, row in enumerate(reader):
             # Skip first line

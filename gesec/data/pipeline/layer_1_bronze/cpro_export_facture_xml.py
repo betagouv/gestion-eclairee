@@ -13,6 +13,7 @@ from tqdm import tqdm
 from xmlschema import XMLSchema, XMLSchemaValidationError
 
 from gesec.data.pipeline.db import save_list_pydantic
+
 from .schemas import BronzeCproExportFactureXml, BronzeCproExportFactureXmlStatus
 from .utils import get_ids_cpro_for_ministere
 

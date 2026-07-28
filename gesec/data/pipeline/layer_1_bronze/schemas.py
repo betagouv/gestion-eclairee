@@ -2,7 +2,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BronzeCproExportFacture(BaseModel):
@@ -266,7 +266,6 @@ class BronzeCproExportFacturXStatus(BaseModel):
 
 
 class BronzeCproAnnuaireService(BaseModel):
-
     model_config = ConfigDict(validate_by_alias=True, validate_by_name=True)
 
     # Source tracking

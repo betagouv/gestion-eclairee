@@ -2,13 +2,13 @@ import datetime
 import logging
 import os
 from decimal import Decimal
-from typing import Any, Literal, Optional, Sequence, Type, Union, get_args, get_origin, TypeVar
+from typing import Any, Literal, Optional, Sequence, Type, TypeVar, Union, get_args, get_origin
 from uuid import UUID
 
 import sqlalchemy
 from pydantic import BaseModel
 from sqlalchemy import Engine, Executable, Row, text
-from sqlalchemy.dialects.postgresql import JSONB, HSTORE
+from sqlalchemy.dialects.postgresql import HSTORE, JSONB
 from sqlalchemy.engine.interfaces import _CoreAnyExecuteParams
 
 import pandas as pd
@@ -16,7 +16,7 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 def create_engine() -> Engine:

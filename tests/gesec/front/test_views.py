@@ -1,8 +1,9 @@
 import io
 
-import pytest
 from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
+
+import pytest
 from freezegun import freeze_time
 
 from gesec.front.ratelimit.models import RateLimitCount
@@ -15,7 +16,7 @@ User = get_user_model()
 def test_home_view(client):
     """Test that home view renders correctly."""
     response = client.get("/")
-    
+
     assert response.status_code == 200
     assert any(t.name == "gesec/home.html" for t in response.templates)
 
@@ -24,7 +25,7 @@ def test_home_view(client):
 def test_s3_file_unauthenticated(client):
     """Test that unauthenticated users get 403."""
     response = client.get("/s3/test.txt")
-    
+
     assert response.status_code == 403
 
 
@@ -33,9 +34,9 @@ def test_s3_file_not_superuser(client):
     """Test that authenticated non-superuser gets 403."""
     user = UserFactory(is_superuser=False)
     client.force_login(user)
-    
+
     response = client.get("/s3/test.txt")
-    
+
     assert response.status_code == 403
 
 
@@ -53,7 +54,7 @@ def test_s3_file_rate_limited(client):
             expiry="2025-10-09T10:00:00+00:00",
         )
         response = client.get("/s3/test.txt")
-    
+
     assert response.status_code == 403
 
 
@@ -62,7 +63,7 @@ def test_s3_file_not_found(admin_client):
     """Test that 404 is raised when file doesn't exist."""
 
     response = admin_client.get("/s3/nonexistent.txt")
-    
+
     assert response.status_code == 404
 
 
@@ -72,10 +73,10 @@ def test_s3_file_success(admin_client):
 
     test_content = b"test file content"
     default_storage.save("test.txt", io.BytesIO(test_content))
-    
+
     response = admin_client.get("/s3/test.txt")
-    
+
     assert response.status_code == 200
     assert b"test file content" in b"".join(response.streaming_content)
-    
+
     default_storage.delete("test.txt")

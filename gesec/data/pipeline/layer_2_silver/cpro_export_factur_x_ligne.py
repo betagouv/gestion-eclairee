@@ -4,11 +4,11 @@ from decimal import Decimal
 
 from tqdm import tqdm
 
-from gesec.data.pipeline.db import save_list_pydantic, load_rows_from_table
+from gesec.data.pipeline.db import load_rows_from_table, save_list_pydantic
 from gesec.data.pipeline.layer_1_bronze.cpro_export_factur_x import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeCproExportFacturX
 from gesec.data.pipeline.layer_2_silver.schemas import SilverCproExportFacturXLigne, SilverCproExportFacturXLigneStatus
-from gesec.data.pipeline.utils import rget, xml_value, force_string
+from gesec.data.pipeline.utils import force_string, rget, xml_value
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +21,17 @@ def load_bronze_rows(table_name: str) -> list[BronzeCproExportFacturX]:
 
 def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> list[SilverCproExportFacturXLigne]:
     result = []
-    invoice_currency = rget(content, "rsm:SupplyChainTradeTransaction.ram:ApplicableHeaderTradeSettlement.ram:InvoiceCurrencyCode")
+    invoice_currency = rget(
+        content, "rsm:SupplyChainTradeTransaction.ram:ApplicableHeaderTradeSettlement.ram:InvoiceCurrencyCode"
+    )
     lines = rget(content, "rsm:SupplyChainTradeTransaction.ram:IncludedSupplyChainTradeLineItem")
     if not lines:
         return []
     for line in lines:
         line_trade_settlement_obj = line["ram:SpecifiedLineTradeSettlement"]
-        line_amount_obj = line_trade_settlement_obj["ram:SpecifiedTradeSettlementLineMonetarySummation"]["ram:LineTotalAmount"]
+        line_amount_obj = line_trade_settlement_obj["ram:SpecifiedTradeSettlementLineMonetarySummation"][
+            "ram:LineTotalAmount"
+        ]
         if isinstance(line_amount_obj, dict):
             line_amount_excl_tax = Decimal(line_amount_obj["$"])
             line_price_currency = line_amount_obj["@currencyID"]
@@ -35,7 +39,9 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
                 line_price_currency = None
             if not invoice_currency:
                 invoice_currency = line_price_currency
-            assert not line_price_currency or line_price_currency == invoice_currency, f"Currency missmatch {invoice_currency!r} != {line_price_currency!r}"
+            assert not line_price_currency or line_price_currency == invoice_currency, (
+                f"Currency missmatch {invoice_currency!r} != {line_price_currency!r}"
+            )
         else:
             line_amount_excl_tax = Decimal(line_amount_obj)
         line_amount_tax = None
@@ -55,7 +61,9 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
         # Essaie d'extraire la tva depuis les taux globaux de la facture
         # Ne marche que s'il y a une seule TVA
         if line_amount_tax is None:
-            trade_taxes = rget(content, "rsm:SupplyChainTradeTransaction.ram:ApplicableHeaderTradeSettlement.ram:ApplicableTradeTax")
+            trade_taxes = rget(
+                content, "rsm:SupplyChainTradeTransaction.ram:ApplicableHeaderTradeSettlement.ram:ApplicableTradeTax"
+            )
             if trade_taxes and len(trade_taxes) == 1:
                 tax_percent = trade_taxes[0].get("ram:RateApplicablePercent")
                 if tax_percent:
@@ -65,7 +73,10 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
         # Essaie d'extraire la tva depuis le montant total de la facture
         # Ne marche que s'il y a une seule TVA
         if line_amount_tax is None:
-            header_summation = rget(content, "rsm:SupplyChainTradeTransaction.ram:ApplicableHeaderTradeSettlement.ram:SpecifiedTradeSettlementHeaderMonetarySummation")
+            header_summation = rget(
+                content,
+                "rsm:SupplyChainTradeTransaction.ram:ApplicableHeaderTradeSettlement.ram:SpecifiedTradeSettlementHeaderMonetarySummation",
+            )
             if header_summation:
                 tax_total = header_summation.get("ram:TaxTotalAmount")
                 tax_basis_total = header_summation.get("ram:TaxBasisTotalAmount")
@@ -89,7 +100,9 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
                 unit_price_currency = None
             if not invoice_currency:
                 invoice_currency = unit_price_currency
-            assert not unit_price_currency or unit_price_currency == invoice_currency, f"Currency missmatch {invoice_currency} != {unit_price_currency}"
+            assert not unit_price_currency or unit_price_currency == invoice_currency, (
+                f"Currency missmatch {invoice_currency} != {unit_price_currency}"
+            )
         else:
             unit_price = Decimal(unit_price_obj)
 
@@ -138,7 +151,11 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
             raise
 
     # Ajout des lignes des charges (ex: livraison)
-    for charge_idx, charge in enumerate(content["rsm:SupplyChainTradeTransaction"]["ram:ApplicableHeaderTradeSettlement"].get("ram:SpecifiedTradeAllowanceCharge", [])):
+    for charge_idx, charge in enumerate(
+        content["rsm:SupplyChainTradeTransaction"]["ram:ApplicableHeaderTradeSettlement"].get(
+            "ram:SpecifiedTradeAllowanceCharge", []
+        )
+    ):
         amount = Decimal(charge["ram:ActualAmount"]["$"])
         # Fixe la TVA à 20%
         line_amount_tax = Decimal("0.2") * amount
@@ -166,7 +183,7 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
 
 
 def transform_to_silver(
-        bronze_factures_xml: list[BronzeCproExportFacturX],
+    bronze_factures_xml: list[BronzeCproExportFacturX],
 ) -> tuple[list[SilverCproExportFacturXLigne], list[SilverCproExportFacturXLigneStatus]]:
     result = []
     status_list = []
@@ -175,23 +192,27 @@ def transform_to_silver(
             lines = transform_xml_to_silver(fac.content, fac.id_cpro, fac.xml_schema)
         except (ValueError, KeyError, TypeError) as e:
             logger.warning(f"Cannot transform {fac.id_cpro} to silver: {e!r}")
-            status_list.append(SilverCproExportFacturXLigneStatus(
-                id_cpro=fac.id_cpro,
-                status="Error",
-                status_details=repr(e),
-            ))
+            status_list.append(
+                SilverCproExportFacturXLigneStatus(
+                    id_cpro=fac.id_cpro,
+                    status="Error",
+                    status_details=repr(e),
+                )
+            )
         else:
             result.extend(lines)
-            status_list.append(SilverCproExportFacturXLigneStatus(
-                id_cpro=fac.id_cpro,
-                status="Ok",
-            ))
+            status_list.append(
+                SilverCproExportFacturXLigneStatus(
+                    id_cpro=fac.id_cpro,
+                    status="Ok",
+                )
+            )
     return result, status_list
 
 
 def process_to_silver(
-        bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
-        silver_table_name: str = DEFAULT_TABLE_NAME,
+    bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
+    silver_table_name: str = DEFAULT_TABLE_NAME,
 ) -> None:
     bronze_factures = load_bronze_rows(bronze_table_name)
     silver_lines, silver_lines_status = transform_to_silver(bronze_factures)

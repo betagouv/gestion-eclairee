@@ -1,13 +1,13 @@
 import json
 from decimal import Decimal
 
-from sqlalchemy import text
 from tqdm import tqdm
 
-from gesec.data.pipeline.db import create_engine, save_list_pydantic, load_rows_from_table
+from gesec.data.pipeline.db import load_rows_from_table, save_list_pydantic
 from gesec.data.pipeline.layer_1_bronze.cpro_export_facture_xml import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeCproExportFactureXml
-from gesec.data.pipeline.utils import rget, force_string
+from gesec.data.pipeline.utils import force_string, rget
+
 from .schemas import SilverCproExportFactureXmlLigne
 
 DEFAULT_TABLE_NAME = "silver_" + __name__.split(".")[-1]
@@ -36,12 +36,12 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
                 tax_type_code = rget(tax_category, "cac:TaxScheme.cbc:TaxTypeCode")
                 assert (
                     # 2.0 // UGAP (TVA) Bechtle direct (TVA DEBIT) INETUM (VAT)
-                        ("TVA" in str(tax_type_code) or "VAT" in str(tax_type_code))
-                        # 2.1 // SCC
-                        or rget(tax_category, "cac:TaxScheme.cbc:ID") == "VAT"
-                        or rget(tax_category, "cac:TaxScheme.cbc:ID.$") == "VAT"
-                        # Or empty tax scheme
-                        or rget(tax_category, "cac:TaxScheme") is None
+                    ("TVA" in str(tax_type_code) or "VAT" in str(tax_type_code))
+                    # 2.1 // SCC
+                    or rget(tax_category, "cac:TaxScheme.cbc:ID") == "VAT"
+                    or rget(tax_category, "cac:TaxScheme.cbc:ID.$") == "VAT"
+                    # Or empty tax scheme
+                    or rget(tax_category, "cac:TaxScheme") is None
                 ), f"Weird tax {id_cpro} {tax_category}"
                 if "cbc:Percent" in tax_category:
                     tax_percent = tax_category["cbc:Percent"]
@@ -149,7 +149,7 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
 
 
 def transform_to_silver(
-        bronze_factures_xml: list[BronzeCproExportFactureXml],
+    bronze_factures_xml: list[BronzeCproExportFactureXml],
 ) -> list[SilverCproExportFactureXmlLigne]:
     result = []
     for fac in tqdm(bronze_factures_xml):
@@ -159,8 +159,8 @@ def transform_to_silver(
 
 
 def process_to_silver(
-        bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
-        silver_table_name: str = DEFAULT_TABLE_NAME,
+    bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
+    silver_table_name: str = DEFAULT_TABLE_NAME,
 ) -> None:
     bronze_factures = load_bronze_rows(bronze_table_name)
     silver_lines = transform_to_silver(bronze_factures)

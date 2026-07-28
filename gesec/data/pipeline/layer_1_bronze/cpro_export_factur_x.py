@@ -11,9 +11,10 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 
 from tqdm import tqdm
-from xmlschema import XMLSchema, XMLSchemaValidationError, XMLSchemaException
+from xmlschema import XMLSchema, XMLSchemaException, XMLSchemaValidationError
 
 from gesec.data.pipeline.db import save_list_pydantic
+
 from .schemas import BronzeCproExportFacturX, BronzeCproExportFacturXStatus
 from .utils import get_ids_cpro_for_ministere
 
@@ -26,7 +27,10 @@ XsdProfile = Literal["MINIMUM", "EN16931"]
 
 
 def get_xsd_schema_path(profile: XsdProfile, version: str) -> str:
-    path = settings.BASE_DIR / f"gesec/data/processors/cpro/models/xsd/Factur-X_{version}_{profile}/Factur-X_{version}_{profile}.xsd"
+    path = (
+        settings.BASE_DIR
+        / f"gesec/data/processors/cpro/models/xsd/Factur-X_{version}_{profile}/Factur-X_{version}_{profile}.xsd"
+    )
     if not os.path.exists(path):
         raise ValueError(f"Unknown xsd {profile} {version}")
     return path
@@ -85,7 +89,7 @@ def filter_files(directory: str, ids_cpro: list[str] | None = None) -> list[tupl
 
 
 def build_rows(
-        files, n_workers: int | None = None
+    files, n_workers: int | None = None
 ) -> tuple[list[BronzeCproExportFacturX], list[BronzeCproExportFacturXStatus]]:
 
     all_rows = []
@@ -149,9 +153,9 @@ def clean_decimals(obj: dict) -> dict:
 
 
 def export_to_database(
-        rows: list[BronzeCproExportFacturX],
-        rows_status: list[BronzeCproExportFacturXStatus],
-        table_name: str = DEFAULT_TABLE_NAME,
+    rows: list[BronzeCproExportFacturX],
+    rows_status: list[BronzeCproExportFacturXStatus],
+    table_name: str = DEFAULT_TABLE_NAME,
 ) -> None:
     if not rows:
         logger.warning("No data to export, skipping database insertion")
@@ -168,11 +172,11 @@ def export_to_database(
 
 
 def process_files_to_bronze(
-        directory: str,
-        table_name: str = DEFAULT_TABLE_NAME,
-        n_workers: int | None = None,
-        ids_cpro: list[str] | None = None,
-        ministere: str | None = None,
+    directory: str,
+    table_name: str = DEFAULT_TABLE_NAME,
+    n_workers: int | None = None,
+    ids_cpro: list[str] | None = None,
+    ministere: str | None = None,
 ) -> None:
     """
     Args:

@@ -3,15 +3,15 @@ import logging
 import optparse
 import os
 import platform
-import sys
 import time
 import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime
 from typing import Optional
 
-from cloakbrowser import launch_context
 from django.core.files.storage import default_storage
+
+from cloakbrowser import launch_context
 from playwright._impl._errors import TimeoutError as PlaywrightTimeoutError
 
 logger = logging.getLogger(__name__)
