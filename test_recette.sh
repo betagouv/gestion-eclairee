@@ -13,7 +13,7 @@ export ENV_FILE=../gesec-recette.env
 ./manage.py migrate
 
 # Unzip factures
-python -m gesec.data.processors.cpro.pivots_xml -i $MEDIA_DIR/cpro/factures -o $MEDIA_DIR/cpro/factures_unzipped
+python -m gesec.data.processors.cpro.pivots_xml -i $MEDIA_DIR/cpro/factures -o cpro/factures_unzipped
 
 ./manage.py launch_pipeline
 DUMP_FOLDER=../gesec/testing/dumps_$(date +"%Y%m%d_%H%M%S")
