@@ -749,7 +749,8 @@ if __name__ == "__main__":
                     else:
                         logger.error(f"Max retries reached for search_and_download, skipping {params.to_log_string()}")
 
-        input(">>")
+        if options.headed:
+            input("Press any key to quit...")
     except KeyboardInterrupt:
         logger.info("Interrupted by user.")
     finally:
