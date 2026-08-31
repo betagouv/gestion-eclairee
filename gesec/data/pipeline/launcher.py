@@ -7,7 +7,7 @@ def launch_pipeline(ministere: str | None = None):
     exports_folder = "cpro/exports"
     cpro_annuaire_filepath = "cpro/annuaire/annuaire_services_20260720.csv"
     oda_filepath = "oda/ODA_2025_Complet.csv"
-    augdt_filepath = "budat/export_augdt_20260716.csv"
+    augdt_filepath = "budat/export_augdt_20260814.csv"
     unzipped_folder = "cpro/factures_unzipped"
 
     # Bronze
