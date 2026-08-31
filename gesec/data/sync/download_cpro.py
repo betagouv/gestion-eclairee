@@ -30,6 +30,7 @@ class SearchParams:
     facture_num: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
+    ignore_payment_state: Optional[bool] = None
 
     def to_log_string(self) -> str:
         """Convert search params to a formatted string for logging.
@@ -46,6 +47,8 @@ class SearchParams:
             parts.append(f"num_ej={self.num_ej}")
         if self.facture_num:
             parts.append(f"facture_num={self.facture_num}")
+        if self.ignore_payment_state:
+            parts.append(f"ignore_payment_state={self.ignore_payment_state}")
         if self.start_date:
             parts.append(f"start_date={self.start_date}")
         if self.end_date:
@@ -73,6 +76,12 @@ def parse_args():
             "Input file containing EJ, SERVICES, and FACTURE_NUM columns (space-separated services). "
             "Not compatible with --service, --num-ej, or --facture-num"
         ),
+    )
+    parser.add_option("--ignore-payment-state",
+        dest="ignore_payment_state",
+        action="store_true",
+        default=False,
+        help="Ignore payment state",
     )
     parser.add_option(
         "--log-dir",
@@ -109,15 +118,16 @@ def init_context(headless: bool = True):
     return ctx, page
 
 
-def init_search_page(page):
+def init_search_page(page, ignore_payment_state: bool):
     """Navigate to the invoice search page and fill the static form criteria."""
     logger.info("Initializing search page")
 
     # Ouverture de la page
     page.goto("https://cpro.chorus-pro.gouv.fr/cpp/rechercheFactures")
 
-    # Sélection de l'état Mise en paiement
-    page.select_option("select[name='listeResultats.critere.etatCourant']", value="MISE_EN_PAIEMENT")
+    if not ignore_payment_state:
+        # Sélection de l'état Mise en paiement
+        page.select_option("select[name='listeResultats.critere.etatCourant']", value="MISE_EN_PAIEMENT")
 
     logger.info("Search page initialized.")
 
@@ -291,49 +301,6 @@ def get_current_page_number(page):
     page_button = page.locator("li.paginate__page.paginate__page_active button[name='listeResultats.page']")
     page_number = page_button.get_attribute("value")
     return page_number
-
-
-def build_filename(
-    service: str,
-    provider_siret: str = None,
-    provider_siren: str = None,
-    num_ej: str = None,
-    start_date: date = None,
-    end_date: date = None,
-    page_number: str = None,
-):
-    """Build a filename based on the provided parameters.
-    Order: num_ej -> service -> provider (siret/siren) -> num_ej -> date -> page_number
-
-    Args:
-        service: The service code (required)
-        provider_siret: Optional provider SIRET
-        provider_siren: Optional provider SIREN
-        num_ej: Optional numéro EJ
-        start_date: Optional start date for the file
-        end_date: Optional end date for the file
-        page_number: Optional page number
-
-    Returns:
-        A sanitized filename string
-    """
-    parts = [service]
-
-    # Provider identifier (prefer siret, fallback to siren)
-    provider_id = provider_siret or provider_siren
-    if provider_id:
-        parts.append(provider_id)
-
-    if num_ej:
-        parts.append(num_ej)
-
-    if date:
-        parts.append(date.strftime("%Y%m%d"))
-
-    if page_number:
-        parts.append(page_number)
-
-    return "_".join(parts) + ".zip"
 
 
 def verify_download_integrity(filepath: str, id_cpro: str | None) -> bool:
@@ -528,6 +495,10 @@ def read_input_file(input_file: str) -> list[tuple[str, str, str]]:
             assert not ej or len(ej) == 10, f"row with invalid EJ: {row}"
             # assert services_str, f"Row with empty SERVICES: {row}"
 
+            if len(facture_num) < 3:
+                logger.warning(f"Facture num too short: %r.", row)
+                facture_num = ""
+
             if not services_str.strip():
                 tuples.append((ej, None, facture_num))
             else:
@@ -569,6 +540,9 @@ def build_export_filename(params: SearchParams) -> str:
 
     if params.provider:
         parts.append(params.provider)
+
+    if params.ignore_payment_state:
+        parts.append("no_payment_state")
 
     if params.start_date:
         parts.append(params.start_date.strftime("%Y%m%d"))
@@ -625,7 +599,7 @@ def search_and_download(page, params: SearchParams):
     logger.info(f"Starting search and download with params: {params}")
 
     # Initialize search page once
-    init_search_page(page)
+    init_search_page(page, params.ignore_payment_state)
 
     # Fill service
     if params.service:
@@ -748,6 +722,7 @@ if __name__ == "__main__":
                 facture_num=facture_num,
                 start_date=start_date,
                 end_date=end_date,
+                ignore_payment_state=options.ignore_payment_state,
             )
 
             # Search and download with retry logic (3 attempts max)
