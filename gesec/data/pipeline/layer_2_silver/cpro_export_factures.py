@@ -42,12 +42,8 @@ def transform_bronze_to_silver(
     for bronze_facture in bronze_factures:
         bronze_facture_dict = bronze_facture.model_dump()
 
-        # Vérifier que l'état est "Mise en paiement"
-        if bronze_facture.etat_courant != "Mise en paiement":
-            status = "Validation error"
-            status_details = f"Etat courant invalide: {bronze_facture.etat_courant}"
         # Vérifier les champs destinataire
-        elif (
+        if (
             bronze_facture.destinataire_type_d_identifiant != "Structure avec N° SIRET"
             or bronze_facture.destinataire_identifiant != "11000201100044"
             or bronze_facture.destinataire_designation != "SERVICES DE L'ETAT POUR LA FACTURATION ELECTRONIQUE"
