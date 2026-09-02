@@ -77,7 +77,8 @@ def parse_args():
             "Not compatible with --service, --num-ej, or --facture-num"
         ),
     )
-    parser.add_option("--ignore-payment-state",
+    parser.add_option(
+        "--ignore-payment-state",
         dest="ignore_payment_state",
         action="store_true",
         default=False,
@@ -491,12 +492,12 @@ def read_input_file(input_file: str) -> list[tuple[str, str, str]]:
             services_str = row["SERVICES"].strip()
             facture_num = row.get("FACTURE_NUM", "").strip()
 
-            #assert ej, f"row with empty EJ: {row}"
+            # assert ej, f"row with empty EJ: {row}"
             assert not ej or len(ej) == 10, f"row with invalid EJ: {row}"
             # assert services_str, f"Row with empty SERVICES: {row}"
 
             if len(facture_num) < 3:
-                logger.warning(f"Facture num too short: %r.", row)
+                logger.warning("Facture num too short: %r.", row)
                 facture_num = ""
 
             if not services_str.strip():
@@ -709,10 +710,14 @@ if __name__ == "__main__":
 
         for idx, (num_ej, service, facture_num) in enumerate(tuples, 1):
             if idx <= skip_count:
-                logger.debug(f"Skipping tuple {idx}/{total_tuples}: EJ={num_ej}, Service={service}, Facture={facture_num}")
+                logger.debug(
+                    f"Skipping tuple {idx}/{total_tuples}: EJ={num_ej}, Service={service}, Facture={facture_num}"
+                )
                 continue
 
-            logger.info(f"Processing tuple: EJ={num_ej}, Service={service}, Facture={facture_num} ({idx}/{total_tuples})")
+            logger.info(
+                f"Processing tuple: EJ={num_ej}, Service={service}, Facture={facture_num} ({idx}/{total_tuples})"
+            )
 
             # Create search parameters for this tuple
             params = SearchParams(

@@ -20,6 +20,24 @@ logger = logging.getLogger(__name__)
 LIST_KEYS = ["ParametreIndiv", "CPPFacturePivotUnitaire", "TVA", "Ligne", "PJ", "ValidationUnitaire"]
 
 
+def storage_save(path, content):
+    if default_storage.exists(path):
+        raise Exception(f"Storage path {path} already exists.")
+    default_storage.save(path, content)
+
+
+def remove_dir(path: str):
+    directories, files = default_storage.listdir(path)
+    for file in files:
+        default_storage.delete(os.path.join(path, file))
+    for directory in directories:
+        remove_dir(os.path.join(path, directory))
+
+
+def build_partial_marker_path(dir):
+    return os.path.join(dir, "PARTIAL")
+
+
 def parse_xml(xml: str):
     """Parse `xml` string using xmltodict with forced list for known multi-element keys."""
     doc = xmltodict.parse(xml, force_list=LIST_KEYS)
@@ -47,7 +65,7 @@ def find_list_paths(data, parent_path="", found=None):
 
 def _convert_dict_to_pydantic(data: dict) -> dict:
     """Convert xmltodict output to a structure compatible with pydantic models.
-    
+
     Handles special cases like `#text` nodes and known list keys (`TVAs`, `Lignes`).
     """
     if not data:
@@ -91,7 +109,7 @@ def parse_xml_to_obj(xml: str) -> CPPFacturePivot:
 
 def save_file_content(pj: PJ, dirpath: str, name_suffix="") -> str:
     """Save PJ file content to storage.
-    
+
     Extracts the file from `pj.Contenu` (base64-encoded zip), saves it to `dirpath`
     in storage with optional `name_suffix`, and extracts Factur-X XML from PDF files.
     Returns the storage path where the file was saved.
@@ -99,36 +117,36 @@ def save_file_content(pj: PJ, dirpath: str, name_suffix="") -> str:
     name, ext = os.path.splitext(pj.NomPJ)
     pj_nom = name + name_suffix + ext
     zip_content = base64.b64decode(pj.Contenu)
-    
+
     # Open the zip file from memory
     zip_info = zipfile.ZipFile(io.BytesIO(zip_content))
     assert len(zip_info.filelist) == 1, f"Multiple files in zip {pj_nom}: {zip_info.filelist}"
     file_info = zip_info.filelist[0]
     assert file_info.filename == pj.NomPJ, f"Name mismatch {file_info.filename} != {pj.NomPJ}"
-    
+
     # Read the file content from zip
     with zip_info.open(file_info.filename) as source:
         file_content = source.read()
-    
+
     # Save the extracted file to storage
     storage_path = os.path.join(dirpath, pj_nom)
-    default_storage.save(storage_path, ContentFile(file_content))
-    
+    storage_save(storage_path, ContentFile(file_content))
+
     # Handle Factur-X extraction for PDF files
     factur_x_xml = None
     if file_info.filename.endswith(".pdf"):
         factur_x_xml = read_factur_x(stream=file_content)
-    
+
     if factur_x_xml is not None:
         factur_x_path = storage_path + ".factur-x.xml"
-        default_storage.save(factur_x_path, ContentFile(factur_x_xml))
-    
+        storage_save(factur_x_path, ContentFile(factur_x_xml))
+
     return storage_path
 
 
 def extract_pivot_obj(pivot: CPPFacturePivot, output_dir: str, flat_dir: bool):
     """Extract all PJ files from a pivot.
-    
+
     Saves all attachment files from `pivot` to storage under `output_dir`.
     If `flat_dir` is `True`, files are saved directly in `output_dir`.
     If `False`, a subdirectory is created per invoice using the format
@@ -151,7 +169,7 @@ def extract_pivot_obj(pivot: CPPFacturePivot, output_dir: str, flat_dir: bool):
 
 def extract_pivot_file(filepath: str, output_dir: str, flat_dir: bool) -> None:
     """Extract a pivot XML file.
-    
+
     Parses the XML file at `filepath`, extracts all contained PJ files,
     and saves them to storage under `output_dir` using the directory structure
     specified by `flat_dir`.
@@ -164,27 +182,28 @@ def extract_pivot_file(filepath: str, output_dir: str, flat_dir: bool) -> None:
 
 def find_files_by_name(directory, pattern):
     """Recursively search for files matching a regex pattern in storage.
-    
+
     Searches in `directory` and all its subdirectories for files whose names
     match the regex `pattern`. Uses `default_storage` for storage-agnostic operation.
     """
+
     def _walk_storage(path):
         dirs, files = default_storage.listdir(path)
-        
+
         for file in files:
             if re.match(pattern, file):
                 yield os.path.join(path, file)
-        
+
         for dir_name in dirs:
             subpath = os.path.join(path, dir_name)
             yield from _walk_storage(subpath)
-    
+
     yield from _walk_storage(directory)
 
 
-def extract_facture(filepath: str, base_output_dir: str) -> None:
+def extract_facture(filepath: str, base_output_dir: str) -> bool:
     """Extract a facture zip file from storage.
-    
+
     Reads the zip file at `filepath` from storage, extracts all files to
     `base_output_dir`/{zip_name}, and processes the contained `PivotS.xml`
     to extract and save all PJ attachments.
@@ -192,16 +211,27 @@ def extract_facture(filepath: str, base_output_dir: str) -> None:
     # Extract the name from the zip path
     name = os.path.splitext(os.path.basename(filepath))[0]
     output_dir = os.path.join(base_output_dir, name)
-    
+    partial_marker_path = build_partial_marker_path(output_dir)
+    partial_marker_exists = default_storage.exists(partial_marker_path)
+
     # Check if output directory already exists in storage
-    if default_storage.exists(os.path.join(output_dir, 'PivotS.xml')):
+    # If processed partially
+    if partial_marker_exists:
+        logger.warning(f"{output_dir} already exists but is partial, deleting")
+        remove_dir(output_dir)
+        logger.info(f"{output_dir} delete complete, now processing it")
+    # If fully processed, skip it
+    elif default_storage.exists(os.path.join(output_dir, "PivotS.xml")):
         logger.info(f"{output_dir} already exists, skipping")
-        return
-    
+        return False
+
+    # Create the partial marker
+    storage_save(partial_marker_path, ContentFile("partial"))
+
     # Read the zip file from storage
     with default_storage.open(filepath, "rb") as f:
         zip_data = f.read()
-    
+
     # Extract the zip to memory and save files to storage
     with zipfile.ZipFile(io.BytesIO(zip_data)) as zip_ref:
         # Create the output directory by saving each file
@@ -215,17 +245,21 @@ def extract_facture(filepath: str, base_output_dir: str) -> None:
             # Construct storage path
             target_path = os.path.join(output_dir, file_info.filename)
             # Save content
-            default_storage.save(target_path, ContentFile(content))
-    
+            storage_save(target_path, ContentFile(content))
+
     # Process the pivot file
     pivot_path = os.path.join(output_dir, "PivotS.xml")
     pivot_extract_dir = os.path.join(output_dir, "pivot")
     extract_pivot_file(pivot_path, pivot_extract_dir, flat_dir=True)
 
+    # Delete partial marker once job is done
+    default_storage.delete(partial_marker_path)
+    return True
+
 
 def extract_factures(input_dir: str, output_dir: str, ids: list[str] | None = None) -> None:
     """Extract facture zip files from a storage directory.
-    
+
     Processes all `.zip` files in `input_dir`, extracting their contents to `output_dir`.
     If `ids` is provided, only processes zip files whose names match one of the
     IDs in the list (extracted from the filename pattern `*_<id>.zip`).
@@ -241,8 +275,12 @@ def extract_factures(input_dir: str, output_dir: str, ids: list[str] | None = No
             elif filename.endswith(".zip"):
                 filtered_files.append(filename)
     for filename in tqdm(filtered_files):
-        filepath = os.path.join(input_dir, filename)
-        extract_facture(filepath, output_dir)
+        try:
+            filepath = os.path.join(input_dir, filename)
+            extract_facture(filepath, output_dir)
+        except KeyboardInterrupt:
+            logger.info(f"Processing of {filename} interrupted")
+            raise
 
 
 if __name__ == "__main__":
