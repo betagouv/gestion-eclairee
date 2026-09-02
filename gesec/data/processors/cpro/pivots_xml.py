@@ -194,7 +194,7 @@ def extract_facture(filepath: str, base_output_dir: str) -> None:
     output_dir = os.path.join(base_output_dir, name)
     
     # Check if output directory already exists in storage
-    if default_storage.exists(output_dir):
+    if default_storage.exists(os.path.join(output_dir, 'PivotS.xml')):
         logger.info(f"{output_dir} already exists, skipping")
         return
     
@@ -235,7 +235,7 @@ def extract_factures(input_dir: str, output_dir: str, ids: list[str] | None = No
     for filename in files:
         if filename.endswith(".zip"):
             if ids is not None:
-                facture_id = re.match(r".*_(\d+).zip", filename).groups(1)
+                facture_id = re.match(r".*_(\d+).zip", filename).group(1)
                 if facture_id in ids:
                     filtered_files.append(filename)
             elif filename.endswith(".zip"):
