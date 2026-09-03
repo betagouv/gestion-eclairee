@@ -3,6 +3,7 @@ import logging
 import optparse
 import os
 import platform
+import re
 import time
 import zipfile
 from dataclasses import dataclass
@@ -19,6 +20,28 @@ logger = logging.getLogger(__name__)
 # Determine select-all keyboard shortcut based on OS
 SELECT_ALL_MODIFIER = "Meta" if platform.system() == "Darwin" else "Control"
 
+# Regex pattern for French number format
+# French numbers use comma as decimal separator, no thousand separators allowed
+# Examples: "123", "123,45", "1234", "1,23"
+FRENCH_NUMBER_PATTERN = re.compile(r'^\d+(,\d{1,2})?$')
+
+
+def validate_french_number(value: str) -> bool:
+    """Validate that a string is in French number format.
+    
+    French format uses comma as decimal separator. No thousand separators allowed.
+    Max 2 decimal places allowed.
+    
+    Args:
+        value: The string to validate
+        
+    Returns:
+        True if valid French number, False otherwise
+    """
+    if not value or not value.strip():
+        return True  # Empty values are considered valid (optional field)
+    return bool(FRENCH_NUMBER_PATTERN.match(value.strip()))
+
 
 @dataclass
 class SearchParams:
@@ -28,6 +51,7 @@ class SearchParams:
     provider: Optional[str] = None
     num_ej: Optional[str] = None
     facture_num: Optional[str] = None
+    facture_montant: Optional[str] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     ignore_payment_state: Optional[bool] = None
@@ -47,6 +71,8 @@ class SearchParams:
             parts.append(f"num_ej={self.num_ej}")
         if self.facture_num:
             parts.append(f"facture_num={self.facture_num}")
+        if self.facture_montant:
+            parts.append(f"facture_montant={self.facture_montant}")
         if self.ignore_payment_state:
             parts.append(f"ignore_payment_state={self.ignore_payment_state}")
         if self.start_date:
@@ -73,7 +99,7 @@ def parse_args():
         "--input-file",
         dest="input_file",
         help=(
-            "Input file containing EJ, SERVICES, and FACTURE_NUM columns (space-separated services). "
+            "Input file containing EJ, SERVICES, FACTURE_NUM, and FACTURE_MONTANT columns (space-separated services). "
             "Not compatible with --service, --num-ej, or --facture-num"
         ),
     )
@@ -225,6 +251,16 @@ def fill_facture_num(page, facture_num: str):
     open_advanced_search_section(page)
     page.fill("input[name='listeResultats.critere.numero']", facture_num)
     logger.info(f"'Numéro de facture' filled successfully: {facture_num}")
+
+
+def fill_montant(page, montant: str):
+    """Fill the amount fields for exact match search."""
+    logger.info(f"Filling amount fields with: {montant}")
+    open_advanced_search_section(page)
+    # Fill both min and max with the same value for exact match
+    page.fill("input[name='listeResultats.critere.montantTtcGlobalMinStr']", montant)
+    page.fill("input[name='listeResultats.critere.montantTtcGlobalMaxStr']", montant)
+    logger.info(f"Amount fields filled successfully: {montant}")
 
 
 def fill_date_range(page, start_date: date, end_date: date):
@@ -466,14 +502,14 @@ def download_items(page, params: Optional[SearchParams] = None):
     return stats
 
 
-def read_input_file(input_file: str) -> list[tuple[str, str, str]]:
-    """Read input file with EJ, SERVICES and FACTURE_NUM columns.
+def read_input_file(input_file: str) -> list[tuple[str, str, str, str]]:
+    """Read input file with EJ, SERVICES, FACTURE_NUM, and FACTURE_MONTANT columns.
 
     Args:
         input_file: Path to the input file (CSV format expected)
 
     Returns:
-        List of tuples (ej, service, facture_num) extracted from the file
+        List of tuples (ej, service, facture_num, facture_montant) extracted from the file
     """
     logger.info(f"Reading input file: {input_file}")
 
@@ -481,16 +517,11 @@ def read_input_file(input_file: str) -> list[tuple[str, str, str]]:
     with open(input_file, "r", newline="", encoding="utf-8-sig") as csvfile:
         reader = csv.DictReader(csvfile)
 
-        # Check required columns exist
-        if "EJ" not in reader.fieldnames:
-            raise ValueError(f"Input file must contain 'EJ' column. Available columns: {reader.fieldnames}")
-        if "SERVICES" not in reader.fieldnames:
-            raise ValueError(f"Input file must contain 'SERVICES' column. Available columns: {reader.fieldnames}")
-
         for row in reader:
-            ej = row["EJ"].strip()
-            services_str = row["SERVICES"].strip()
+            ej = row.get("EJ", "").strip()
+            services_str = row.get("SERVICES", "").strip()
             facture_num = row.get("FACTURE_NUM", "").strip()
+            facture_montant = row.get("FACTURE_MONTANT", "").strip()
 
             # assert ej, f"row with empty EJ: {row}"
             assert not ej or len(ej) == 10, f"row with invalid EJ: {row}"
@@ -500,8 +531,16 @@ def read_input_file(input_file: str) -> list[tuple[str, str, str]]:
                 logger.warning("Facture num too short: %r.", row)
                 facture_num = ""
 
+            if facture_montant and not validate_french_number(facture_montant):
+                logger.warning(
+                    f"Invalid French number format for FACTURE_MONTANT: {facture_montant!r} in row: {row}. "
+                    f"Expected format: digits with optional comma decimals (max 2 places). "
+                    f"Example: '123', '123,45', '1234,56'"
+                )
+                # Still include the value but warn about the format
+
             if not services_str.strip():
-                tuples.append((ej, None, facture_num))
+                tuples.append((ej, None, facture_num, facture_montant))
             else:
                 # Split services by space
                 services = services_str.strip().split()
@@ -510,10 +549,10 @@ def read_input_file(input_file: str) -> list[tuple[str, str, str]]:
                 for service in services:
                     service = service.strip()
                     if service and service not in ("WFBATCH", "AIFEMNT093"):
-                        tuples.append((ej, service, facture_num))
-                        logger.debug(f"Added tuple: EJ={ej}, Service={service}, Facture={facture_num}")
+                        tuples.append((ej, service, facture_num, facture_montant))
+                        logger.debug(f"Added tuple: EJ={ej}, Service={service}, Facture={facture_num}, Montant={facture_montant}")
 
-    logger.info(f"Extracted {len(tuples)} (EJ, service, facture_num) tuples from input file")
+    logger.info(f"Extracted {len(tuples)} (EJ, service, facture_num, facture_montant) tuples from input file")
     return tuples
 
 
@@ -532,6 +571,9 @@ def build_export_filename(params: SearchParams) -> str:
 
     if params.facture_num:
         parts.append(f"FACTURE_{params.facture_num}")
+
+    if params.facture_montant:
+        parts.append(f"MONTANT_{params.facture_montant}")
 
     if params.num_ej:
         parts.append(params.num_ej)
@@ -618,11 +660,15 @@ def search_and_download(page, params: SearchParams):
     if params.facture_num:
         fill_facture_num(page, params.facture_num)
 
+    # Fill montant if specified
+    if params.facture_montant:
+        fill_montant(page, params.facture_montant)
+
     # Fill date range
     if params.start_date and params.end_date:
         fill_date_range(page, params.start_date, params.end_date)
 
-    logger.info(f"Starting download for service={params.service}, num_ej={params.num_ej}, facture={params.facture_num}")
+    logger.info(f"Starting download for {params.to_log_string()}")
     if not submit_form(page):
         logger.info("No results found.")
         return
@@ -696,27 +742,27 @@ if __name__ == "__main__":
             raise ValueError("No valid (EJ, service, facture_num) tuples found in input file.")
     else:
         # Single mode: create a single tuple from provided options
-        tuples = [(options.num_ej, options.service, options.facture_num)]
+        tuples = [(options.num_ej, options.service, options.facture_num, "")]
 
     ctx = None
     try:
         ctx, page = init_context(headless=not options.headed)
 
-        # Process each (num_ej, service, facture_num) tuple
+        # Process each (num_ej, service, facture_num, facture_montant) tuple
         total_tuples = len(tuples)
         skip_count = options.skip_tuples
         if skip_count > 0:
             logger.info(f"Skipping first {skip_count} tuple(s) as requested")
 
-        for idx, (num_ej, service, facture_num) in enumerate(tuples, 1):
+        for idx, (num_ej, service, facture_num, facture_montant) in enumerate(tuples, 1):
             if idx <= skip_count:
                 logger.debug(
-                    f"Skipping tuple {idx}/{total_tuples}: EJ={num_ej}, Service={service}, Facture={facture_num}"
+                    f"Skipping tuple {idx}/{total_tuples}: EJ={num_ej}, Service={service}, Facture={facture_num}, Montant={facture_montant}"
                 )
                 continue
 
             logger.info(
-                f"Processing tuple: EJ={num_ej}, Service={service}, Facture={facture_num} ({idx}/{total_tuples})"
+                f"Processing tuple: EJ={num_ej}, Service={service}, Facture={facture_num}, Montant={facture_montant} ({idx}/{total_tuples})"
             )
 
             # Create search parameters for this tuple
@@ -725,6 +771,7 @@ if __name__ == "__main__":
                 provider=options.provider,
                 num_ej=num_ej,
                 facture_num=facture_num,
+                facture_montant=facture_montant,
                 start_date=start_date,
                 end_date=end_date,
                 ignore_payment_state=options.ignore_payment_state,
@@ -737,15 +784,13 @@ if __name__ == "__main__":
                     search_and_download(page, params)
                     duration = time.perf_counter() - start_time
                     logger.info(
-                        f"Processing completed in {duration:.2f}s for EJ={num_ej}, "
-                        f"Service={service}, Facture={facture_num} ({idx}/{total_tuples}) {params.to_log_string()}"
+                        f"Processing completed in {duration:.2f}s ({idx}/{total_tuples}) {params.to_log_string()}"
                     )
                     break
                 except PlaywrightTimeoutError as e:
                     duration = time.perf_counter() - start_time
                     logger.warning(
-                        f"search_and_download attempt {attempt + 1}/3 failed in {duration:.2f} "
-                        f"for EJ={num_ej}, Service={service}, Facture={facture_num}: {e} {params.to_log_string()}"
+                        f"search_and_download attempt {attempt + 1}/3 failed in {duration:.2f}: {e} {params.to_log_string()}"
                     )
                     if attempt < 2:
                         logger.info("Retrying search_and_download...")
