@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 LIST_KEYS = ["ParametreIndiv", "CPPFacturePivotUnitaire", "TVA", "Ligne", "PJ", "ValidationUnitaire"]
 
 
+def join_path(*parts):
+    return os.path.normpath(os.path.join(*parts))
+
+
 def storage_save(path, content):
     if default_storage.exists(path):
         raise Exception(f"Storage path {path} already exists.")
@@ -29,13 +33,13 @@ def storage_save(path, content):
 def remove_dir(path: str):
     directories, files = default_storage.listdir(path)
     for file in files:
-        default_storage.delete(os.path.join(path, file))
+        default_storage.delete(join_path(path, file))
     for directory in directories:
-        remove_dir(os.path.join(path, directory))
+        remove_dir(join_path(path, directory))
 
 
 def build_partial_marker_path(dir):
-    return os.path.join(dir, "PARTIAL")
+    return join_path(dir, "PARTIAL")
 
 
 def parse_xml(xml: str):
@@ -129,13 +133,13 @@ def save_file_content(pj: PJ, dirpath: str, name_suffix="") -> str:
         file_content = source.read()
 
     # Save the extracted file to storage
-    storage_path = os.path.join(dirpath, pj_nom)
+    storage_path = join_path(dirpath, pj_nom)
     storage_save(storage_path, ContentFile(file_content))
 
     # Handle Factur-X extraction for PDF files
     factur_x_xml = None
     if file_info.filename.endswith(".pdf"):
-        factur_x_xml = read_factur_x(stream=file_content)
+        factur_x_xml = read_factur_x(stream=file_content, log_info=storage_path)
 
     if factur_x_xml is not None:
         factur_x_path = storage_path + ".factur-x.xml"
@@ -164,7 +168,7 @@ def extract_pivot_obj(pivot: CPPFacturePivot, output_dir: str, flat_dir: bool):
             else:
                 suffix = ""
             names.add(pj.NomPJ)
-            save_file_content(pj, os.path.join(output_dir, dirpath), name_suffix=suffix)
+            save_file_content(pj, join_path(output_dir, dirpath), name_suffix=suffix)
 
 
 def extract_pivot_file(filepath: str, output_dir: str, flat_dir: bool) -> None:
@@ -192,10 +196,10 @@ def find_files_by_name(directory, pattern):
 
         for file in files:
             if re.match(pattern, file):
-                yield os.path.join(path, file)
+                yield join_path(path, file)
 
         for dir_name in dirs:
-            subpath = os.path.join(path, dir_name)
+            subpath = join_path(path, dir_name)
             yield from _walk_storage(subpath)
 
     yield from _walk_storage(directory)
@@ -210,7 +214,7 @@ def extract_facture(filepath: str, base_output_dir: str) -> bool:
     """
     # Extract the name from the zip path
     name = os.path.splitext(os.path.basename(filepath))[0]
-    output_dir = os.path.join(base_output_dir, name)
+    output_dir = join_path(base_output_dir, name)
     partial_marker_path = build_partial_marker_path(output_dir)
     partial_marker_exists = default_storage.exists(partial_marker_path)
 
@@ -221,7 +225,7 @@ def extract_facture(filepath: str, base_output_dir: str) -> bool:
         remove_dir(output_dir)
         logger.info(f"{output_dir} delete complete, now processing it")
     # If fully processed, skip it
-    elif default_storage.exists(os.path.join(output_dir, "PivotS.xml")):
+    elif default_storage.exists(join_path(output_dir, "PivotS.xml")):
         logger.info(f"{output_dir} already exists, skipping")
         return False
 
@@ -243,13 +247,13 @@ def extract_facture(filepath: str, base_output_dir: str) -> bool:
             with zip_ref.open(file_info.filename) as source:
                 content = source.read()
             # Construct storage path
-            target_path = os.path.join(output_dir, file_info.filename)
+            target_path = join_path(output_dir, file_info.filename)
             # Save content
             storage_save(target_path, ContentFile(content))
 
     # Process the pivot file
-    pivot_path = os.path.join(output_dir, "PivotS.xml")
-    pivot_extract_dir = os.path.join(output_dir, "pivot")
+    pivot_path = join_path(output_dir, "PivotS.xml")
+    pivot_extract_dir = join_path(output_dir, "pivot")
     extract_pivot_file(pivot_path, pivot_extract_dir, flat_dir=True)
 
     # Delete partial marker once job is done
@@ -276,7 +280,7 @@ def extract_factures(input_dir: str, output_dir: str, ids: list[str] | None = No
                 filtered_files.append(filename)
     for filename in tqdm(filtered_files):
         try:
-            filepath = os.path.join(input_dir, filename)
+            filepath = join_path(input_dir, filename)
             extract_facture(filepath, output_dir)
         except KeyboardInterrupt:
             logger.info(f"Processing of {filename} interrupted")
