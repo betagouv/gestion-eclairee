@@ -15,7 +15,7 @@ from xmlschema import XMLSchema, XMLSchemaValidationError
 from gesec.data.pipeline.db import save_list_pydantic
 
 from .schemas import BronzeCproExportFactureXml, BronzeCproExportFactureXmlStatus
-from .utils import get_ids_cpro_for_ministere
+from .utils import get_ids_cpro_for_ministere, read_xml_file
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +65,7 @@ def load_file(id_cpro: str, file_path: str, schema: XMLSchema = None) -> BronzeC
     if schema is None:
         schema = get_xsd_schema("2.4")
 
-    with default_storage.open(file_path, "r") as f:
-        xml = f.read()
+    xml = read_xml_file(file_path)
 
     schema_version = detect_schema_version(xml)
     if schema_version is None:

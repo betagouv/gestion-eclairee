@@ -1,6 +1,7 @@
 import csv
 import io
 import logging
+import re
 from typing import Any, Type, TypeVar
 
 from django.core.files.storage import default_storage
@@ -9,6 +10,42 @@ logger = logging.getLogger(__name__)
 
 
 T = TypeVar("T")
+
+
+def read_xml_file(file_path: str) -> str:
+    """Read an XML file from default_storage, handling various encodings.
+
+    Reads the entire file in binary mode, detects encoding from the XML declaration,
+    and decodes the content accordingly. Falls back to UTF-8 then ISO-8859-1 if no encoding is specified.
+    """
+    # Pattern to match encoding in XML declaration
+    encoding_pattern = re.compile(rb'encoding\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
+
+    with default_storage.open(file_path, "rb") as f:
+        content = f.read()
+
+    # Try to detect encoding from XML declaration (search only in first 200 bytes)
+    encoding = None
+    match = encoding_pattern.search(content[:200])
+    if match:
+        encoding = match.group(1).decode("ascii", errors="ignore")
+        logger.debug(f"Detected encoding {encoding} from XML declaration in {file_path}")
+    
+    # Try to decode with detected encoding
+    if encoding:
+        try:
+            return content.decode(encoding)
+        except (UnicodeDecodeError, LookupError) as e:
+            logger.warning(f"Failed to decode {file_path} with encoding {encoding}: {e}")
+    
+    # Fall back to trying UTF-8, then ISO-8859-1
+    for fallback_encoding in ["utf-8", "iso-8859-1"]:
+        try:
+            return content.decode(fallback_encoding)
+        except UnicodeDecodeError:
+            continue
+    
+    raise ValueError(f"Failed to decode {file_path} with any encoding")
 
 
 def rget(d: dict[str, Any], key: str) -> Any:

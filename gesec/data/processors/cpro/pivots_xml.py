@@ -13,6 +13,7 @@ from tqdm import tqdm
 
 from .factur_x import read_factur_x
 from .models.pivots_xml import PJ, CPPFacturePivot
+from gesec.data.pipeline.utils import read_xml_file
 
 logger = logging.getLogger(__name__)
 
@@ -178,8 +179,7 @@ def extract_pivot_file(filepath: str, output_dir: str, flat_dir: bool) -> None:
     and saves them to storage under `output_dir` using the directory structure
     specified by `flat_dir`.
     """
-    with default_storage.open(filepath, "r") as f:
-        xml = f.read()
+    xml = read_xml_file(filepath)
     pivot = parse_xml_to_obj(xml)
     extract_pivot_obj(pivot, output_dir, flat_dir=flat_dir)
 
