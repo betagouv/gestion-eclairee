@@ -261,7 +261,7 @@ def extract_facture(filepath: str, base_output_dir: str) -> bool:
     return True
 
 
-def extract_factures(input_dir: str, output_dir: str, ids: list[str] | None = None) -> None:
+def extract_factures(input_dir: str, output_dir: str, ids: list[str] | None = None, skip: int = 0) -> None:
     """Extract facture zip files from a storage directory.
 
     Processes all `.zip` files in `input_dir`, extracting their contents to `output_dir`.
@@ -269,6 +269,7 @@ def extract_factures(input_dir: str, output_dir: str, ids: list[str] | None = No
     IDs in the list (extracted from the filename pattern `*_<id>.zip`).
     """
     _, files = default_storage.listdir(input_dir)
+    files.sort()
     filtered_files = []
     for filename in files:
         if filename.endswith(".zip"):
@@ -278,12 +279,15 @@ def extract_factures(input_dir: str, output_dir: str, ids: list[str] | None = No
                     filtered_files.append(filename)
             elif filename.endswith(".zip"):
                 filtered_files.append(filename)
-    for filename in tqdm(filtered_files):
+    for i, filename in enumerate(tqdm(filtered_files[skip:], total=len(filtered_files), initial=skip), start=skip + 1):
         try:
             filepath = join_path(input_dir, filename)
             extract_facture(filepath, output_dir)
         except KeyboardInterrupt:
             logger.info(f"Processing of {filename} interrupted")
+            raise
+        except Exception as e:
+            logger.warning(f"Error processing #{i} {filename}")
             raise
 
 
@@ -299,5 +303,6 @@ if __name__ == "__main__":
     parser.add_argument("ids", nargs="*", help="List of facture IDs to process (without 'facture_' prefix)")
     parser.add_argument("-i", "--input-dir", required=True, help="Input directory containing facture_X.zip files")
     parser.add_argument("-o", "--output-dir", required=True, help="Output directory for extracted files")
+    parser.add_argument("-s", "--skip", type=int, default=0, help="Number of first files to skip")
     args = parser.parse_args()
-    extract_factures(args.input_dir, args.output_dir, ids=args.ids or None)
+    extract_factures(args.input_dir, args.output_dir, ids=args.ids or None, skip=args.skip)
