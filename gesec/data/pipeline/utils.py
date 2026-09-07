@@ -30,21 +30,21 @@ def read_xml_file(file_path: str) -> str:
     if match:
         encoding = match.group(1).decode("ascii", errors="ignore")
         logger.debug(f"Detected encoding {encoding} from XML declaration in {file_path}")
-    
+
     # Try to decode with detected encoding
     if encoding:
         try:
             return content.decode(encoding)
         except (UnicodeDecodeError, LookupError) as e:
             logger.warning(f"Failed to decode {file_path} with encoding {encoding}: {e}")
-    
+
     # Fall back to trying UTF-8, then ISO-8859-1
     for fallback_encoding in ["utf-8", "iso-8859-1"]:
         try:
             return content.decode(fallback_encoding)
         except UnicodeDecodeError:
             continue
-    
+
     raise ValueError(f"Failed to decode {file_path} with any encoding")
 
 

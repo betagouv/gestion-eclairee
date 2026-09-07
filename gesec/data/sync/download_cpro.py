@@ -23,18 +23,18 @@ SELECT_ALL_MODIFIER = "Meta" if platform.system() == "Darwin" else "Control"
 # Regex pattern for French number format
 # French numbers use comma as decimal separator, no thousand separators allowed
 # Examples: "123", "123,45", "1234", "1,23"
-FRENCH_NUMBER_PATTERN = re.compile(r'^\d+(,\d{1,2})?$')
+FRENCH_NUMBER_PATTERN = re.compile(r"^\d+(,\d{1,2})?$")
 
 
 def validate_french_number(value: str) -> bool:
     """Validate that a string is in French number format.
-    
+
     French format uses comma as decimal separator. No thousand separators allowed.
     Max 2 decimal places allowed.
-    
+
     Args:
         value: The string to validate
-        
+
     Returns:
         True if valid French number, False otherwise
     """
@@ -550,7 +550,9 @@ def read_input_file(input_file: str) -> list[tuple[str, str, str, str]]:
                     service = service.strip()
                     if service and service not in ("WFBATCH", "AIFEMNT093"):
                         tuples.append((ej, service, facture_num, facture_montant))
-                        logger.debug(f"Added tuple: EJ={ej}, Service={service}, Facture={facture_num}, Montant={facture_montant}")
+                        logger.debug(
+                            f"Added tuple: EJ={ej}, Service={service}, Facture={facture_num}, Montant={facture_montant}"
+                        )
 
     logger.info(f"Extracted {len(tuples)} (EJ, service, facture_num, facture_montant) tuples from input file")
     return tuples
@@ -757,12 +759,14 @@ if __name__ == "__main__":
         for idx, (num_ej, service, facture_num, facture_montant) in enumerate(tuples, 1):
             if idx <= skip_count:
                 logger.debug(
-                    f"Skipping tuple {idx}/{total_tuples}: EJ={num_ej}, Service={service}, Facture={facture_num}, Montant={facture_montant}"
+                    f"Skipping tuple {idx}/{total_tuples}: EJ={num_ej}, Service={service}, Facture={facture_num}, "
+                    f"Montant={facture_montant}"
                 )
                 continue
 
             logger.info(
-                f"Processing tuple: EJ={num_ej}, Service={service}, Facture={facture_num}, Montant={facture_montant} ({idx}/{total_tuples})"
+                f"Processing tuple: EJ={num_ej}, Service={service}, Facture={facture_num}, "
+                f"Montant={facture_montant} ({idx}/{total_tuples})"
             )
 
             # Create search parameters for this tuple
@@ -790,7 +794,8 @@ if __name__ == "__main__":
                 except PlaywrightTimeoutError as e:
                     duration = time.perf_counter() - start_time
                     logger.warning(
-                        f"search_and_download attempt {attempt + 1}/3 failed in {duration:.2f}: {e} {params.to_log_string()}"
+                        f"search_and_download attempt {attempt + 1}/3 failed in {duration:.2f}: "
+                        f"{e} {params.to_log_string()}"
                     )
                     if attempt < 2:
                         logger.info("Retrying search_and_download...")

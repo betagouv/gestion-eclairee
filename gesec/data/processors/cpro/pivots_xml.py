@@ -11,9 +11,10 @@ from django.core.files.storage import default_storage
 import xmltodict
 from tqdm import tqdm
 
+from gesec.data.pipeline.utils import read_xml_file
+
 from .factur_x import read_factur_x
 from .models.pivots_xml import PJ, CPPFacturePivot
-from gesec.data.pipeline.utils import read_xml_file
 
 logger = logging.getLogger(__name__)
 
