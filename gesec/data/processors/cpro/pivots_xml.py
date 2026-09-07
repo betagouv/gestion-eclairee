@@ -287,8 +287,7 @@ def extract_factures(input_dir: str, output_dir: str, ids: list[str] | None = No
             logger.info(f"Processing of {filename} interrupted")
             raise
         except Exception as e:
-            logger.warning(f"Error processing #{i} {filename}")
-            raise
+            logger.exception(f"Error processing #{i} {filename}: {e}")
 
 
 if __name__ == "__main__":
