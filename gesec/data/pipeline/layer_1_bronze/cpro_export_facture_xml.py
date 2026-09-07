@@ -147,8 +147,14 @@ def build_rows(
                     )
                 )
             except Exception as e:
-                logger.error(f"Failed to process {id_cpro} {filepath}: {e}")
-                raise
+                logger.exception(f"Failed to process {id_cpro} {filepath}: {e}")
+                all_status.append(
+                    BronzeCproExportFactureXmlStatus(
+                        id_cpro=id_cpro,
+                        status="Unexpected error",
+                        status_details=f"{id_cpro} {filepath}\n{e!r}",
+                    )
+                )
 
     logger.info(f"Aggregated {len(files)} files with {len(all_rows)} total rows")
     return all_rows, all_status
