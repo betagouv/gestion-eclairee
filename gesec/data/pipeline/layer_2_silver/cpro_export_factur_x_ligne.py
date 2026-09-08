@@ -147,7 +147,7 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
                 )
             )
         except Exception:
-            print("Weird line", id_cpro, repr(line))
+            logger.error("Weird line", id_cpro, repr(line))
             raise
 
     # Ajout des lignes des charges (ex: livraison)

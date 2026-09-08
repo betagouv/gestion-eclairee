@@ -1,4 +1,5 @@
 import json
+import logging
 from decimal import Decimal
 
 from tqdm import tqdm
@@ -9,6 +10,10 @@ from gesec.data.pipeline.layer_1_bronze.schemas import BronzeCproExportFactureXm
 from gesec.data.pipeline.utils import force_string, rget
 
 from .schemas import SilverCproExportFactureXmlLigne
+
+
+logger = logging.getLogger(__name__)
+
 
 DEFAULT_TABLE_NAME = "silver_" + __name__.split(".")[-1]
 
@@ -153,8 +158,11 @@ def transform_to_silver(
 ) -> list[SilverCproExportFactureXmlLigne]:
     result = []
     for fac in tqdm(bronze_factures_xml):
-        lines = transform_xml_to_silver(fac.content, fac.id_cpro, fac.xml_schema)
-        result.extend(lines)
+        try:
+            lines = transform_xml_to_silver(fac.content, fac.id_cpro, fac.xml_schema)
+            result.extend(lines)
+        except Exception as e:
+            logger.exception(f"Could not process {fac.id_cpro}: {e}")
     return result
 
 
