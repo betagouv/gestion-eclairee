@@ -26,6 +26,15 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - `gesec/common/models.py` : `BaseModel` ; `gesec/models.py` ré-exporte les modèles
 - `tests/` : miroir de `gesec/` ; factories dans `tests/factories/`
 
+## Vocabulaire
+
+- `CONTEXT.md` : glossaire métier (termes canoniques et libellés sources). Le
+  consulter avant de nommer du code, des modèles ou des champs ; le mettre à
+  jour dès qu'un terme est tranché.
+- `docs/adr/` : décisions structurantes, numérotées. En créer un pour tout
+  choix difficilement réversible, surprenant sans contexte et issu d'un
+  arbitrage.
+
 ## Conventions
 
 - Double quotes, 120 colonnes (ruff), aucun commentaire.
