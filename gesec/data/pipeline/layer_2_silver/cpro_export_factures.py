@@ -31,8 +31,8 @@ def transform_bronze_to_silver(
 ) -> tuple[list[SilverCproExportFacture], list[SilverCproExportFactureProcessingStatus]]:
     """
     Transforme une liste de BronzeCproExportFacture en SilverCproExportFacture.
-    - Filtre les lignes invalides (qui ne respectent pas le schema Silver)
-    - Filtre les lignes où etat_courant != "Mise en paiement"
+    - Rejette les factures dont le destinataire n'est pas l'État (SIRET 11000201100044)
+    - Rejette les lignes qui ne respectent pas le schéma Silver
     - Dédoublonne sur identifiant_chorus_pro (garde la première occurrence)
     """
     silver_factures: list[SilverCproExportFacture] = []
