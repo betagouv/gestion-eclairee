@@ -5,6 +5,7 @@ import os
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from decimal import Decimal
+from time import perf_counter
 
 from django.conf import settings
 from django.core.files.storage import default_storage
@@ -14,7 +15,7 @@ from xmlschema import XMLSchema, XMLSchemaValidationError
 
 from gesec.data.pipeline.db import save_list_pydantic
 
-from ..utils import read_xml_file, resolve_n_workers
+from ..utils import LoadTimings, read_xml_file, resolve_n_workers
 from .schemas import BronzeCproExportFactureXml, BronzeCproExportFactureXmlStatus
 from .utils import get_ids_cpro_for_ministere
 
@@ -62,13 +63,21 @@ def detect_schema_version(xml: str) -> str | None:
     return version
 
 
-def load_file(id_cpro: str, file_path: str, schema: XMLSchema = None) -> BronzeCproExportFactureXml:
+def load_file(
+    id_cpro: str,
+    file_path: str,
+    schema: XMLSchema = None,
+    timings: LoadTimings | None = None,
+) -> BronzeCproExportFactureXml:
     if schema is None:
         schema = get_xsd_schema("2.4")
 
-    xml = read_xml_file(file_path)
+    xml = read_xml_file(file_path, timings=timings)
 
+    start = perf_counter()
     schema_version = detect_schema_version(xml)
+    if timings is not None:
+        timings.record("version", perf_counter() - start)
     if schema_version is None:
         raise ValueError(f"Cannot determine schema version for {id_cpro} {file_path}")
 
@@ -76,16 +85,20 @@ def load_file(id_cpro: str, file_path: str, schema: XMLSchema = None) -> BronzeC
     xml = xml.replace('<cbc:AllowanceTotalAmount currencyID="EUR"/>', "")
     xml = xml.replace('<cbc:Amount currencyID="EUR"/>', '<cbc:Amount currencyID="EUR">0.0</cbc:Amount>')
 
-    try:
-        content = schema.to_dict(xml)
-    except XMLSchemaValidationError:
-        raise
+    start = perf_counter()
+    content = schema.to_dict(xml)
+    if timings is not None:
+        timings.record("parse", perf_counter() - start)
 
-    return BronzeCproExportFactureXml(
+    start = perf_counter()
+    row = BronzeCproExportFactureXml(
         id_cpro=id_cpro,
         xml_schema=f"UBL-Invoice-{schema_version}",
         content=content,
     )
+    if timings is not None:
+        timings.record("build", perf_counter() - start)
+    return row
 
 
 def filter_files(directory: str, ids_cpro: list[str] | None = None) -> list[tuple[str, str]]:
@@ -123,12 +136,16 @@ def build_rows(
 
     n_workers = resolve_n_workers(n_workers)
     schema = get_xsd_schema("2.4")
+    timings = LoadTimings()
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
         futures = {
-            executor.submit(load_file, id_cpro, filepath, schema): (id_cpro, filepath) for id_cpro, filepath in files
+            executor.submit(load_file, id_cpro, filepath, schema, timings): (id_cpro, filepath)
+            for id_cpro, filepath in files
         }
 
-        for future in tqdm(as_completed(futures), total=len(files), desc="Chargement des factures XML"):
+        for i, future in enumerate(
+            tqdm(as_completed(futures), total=len(files), desc="Chargement des factures XML"), start=1
+        ):
             id_cpro, filepath = futures[future]
             try:
                 result = future.result()
@@ -158,7 +175,10 @@ def build_rows(
                         status_details=f"{id_cpro} {filepath}\n{e!r}",
                     )
                 )
+            if i % 1000 == 0:
+                timings.log(f"{i}/{len(files)}")
 
+    timings.log("terminé")
     logger.info(f"Aggregated {len(files)} files with {len(all_rows)} total rows")
     return all_rows, all_status
 

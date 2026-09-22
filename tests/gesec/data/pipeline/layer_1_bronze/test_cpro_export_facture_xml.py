@@ -4,8 +4,34 @@ from pathlib import Path
 
 import pytest
 
-from gesec.data.pipeline.layer_1_bronze.cpro_export_facture_xml import filter_files
+from gesec.data.pipeline.layer_1_bronze.cpro_export_facture_xml import filter_files, load_file
+from gesec.data.pipeline.utils import LOAD_PHASES, LoadTimings
 from gesec.storage import FileSystemStorage
+
+MINIMAL_UBL_INVOICE = """<?xml version="1.0" encoding="UTF-8"?>
+<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2"
+         xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
+         xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+  <cbc:UBLVersionID>2.4</cbc:UBLVersionID>
+  <cbc:ID>F001</cbc:ID>
+  <cbc:IssueDate>2024-01-01</cbc:IssueDate>
+  <cac:AccountingSupplierParty>
+    <cac:Party>
+      <cac:PartyName><cbc:Name>Fournisseur</cbc:Name></cac:PartyName>
+    </cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="EUR">100.00</cbc:LineExtensionAmount>
+    <cbc:PayableAmount currencyID="EUR">120.00</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:LineExtensionAmount currencyID="EUR">100.00</cbc:LineExtensionAmount>
+    <cac:Item><cbc:Name>Prestation</cbc:Name></cac:Item>
+    <cac:Price><cbc:PriceAmount currencyID="EUR">100.00</cbc:PriceAmount></cac:Price>
+  </cac:InvoiceLine>
+</Invoice>
+"""
 
 
 @pytest.fixture
@@ -94,3 +120,19 @@ def test_filter_files_handles_missing_or_empty_pivot(prefix, s3_client):
     put_objects(s3_client, [f"{prefix}/facture_1/metadata.json", f"{prefix}/facture_2/pivot/"])
 
     assert filter_files(prefix) == []
+
+
+def test_load_file_records_timings(prefix, s3_client):
+    key = f"{prefix}/facture_123/pivot/facture.xml"
+    content = MINIMAL_UBL_INVOICE.encode()
+    put_objects(s3_client, [key], body=content)
+    timings = LoadTimings()
+
+    row = load_file("123", key, timings=timings)
+
+    assert row.id_cpro == "123"
+    assert row.xml_schema == "UBL-Invoice-2.4"
+    assert timings.files == 1
+    assert timings.total_bytes == len(content)
+    for phase in LOAD_PHASES:
+        assert len(timings.durations[phase]) == 1

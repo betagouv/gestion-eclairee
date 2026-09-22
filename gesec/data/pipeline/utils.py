@@ -2,7 +2,10 @@ import csv
 import io
 import logging
 import re
+import statistics
+import threading
 from datetime import date, datetime, time
+from time import perf_counter
 from typing import Any, Type, TypeVar
 
 from django.conf import settings
@@ -17,6 +20,8 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T")
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
+LOAD_PHASES = ("read", "version", "parse", "build")
+
 
 def resolve_n_workers(n_workers: int | None = None) -> int:
     """Number of threads used to read files from the storage.
@@ -29,7 +34,56 @@ def resolve_n_workers(n_workers: int | None = None) -> int:
     return 10 if settings.STORAGE_BACKEND == "s3" else 1
 
 
-def read_xml_file(file_path: str) -> str:
+def _percentile(sorted_values: list[float], fraction: float) -> float:
+    index = min(len(sorted_values) - 1, int(len(sorted_values) * fraction))
+    return sorted_values[index]
+
+
+class LoadTimings:
+    """Thread-safe accumulator of per-file load durations and sizes.
+
+    Phases: `read` (storage open and bytes read), `version` (schema version
+    detection), `parse` (`XMLSchema.to_dict`) and `build` (pydantic model
+    construction).
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.files = 0
+        self.total_bytes = 0
+        self.durations: dict[str, list[float]] = {phase: [] for phase in LOAD_PHASES}
+
+    def record(self, phase: str, duration: float) -> None:
+        with self._lock:
+            self.durations[phase].append(duration)
+
+    def record_file(self, size: int) -> None:
+        with self._lock:
+            self.files += 1
+            self.total_bytes += size
+
+    def log(self, label: str = "") -> None:
+        with self._lock:
+            if not self.files:
+                return
+            files = self.files
+            total_bytes = self.total_bytes
+            samples = {phase: list(values) for phase, values in self.durations.items()}
+
+        stats = []
+        for phase, values in samples.items():
+            if not values:
+                continue
+            values.sort()
+            stats.append(
+                f"{phase} mean {statistics.mean(values) * 1000:.1f}ms "
+                f"median {statistics.median(values) * 1000:.1f}ms "
+                f"p90 {_percentile(values, 0.9) * 1000:.1f}ms"
+            )
+        logger.info("Load timings %s: %d files, %.1f MB, %s", label, files, total_bytes / 1e6, ", ".join(stats))
+
+
+def read_xml_file(file_path: str, timings: LoadTimings | None = None) -> str:
     """Read an XML file from default_storage, handling various encodings.
 
     Reads the entire file in binary mode, detects encoding from the XML declaration,
@@ -38,8 +92,13 @@ def read_xml_file(file_path: str) -> str:
     # Pattern to match encoding in XML declaration
     encoding_pattern = re.compile(rb'encoding\s*=\s*["\']([^"\']+)["\']', re.IGNORECASE)
 
+    start = perf_counter()
     with default_storage.open(file_path, "rb") as f:
         content = f.read()
+
+    if timings is not None:
+        timings.record("read", perf_counter() - start)
+        timings.record_file(len(content))
 
     # Try to detect encoding from XML declaration (search only in first 200 bytes)
     encoding = None

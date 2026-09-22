@@ -5,6 +5,7 @@ import os
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from decimal import Decimal
+from time import perf_counter
 from typing import Literal
 
 from django.conf import settings
@@ -15,7 +16,7 @@ from xmlschema import XMLSchema, XMLSchemaException, XMLSchemaValidationError
 
 from gesec.data.pipeline.db import save_list_pydantic
 
-from ..utils import read_xml_file, resolve_n_workers
+from ..utils import LoadTimings, read_xml_file, resolve_n_workers
 from .schemas import BronzeCproExportFacturX, BronzeCproExportFacturXStatus
 from .utils import get_ids_cpro_for_ministere
 
@@ -46,14 +47,23 @@ def detect_schema_version(xml: str) -> tuple[str, str]:
     return DEFAULT_SCHEMA_PROFILE, DEFAULT_SCHEMA_VERSION
 
 
-def load_file(id_cpro: str, file_path: str, schema: XMLSchema = None) -> BronzeCproExportFacturX:
+def load_file(
+    id_cpro: str,
+    file_path: str,
+    schema: XMLSchema = None,
+    timings: LoadTimings | None = None,
+) -> BronzeCproExportFacturX:
     if schema is None:
         schema = get_xsd_schema(DEFAULT_SCHEMA_PROFILE, DEFAULT_SCHEMA_VERSION)
 
-    xml = read_xml_file(file_path)
+    xml = read_xml_file(file_path, timings=timings)
 
+    start = perf_counter()
     schema_profile, schema_version = detect_schema_version(xml)
+    if timings is not None:
+        timings.record("version", perf_counter() - start)
 
+    start = perf_counter()
     content, errors = schema.to_dict(xml, validation="lax")
     str_errors = ""
     for err in errors:
@@ -61,13 +71,19 @@ def load_file(id_cpro: str, file_path: str, schema: XMLSchema = None) -> BronzeC
             str_errors += f"Path: {err.path}, Reason: {err.reason}\n"
         else:
             str_errors += repr(err) + "\n"
+    if timings is not None:
+        timings.record("parse", perf_counter() - start)
 
-    return BronzeCproExportFacturX(
+    start = perf_counter()
+    row = BronzeCproExportFacturX(
         id_cpro=id_cpro,
         xml_schema=f"Factur-X_{schema_version}_{schema_profile}",
         content=content,
         errors=str_errors,
     )
+    if timings is not None:
+        timings.record("build", perf_counter() - start)
+    return row
 
 
 def filter_files(directory: str, ids_cpro: list[str] | None = None) -> list[tuple[str, str]]:
@@ -103,12 +119,16 @@ def build_rows(
 
     n_workers = resolve_n_workers(n_workers)
     schema = get_xsd_schema(DEFAULT_SCHEMA_PROFILE, DEFAULT_SCHEMA_VERSION)
+    timings = LoadTimings()
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
         futures = {
-            executor.submit(load_file, id_cpro, filepath, schema): (id_cpro, filepath) for id_cpro, filepath in files
+            executor.submit(load_file, id_cpro, filepath, schema, timings): (id_cpro, filepath)
+            for id_cpro, filepath in files
         }
 
-        for future in tqdm(as_completed(futures), total=len(files), desc="Chargement des facture-x"):
+        for i, future in enumerate(
+            tqdm(as_completed(futures), total=len(files), desc="Chargement des facture-x"), start=1
+        ):
             id_cpro, filepath = futures[future]
             try:
                 result = future.result()
@@ -138,7 +158,10 @@ def build_rows(
             except Exception as e:
                 logger.error(f"Failed to process {id_cpro} {filepath}: {e}")
                 raise
+            if i % 1000 == 0:
+                timings.log(f"{i}/{len(files)}")
 
+    timings.log("terminé")
     logger.info(f"Aggregated {len(files)} files with {len(all_rows)} total rows")
     return all_rows, all_status
 

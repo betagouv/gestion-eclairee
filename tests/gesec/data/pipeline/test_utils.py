@@ -10,7 +10,14 @@ from django.test import override_settings
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
-from gesec.data.pipeline.utils import load_xlsx, model_headers, read_xml_file, resolve_n_workers
+from gesec.data.pipeline.utils import (
+    LOAD_PHASES,
+    LoadTimings,
+    load_xlsx,
+    model_headers,
+    read_xml_file,
+    resolve_n_workers,
+)
 from tests.gesec.data.pipeline.ugap_helpers import build_xlsx
 
 
@@ -178,6 +185,20 @@ def test_read_xml_file_large_file(s3_client):
     assert result == xml_content
 
 
+def test_read_xml_file_records_timings(s3_client):
+    xml_content = '<?xml version="1.0" encoding="UTF-8"?><root><test>data</test></root>'
+    bucket = s3_client.Bucket("test-depec")
+    bucket.put_object(Key="test_timings.xml", Body=xml_content.encode("utf-8"))
+    timings = LoadTimings()
+
+    result = read_xml_file("test_timings.xml", timings=timings)
+
+    assert result == xml_content
+    assert timings.files == 1
+    assert timings.total_bytes == len(xml_content.encode("utf-8"))
+    assert len(timings.durations["read"]) == 1
+
+
 def test_resolve_n_workers_explicit_value_wins():
     assert resolve_n_workers(3) == 3
 
@@ -190,3 +211,30 @@ def test_resolve_n_workers_defaults_to_ten_on_s3():
 def test_resolve_n_workers_defaults_to_one_on_fs():
     with override_settings(STORAGE_BACKEND="fs"):
         assert resolve_n_workers() == 1
+
+
+def test_load_timings_initializes_every_phase():
+    assert set(LoadTimings().durations) == set(LOAD_PHASES)
+
+
+def test_load_timings_logs_aggregated_stats(caplog):
+    timings = LoadTimings()
+    timings.record_file(100_000)
+    timings.record_file(300_000)
+    timings.record("parse", 0.01)
+    timings.record("parse", 0.03)
+
+    with caplog.at_level("INFO"):
+        timings.log("test")
+
+    assert "Load timings test: 2 files, 0.4 MB" in caplog.text
+    assert "parse mean 20.0ms median 20.0ms p90 30.0ms" in caplog.text
+
+
+def test_load_timings_log_is_silent_without_file(caplog):
+    timings = LoadTimings()
+
+    with caplog.at_level("INFO"):
+        timings.log("test")
+
+    assert "Load timings" not in caplog.text
