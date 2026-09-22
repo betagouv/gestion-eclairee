@@ -16,9 +16,9 @@ from tests.gesec.data.pipeline.ugap_helpers import ugap_row
 
 
 def bronze_row(
-    source_idx: Any = "11_2025_dinum_0",
-    source: Any = "ugap/f.xlsx",
-    onglet: Any = "11 2025 - Dinum",
+    source_idx: str = "11_2025_dinum_0",
+    source: str = "ugap/f.xlsx",
+    onglet: str = "11 2025 - Dinum",
     **overrides: Any,
 ) -> BronzeUgapExportFacture:
     return BronzeUgapExportFacture(
@@ -34,20 +34,17 @@ def test_default_table_name():
 
 
 def test_transform_bronze_row_types_and_dates():
-    row = transform_bronze_row(
-        bronze_row(
-            **{
-                "Cde client - Jour de création": "10/04/2025",
-                "Cde client - Date Paiement client": datetime(2025, 11, 6),
-                "CE HT": 5.94,
-                "TVA Collectée": 1.19,
-                "CE TTC": 7.13,
-                "Qté commandées": 0.27,
-                "Montant Facturé HT": 12.34,
-                "Article - N°": 5650607,
-            }
-        )
-    )
+    overrides: dict[str, Any] = {
+        "Cde client - Jour de création": "10/04/2025",
+        "Cde client - Date Paiement client": datetime(2025, 11, 6),
+        "CE HT": 5.94,
+        "TVA Collectée": 1.19,
+        "CE TTC": 7.13,
+        "Qté commandées": 0.27,
+        "Montant Facturé HT": 12.34,
+        "Article - N°": 5650607,
+    }
+    row = transform_bronze_row(bronze_row(**overrides))
 
     assert row.cde_client_jour_de_creation == date(2025, 4, 10)
     assert row.cde_client_date_paiement_client == date(2025, 11, 6)
@@ -89,15 +86,12 @@ def test_to_decimal_sentinels_and_errors():
 
 
 def test_transform_siren_is_stripped():
-    row = transform_bronze_row(
-        bronze_row(
-            **{
-                "SIREN": 180092447,
-                "SIREN Titulaire": " 343059564 ",
-                "Siren Titulaire 2": "-",
-            }
-        )
-    )
+    overrides: dict[str, Any] = {
+        "SIREN": 180092447,
+        "SIREN Titulaire": " 343059564 ",
+        "Siren Titulaire 2": "-",
+    }
+    row = transform_bronze_row(bronze_row(**overrides))
 
     assert row.siren == "180092447"
     assert row.siren_titulaire == "343059564"
@@ -105,16 +99,13 @@ def test_transform_siren_is_stripped():
 
 
 def test_transform_empty_texts_become_empty_strings():
-    row = transform_bronze_row(
-        bronze_row(
-            **{
-                "Part.: nom 2 organ.": "#",
-                "SAE Niveau 4": None,
-                "Type d'offre Logiciels": "-",
-                "Titulaire 2 (Editeurs Multi Editeurs)": "  ",
-            }
-        )
-    )
+    overrides: dict[str, Any] = {
+        "Part.: nom 2 organ.": "#",
+        "SAE Niveau 4": None,
+        "Type d'offre Logiciels": "-",
+        "Titulaire 2 (Editeurs Multi Editeurs)": "  ",
+    }
+    row = transform_bronze_row(bronze_row(**overrides))
 
     assert row.part_nom_2_organ == ""
     assert row.sae_niveau_4 == ""
@@ -123,10 +114,11 @@ def test_transform_empty_texts_become_empty_strings():
 
 
 def test_transform_bronze_to_silver_rejects_missing_keys():
+    missing_article: dict[str, Any] = {"Article - N°": None}
     rows, statuses = transform_bronze_to_silver(
         [
             bronze_row(source_idx="a", **{"Cde Client - N°": "#"}),
-            bronze_row(source_idx="b", **{"Article - N°": None}),
+            bronze_row(source_idx="b", **missing_article),
             bronze_row(source_idx="c"),
         ]
     )
@@ -210,19 +202,20 @@ def test_deduplicate_tie_break_on_ingestion_order():
 
 
 def test_line_ids_are_assigned_per_facture_after_deduplication():
+    cells_a1: dict[str, Any] = {"Cde Client - N°": "A", "Article - N°": 1}
+    cells_b1: dict[str, Any] = {"Cde Client - N°": "B", "Article - N°": 2}
+    cells_a2: dict[str, Any] = {"Cde Client - N°": "A", "Article - N°": 3}
+    cells_a1_old: dict[str, Any] = {
+        "Cde Client - N°": "A",
+        "Article - N°": 1,
+        "Cde client - Date Paiement client": "01/01/2020",
+    }
     rows, _statuses = transform_bronze_to_silver(
         [
-            bronze_row(source_idx="a1", **{"Cde Client - N°": "A", "Article - N°": 1}),
-            bronze_row(source_idx="b1", **{"Cde Client - N°": "B", "Article - N°": 2}),
-            bronze_row(source_idx="a2", **{"Cde Client - N°": "A", "Article - N°": 3}),
-            bronze_row(
-                source_idx="a1_old",
-                **{
-                    "Cde Client - N°": "A",
-                    "Article - N°": 1,
-                    "Cde client - Date Paiement client": "01/01/2020",
-                },
-            ),
+            bronze_row(source_idx="a1", **cells_a1),
+            bronze_row(source_idx="b1", **cells_b1),
+            bronze_row(source_idx="a2", **cells_a2),
+            bronze_row(source_idx="a1_old", **cells_a1_old),
         ]
     )
 
