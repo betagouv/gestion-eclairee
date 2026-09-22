@@ -7,6 +7,7 @@ import pymupdf
 from gesec.data.processors.cpro.models.pivots_xml import PJ, CategoriePJ, CPPFacturePivot, TypePJ
 from gesec.data.processors.cpro.pivots_xml import (
     extract_facture,
+    extract_factures,
     extract_pivot_file,
     parse_xml_to_obj,
     save_file_content,
@@ -507,3 +508,29 @@ class TestSaveFileContent:
         # For non-PDF files, no Factur-X should be extracted
         factur_x_path = saved_path + ".factur-x.xml"
         assert factur_x_path not in obj_keys
+
+
+class TestExtractFactures:
+    """Test cases for extract_factures zip selection."""
+
+    def test_extract_factures_selects_zip_by_id(self, s3_client):
+        bucket = s3_client.Bucket("test-depec")
+        bucket.put_object(Key="extract-factures-select/facture_111111111.zip", Body=create_test_facture_zip())
+        bucket.put_object(Key="extract-factures-select/facture_222222222.zip", Body=create_test_facture_zip())
+        bucket.put_object(Key="extract-factures-select/readme.txt", Body=b"not a zip")
+
+        extract_factures("extract-factures-select", "extract-factures-select-output", ids=["222222222"])
+
+        keys = {obj.key for obj in bucket.objects.all()}
+        assert "extract-factures-select-output/facture_222222222/PivotS.xml" in keys
+        assert "extract-factures-select-output/facture_111111111/PivotS.xml" not in keys
+
+    def test_extract_factures_processes_all_zips_without_ids(self, s3_client):
+        bucket = s3_client.Bucket("test-depec")
+        bucket.put_object(Key="extract-factures-all/facture_333333333.zip", Body=create_test_facture_zip())
+        bucket.put_object(Key="extract-factures-all/readme.txt", Body=b"not a zip")
+
+        extract_factures("extract-factures-all", "extract-factures-all-output")
+
+        keys = {obj.key for obj in bucket.objects.all()}
+        assert "extract-factures-all-output/facture_333333333/PivotS.xml" in keys

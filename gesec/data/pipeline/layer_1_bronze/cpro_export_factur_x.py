@@ -71,20 +71,26 @@ def load_file(id_cpro: str, file_path: str, schema: XMLSchema = None) -> BronzeC
 
 
 def filter_files(directory: str, ids_cpro: list[str] | None = None) -> list[tuple[str, str]]:
-    """Renvoie la liste (id_cpro, path) des fichiers factur-x."""
+    """Renvoie la liste (id_cpro, path) des fichiers factur-x.
+
+    Recherche récursive via le storage, puis retient les dossiers `pivot` des
+    dossiers `facture_<id_cpro>`.
+    """
     result = []
-    facture_folders, _ = default_storage.listdir(directory)
-    for facture_folder in tqdm(facture_folders, "Recherche des factur-x"):
-        id_cpro = re.match(r".*facture_(\d+)", facture_folder).group(1)
-        if ids_cpro is not None:
-            if id_cpro not in ids_cpro:
-                continue
-        pivot_dir = os.path.join(directory, facture_folder, "pivot")
-        _, files = default_storage.listdir(pivot_dir)
-        for file in files:
-            if file.endswith(".factur-x.xml"):
-                filepath = os.path.join(pivot_dir, file)
-                result.append((id_cpro, filepath))
+    ids = None if ids_cpro is None else set(ids_cpro)
+    for filepath in tqdm(default_storage.find_files(directory, r"\.factur-x\.xml$"), "Recherche des factur-x"):
+        dirpath = os.path.dirname(filepath)
+        if os.path.basename(dirpath) != "pivot":
+            continue
+        facture_folder = os.path.basename(os.path.dirname(dirpath))
+        match = re.match(r".*facture_(\d+)", facture_folder)
+        if match is None:
+            logger.warning("Dossier de facture au nom inattendu, ignoré : %s", dirpath)
+            continue
+        id_cpro = match.group(1)
+        if ids is not None and id_cpro not in ids:
+            continue
+        result.append((id_cpro, filepath))
     return result
 
 
