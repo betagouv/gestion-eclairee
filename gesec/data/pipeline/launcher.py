@@ -9,6 +9,7 @@ def launch_pipeline(ministere: str | None = None):
     oda_filepath = "oda/ODA_2025_Complet.csv"
     augdt_filepath = "budat/export_augdt_20260814.csv"
     unzipped_folder = "cpro/factures_unzipped"
+    ugap_folder = "ugap/exports"
 
     # Bronze
     bronze.cpro_annuaire.process_csv_to_bronze(cpro_annuaire_filepath)
@@ -17,13 +18,16 @@ def launch_pipeline(ministere: str | None = None):
     bronze.cpro_export_facture_xml.process_files_to_bronze(unzipped_folder, ministere=ministere)
     bronze.cpro_export_factur_x.process_files_to_bronze(unzipped_folder, ministere=ministere)
     bronze.cpro_export_factures.process_csvs_to_bronze(exports_folder)
+    bronze.ugap_export_factures.process_files_to_bronze(ugap_folder)
 
     ## Silver
     silver.services.process_bronze_to_silver()
     silver.cpro_export_factures.process_bronze_to_silver()
     silver.cpro_export_factur_x_ligne.process_to_silver()
+    silver.cpro_export_facture_xml_facture.process_to_silver()
     silver.cpro_export_facture_xml_ligne.process_to_silver()
     silver.oda_export_ej_gm_mapping.process_bronze_to_silver()
+    silver.ugap_export_factures.process_bronze_to_silver()
 
     ## Gold
     gold.facture.process_silver_to_gold()

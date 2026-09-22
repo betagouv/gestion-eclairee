@@ -11,7 +11,6 @@ from gesec.data.pipeline.utils import force_string, rget
 
 from .schemas import SilverCproExportFactureXmlLigne
 
-
 logger = logging.getLogger(__name__)
 
 

@@ -4,7 +4,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 
-from ..layer_1_bronze.schemas import BronzeCproExportFacture
+from ..layer_1_bronze.schemas import BronzeCproExportFacture, BronzeUgapExportFacture
 
 
 class SilverCproExportFacture(BaseModel):
@@ -168,6 +168,74 @@ class SilverCproExportFacturXLigneStatus(BaseModel):
     id_cpro: str
     status: str
     status_details: Optional[str] = None
+
+
+class SilverUgapExportFacture(BaseModel):
+    """Ligne nettoyée d'un export Excel de factures UGAP."""
+
+    # Source tracking
+    source: str
+    source_idx: str
+    onglet: str
+    line_id: int
+
+    cde_client_ndeg: str
+    cde_client_ndeg_cde_chez_le_client: str = ""
+    cde_client_jour_de_creation: date
+    cde_client_date_paiement_client: date
+    compte_crm_do_univers_bp: str
+    compte_crm_ndeg_donneur_d_ordre: str
+    ministere: str
+    part_nom_1_organ: str
+    part_nom_2_organ: str = ""
+    siren: str
+    inclus: str
+    sae_niveau_3: str = ""
+    sae_niveau_4: str = ""
+    ac_se_bp_operateur_etat: str = ""
+    code_gm: str
+    designation_gm: str
+    marche_ndeg: str
+    type_d_offre_logiciels: str = ""
+    article_code_lot: str
+    designation_du_lot: str
+    article_code_fourniseur: str
+    siren_titulaire: str
+    boa_tete_de_groupe_mondiale_pays: str = ""
+    type_entreprise_tpe_pme_pmi_eti_grande_entreprise: str
+    article_ndeg: str
+    constructeur_hardware_ajout_manuel: str = ""
+    titulaire_2_editeurs_multi_editeurs: str = ""
+    siren_titulaire_2: str = ""
+    pays_du_titualire_2: str = ""
+    type_ent_titulaire_2: str = ""
+    sous_traitant_sur_marches_presta: str = ""
+    siren_ss_traitant: str = ""
+    pays_ss_traitant: str = ""
+    type_ent_ss_traitant: str = ""
+    article_ndeg_vue_adv: str
+    texte_adv_ligne_1: str = ""
+    texte_adv_ligne_2: str = ""
+    texte_adv_ligne_3: str = ""
+    texte_adv_ligne_4: str = ""
+    ce_ht: Decimal
+    tva_collectee: Decimal
+    ce_ttc: Decimal
+    qte_commandees: Decimal
+    montant_facture_ht: Decimal
+
+
+class SilverUgapExportFactureStatus(BronzeUgapExportFacture):
+    """Suivi de l'état de traitement d'une ligne bronze d'export UGAP."""
+
+    status: str
+    status_details: Optional[str] = None
+
+
+class SilverCproExportFactureXmlFacture(BaseModel):
+    id_cpro: str
+    xml_schema: str
+    numero: str
 
 
 class SilverCproExportFactureXmlLigne(BaseModel):

@@ -1,7 +1,8 @@
 # Gestion Éclairée
 
 Gestion Éclairée analyse les dépenses publiques à partir des factures
-téléchargées depuis Chorus Pro et des données ODA et BUDAT.
+téléchargées depuis Chorus Pro, des données ODA et BUDAT et des exports de
+factures des centrales d'achat (UGAP).
 
 ## Vocabulaire
 
@@ -23,6 +24,11 @@ Chorus Pro.
 **BUDAT** :
 Système fournissant les informations de paiement des factures ; contribue à
 définir la liste des factures à télécharger depuis Chorus Pro.
+
+**UGAP** :
+Centrale d'achat ; ses exports de factures (Excel) listent les articles
+commandés et leurs titulaires, et servent à déterminer le fournisseur in fine
+des lignes facturées par UGAP.
 
 **Annuaire des services** :
 Référentiel des services de l'État (code, désignation, statut) utilisé pour
@@ -69,10 +75,22 @@ _Dans les sources_ : « Emetteur » (Chorus Pro)
 _Éviter_ : logiciel d'émission
 
 **Fournisseur** :
-Entreprise ou organisme ayant exécuté la prestation facturée.
+Entreprise ou organisme ayant exécuté la prestation facturée. Pour une facture
+émise par une centrale d'achat, le fournisseur porté par la facture est la
+centrale ; le fournisseur in fine en est distinct.
 _Dans les sources_ : « Fournisseur » (Chorus Pro), « Nom fournisseur - Clé »
 (ODA), « FOURN » (BUDAT)
 _Éviter_ : Prestataire, Titulaire
+
+**Fournisseur in fine** :
+Entreprise ou organisme ayant réellement fourni la ligne facturée ; déduit du
+croisement des lignes de facture avec les exports de factures des centrales
+d'achat. Le fournisseur in fine est distinct du fournisseur porté
+par la facture et de l'émetteur ; le terme est transverse aux centrales
+d'achat, même si seule l'UGAP l'alimente aujourd'hui.
+_Dans les sources_ : « Titulaire 2 (Editeurs Multi Editeurs) »,
+« Constructeur (hardware ajout manuel) », « Article - Code fourniseur » (UGAP)
+_Éviter_ : Titulaire, Constructeur, Code fournisseur
 
 ### Rattachement budgétaire
 

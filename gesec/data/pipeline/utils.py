@@ -2,14 +2,19 @@ import csv
 import io
 import logging
 import re
+from datetime import date, datetime, time
 from typing import Any, Type, TypeVar
 
 from django.core.files.storage import default_storage
+
+import openpyxl
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
 
 T = TypeVar("T")
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 def read_xml_file(file_path: str) -> str:
@@ -128,5 +133,92 @@ def load_csv(
             except Exception as e:
                 logger.error(f"Error in {filepath} line {idx}: {e}")
                 raise
+
+    return rows
+
+
+def cell_to_text(value) -> str:
+    """Convert an xlsx cell value to text, the way a CSV reader would."""
+    if value is None:
+        return ""
+    if isinstance(value, (date, datetime, time)):
+        return value.isoformat()
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    return str(value)
+
+
+def model_headers(row_model: Type[ModelT]) -> list[str]:
+    """Source headers a row model expects, in field order.
+
+    The headers are the string `validation_alias` of each field; fields without
+    alias (source tracking) are not source headers.
+    """
+    return [
+        field.validation_alias for field in row_model.model_fields.values() if isinstance(field.validation_alias, str)
+    ]
+
+
+def load_xlsx(
+    filepath: str,
+    row_model: Type[ModelT],
+    sheet_pattern: re.Pattern,
+    skip_rows: int = 1,
+    source_key=None,
+) -> list[ModelT]:
+    """Load sheets matching a pattern from an xlsx file into rows.
+
+    Only the sheets whose title matches `sheet_pattern` are read. The first
+    `skip_rows` rows of each sheet are skipped, the next one is validated
+    against the headers expected by `row_model` (see `model_headers`), and each
+    following non-empty row is instantiated as:
+
+        row_model(
+            **{header: cell_to_text(value)},
+            onglet=<sheet title>,
+            source=filepath,
+            source_idx=f"{source_key(sheet)}_{row_index}",
+        )
+
+    `source_key` optionally normalizes the sheet title used as `source_idx`
+    prefix (identity by default).
+
+    Raises:
+        ValueError: If no sheet matches `sheet_pattern`, or if a sheet headers
+            do not match the expected ones.
+    """
+    expected_headers = model_headers(row_model)
+
+    with default_storage.open(filepath, "rb") as f:
+        workbook = openpyxl.load_workbook(f, data_only=True, read_only=True)
+
+    matching_sheets = [name for name in workbook.sheetnames if sheet_pattern.search(name)]
+    if not matching_sheets:
+        raise ValueError(f"No sheet matching {sheet_pattern.pattern!r} in {filepath}")
+
+    rows = []
+    for sheet_name in matching_sheets:
+        sheet_key = source_key(sheet_name) if source_key else sheet_name
+        values = workbook[sheet_name].iter_rows(values_only=True)
+        for _ in range(skip_rows):
+            next(values, None)
+        headers = list(next(values, ()))
+        if headers != expected_headers:
+            missing = [header for header in expected_headers if header not in headers]
+            unknown = [header for header in headers if header not in expected_headers]
+            raise ValueError(
+                f"Unexpected headers in {filepath} sheet {sheet_name!r}: missing={missing}, unknown={unknown}"
+            )
+        for idx, row_values in enumerate(values):
+            if all(value is None for value in row_values):
+                continue
+            rows.append(
+                row_model(
+                    **{header: cell_to_text(value) for header, value in zip(headers, row_values)},
+                    onglet=sheet_name,
+                    source=filepath,
+                    source_idx=f"{sheet_key}_{idx}",
+                )
+            )
 
     return rows

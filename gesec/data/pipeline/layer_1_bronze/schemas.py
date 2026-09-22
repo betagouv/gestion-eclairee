@@ -284,6 +284,64 @@ class BronzeCproAnnuaireService(BaseModel):
     numero_tva: str = Field(validation_alias="Numéro TVA intracommunautaire")
 
 
+class BronzeUgapExportFacture(BaseModel):
+    """Ligne brute importée depuis un export Excel de factures UGAP."""
+
+    model_config = ConfigDict(validate_by_alias=True, validate_by_name=True)
+
+    # Source tracking
+    source: str
+    source_idx: str
+    onglet: str
+
+    cde_client_ndeg: str = Field(validation_alias="Cde Client - N°")
+    cde_client_ndeg_cde_chez_le_client: str = Field(validation_alias="Cde Client - N° cde chez le client")
+    cde_client_jour_de_creation: str = Field(validation_alias="Cde client - Jour de création")
+    cde_client_date_paiement_client: str = Field(validation_alias="Cde client - Date Paiement client")
+    compte_crm_do_univers_bp: str = Field(validation_alias="Compte CRM DO - Univers BP")
+    compte_crm_ndeg_donneur_d_ordre: str = Field(validation_alias="Compte CRM - N° donneur d'ordre")
+    ministere: str = Field(validation_alias="Ministère")
+    part_nom_1_organ: str = Field(validation_alias="Part.: nom 1 organ.")
+    part_nom_2_organ: str = Field(validation_alias="Part.: nom 2 organ.")
+    siren: str = Field(validation_alias="SIREN")
+    inclus: str = Field(validation_alias="Inclus")
+    sae_niveau_3: str = Field(validation_alias="SAE Niveau 3")
+    sae_niveau_4: str = Field(validation_alias="SAE Niveau 4")
+    ac_se_bp_operateur_etat: str = Field(validation_alias="AC/SE (BP operateur état)")
+    code_gm: str = Field(validation_alias="Code GM")
+    designation_gm: str = Field(validation_alias="Désignation GM")
+    marche_ndeg: str = Field(validation_alias="Marché - N°")
+    type_d_offre_logiciels: str = Field(validation_alias="Type d'offre Logiciels")
+    article_code_lot: str = Field(validation_alias="Article - Code Lot")
+    designation_du_lot: str = Field(validation_alias="Désignation du Lot")
+    article_code_fourniseur: str = Field(validation_alias="Article - Code fourniseur")
+    siren_titulaire: str = Field(validation_alias="SIREN Titulaire")
+    boa_tete_de_groupe_mondiale_pays: str = Field(validation_alias="BOA - Tête de groupe mondiale - Pays")
+    type_entreprise_tpe_pme_pmi_eti_grande_entreprise: str = Field(
+        validation_alias="Type Entreprise: TPE/PME-PMI/ETI/Grande Entreprise"
+    )
+    article_ndeg: str = Field(validation_alias="Article - N°")
+    constructeur_hardware_ajout_manuel: str = Field(validation_alias="Constructeur (hardware ajout manuel)")
+    titulaire_2_editeurs_multi_editeurs: str = Field(validation_alias="Titulaire 2 (Editeurs Multi Editeurs)")
+    siren_titulaire_2: str = Field(validation_alias="Siren Titulaire 2")
+    pays_du_titualire_2: str = Field(validation_alias="Pays du Titualire 2")
+    type_ent_titulaire_2: str = Field(validation_alias="Type ent Titulaire 2")
+    sous_traitant_sur_marches_presta: str = Field(validation_alias="Sous Traitant (sur marchés Presta)")
+    siren_ss_traitant: str = Field(validation_alias="Siren Ss Traitant")
+    pays_ss_traitant: str = Field(validation_alias="Pays Ss Traitant")
+    type_ent_ss_traitant: str = Field(validation_alias="Type ent Ss Traitant")
+    article_ndeg_vue_adv: str = Field(validation_alias="Article - N° (vue ADV)")
+    texte_adv_ligne_1: str = Field(validation_alias="Texte ADV ligne 1")
+    texte_adv_ligne_2: str = Field(validation_alias="Texte ADV ligne 2")
+    texte_adv_ligne_3: str = Field(validation_alias="Texte ADV ligne 3")
+    texte_adv_ligne_4: str = Field(validation_alias="Texte ADV ligne 4")
+    ce_ht: Decimal = Field(validation_alias="CE HT")
+    tva_collectee: Decimal = Field(validation_alias="TVA Collectée")
+    ce_ttc: Decimal = Field(validation_alias="CE TTC")
+    qte_commandees: Decimal = Field(validation_alias="Qté commandées")
+    montant_facture_ht: Decimal = Field(validation_alias="Montant Facturé HT")
+
+
 class BronzeBudatExportAugdt(BaseModel):
     model_config = ConfigDict(validate_by_alias=True, validate_by_name=True)
 

@@ -8,18 +8,31 @@ from pydantic import BaseModel
 class GoldCproExportFactureLigne(BaseModel):
     id_cpro: str
     source: str
-    xml_schema: str
+    xml_schema: Optional[str] = None
     line_id: str
     item_name: str
     item_description: str
     item_reference: Optional[str]
-    quantity: Decimal
+    quantity: Optional[Decimal] = None
     quantity_unit_code: str
-    unit_price: Decimal
+    unit_price: Optional[Decimal] = None
     line_amount_excl_tax: Decimal
     line_amount_incl_tax: Decimal
     line_amount_vat: Decimal
     currency: str
+    fournisseur_in_fine_designation: Optional[str] = None
+    fournisseur_in_fine_siren: Optional[str] = None
+
+
+class GoldUgapLigne(BaseModel):
+    source: str
+    source_idx: str
+    id_cpro: Optional[str] = None
+    numero_ugap: str
+    line_id: str = ""
+    article_ndeg: str
+    status: str
+    status_details: Optional[str] = None
 
 
 class FactureLigne(BaseModel):

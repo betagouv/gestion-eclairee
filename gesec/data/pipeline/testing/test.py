@@ -20,6 +20,7 @@ KEY_COLUMMS = {
     "public_silver_services.csv": ["code"],
     "gesec_facture.csv": ["identifiant_chorus_pro"],
     "gesec_facture_ligne.csv": ["id_cpro", "line_id"],
+    "gesec_facture_ugap_ligne.csv": ["source", "source_idx"],
 }
 DEFAULT_KEY_COLUMNS = ["source", "source_idx"]
 KEY_COLUMN = "_key"
