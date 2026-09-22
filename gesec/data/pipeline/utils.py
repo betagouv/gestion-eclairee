@@ -192,33 +192,35 @@ def load_xlsx(
     with default_storage.open(filepath, "rb") as f:
         workbook = openpyxl.load_workbook(f, data_only=True, read_only=True)
 
-    matching_sheets = [name for name in workbook.sheetnames if sheet_pattern.search(name)]
-    if not matching_sheets:
-        raise ValueError(f"No sheet matching {sheet_pattern.pattern!r} in {filepath}")
+        matching_sheets = [name for name in workbook.sheetnames if sheet_pattern.search(name)]
+        if not matching_sheets:
+            raise ValueError(f"No sheet matching {sheet_pattern.pattern!r} in {filepath}")
 
-    rows = []
-    for sheet_name in matching_sheets:
-        sheet_key = source_key(sheet_name) if source_key else sheet_name
-        values = workbook[sheet_name].iter_rows(values_only=True)
-        for _ in range(skip_rows):
-            next(values, None)
-        headers = list(next(values, ()))
-        if headers != expected_headers:
-            missing = [header for header in expected_headers if header not in headers]
-            unknown = [header for header in headers if header not in expected_headers]
-            raise ValueError(
-                f"Unexpected headers in {filepath} sheet {sheet_name!r}: missing={missing}, unknown={unknown}"
-            )
-        for idx, row_values in enumerate(values):
-            if all(value is None for value in row_values):
-                continue
-            rows.append(
-                row_model(
-                    **{header: cell_to_text(value) for header, value in zip(headers, row_values)},
-                    onglet=sheet_name,
-                    source=filepath,
-                    source_idx=f"{sheet_key}_{idx}",
+        rows = []
+        for sheet_name in matching_sheets:
+            sheet_key = source_key(sheet_name) if source_key else sheet_name
+            values = workbook[sheet_name].iter_rows(values_only=True)
+            for _ in range(skip_rows):
+                next(values, None)
+            headers = list(next(values, ()))
+            if headers != expected_headers:
+                missing = [header for header in expected_headers if header not in headers]
+                unknown = [header for header in headers if header not in expected_headers]
+                raise ValueError(
+                    f"Unexpected headers in {filepath} sheet {sheet_name!r}: missing={missing}, unknown={unknown}"
                 )
-            )
+            for idx, row_values in enumerate(values):
+                if all(value is None for value in row_values):
+                    continue
+                rows.append(
+                    row_model(
+                        **{header: cell_to_text(value) for header, value in zip(headers, row_values)},
+                        onglet=sheet_name,
+                        source=filepath,
+                        source_idx=f"{sheet_key}_{idx}",
+                    )
+                )
+
+        workbook.close()
 
     return rows

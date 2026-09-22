@@ -2,6 +2,9 @@
 
 import re
 from datetime import datetime
+from unittest.mock import patch
+
+from django.core.files.storage import FileSystemStorage
 
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
@@ -58,6 +61,16 @@ def test_load_xlsx_converts_cells_to_text(s3_client):
     assert rows[1].b == "-"
     assert rows[2].a == ""
     assert rows[2].b == "x"
+
+
+def test_load_xlsx_reads_after_storage_handle_is_closed(tmp_path):
+    storage = FileSystemStorage(location=str(tmp_path))
+    (tmp_path / "test.xlsx").write_bytes(build_xlsx({"Dinum": [["A", "B"], [1, "a"]]}))
+
+    with patch("gesec.data.pipeline.utils.default_storage", storage):
+        rows = load_xlsx("test.xlsx", XlsxRow, re.compile("dinum", re.IGNORECASE))
+
+    assert [(row.a, row.b) for row in rows] == [("1", "a")]
 
 
 def test_load_xlsx_applies_source_key(s3_client):
