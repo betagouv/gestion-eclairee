@@ -22,7 +22,7 @@ from gesec.data.pipeline.layer_2_silver.ugap_export_factures import (
     DEFAULT_TABLE_NAME as SILVER_UGAP_DEFAULT_TABLE_NAME,
 )
 from gesec.data.pipeline.layer_3_gold.constants import UGAP_SIREN
-from gesec.data.pipeline.layer_3_gold.schemas import GoldCproExportFactureLigne, GoldUgapLigne
+from gesec.data.pipeline.layer_3_gold.schemas import GoldCproExportFactureLigne, GoldUgapLigne, UgapLigneStatus
 
 logger = logging.getLogger(__name__)
 
@@ -180,7 +180,7 @@ def build_ugap_lines(id_cpro: str, ugap_lines: list[SilverUgapExportFacture]) ->
 
 def build_ugap_ligne(
     ugap_line: SilverUgapExportFacture,
-    status: str,
+    status: UgapLigneStatus,
     id_cpro: Optional[str] = None,
     line_id: str = "",
     status_details: Optional[str] = None,

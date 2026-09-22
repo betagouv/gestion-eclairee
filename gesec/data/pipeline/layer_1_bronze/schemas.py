@@ -1,6 +1,6 @@
 from datetime import date
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -246,9 +246,12 @@ class BronzeCproExportFactureXml(BaseModel):
     content: dict
 
 
+CproExportFactureXmlStatus = Literal["Ok", "Validation error", "Unexpected error"]
+
+
 class BronzeCproExportFactureXmlStatus(BaseModel):
     id_cpro: str
-    status: str
+    status: CproExportFactureXmlStatus
     status_details: Optional[str] = None
 
 

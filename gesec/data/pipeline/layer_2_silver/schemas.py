@@ -1,6 +1,6 @@
 from datetime import date
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel
 
@@ -135,10 +135,13 @@ class SilverCproExportFacture(BaseModel):
     valideur_2_designation: Optional[str] = None
 
 
+CproExportFactureStatus = Literal["Ok", "Validation error", "Duplicat"]
+
+
 class SilverCproExportFactureProcessingStatus(BronzeCproExportFacture):
     """Suivi de l'état de traitement d'une facture bronze."""
 
-    status: str
+    status: CproExportFactureStatus
     status_details: Optional[str]
 
 
@@ -164,9 +167,12 @@ class SilverCproExportFacturXLigne(BaseModel):
     currency: str
 
 
+CproExportFacturXLigneStatus = Literal["Ok", "Error"]
+
+
 class SilverCproExportFacturXLigneStatus(BaseModel):
     id_cpro: str
-    status: str
+    status: CproExportFacturXLigneStatus
     status_details: Optional[str] = None
 
 
@@ -225,10 +231,13 @@ class SilverUgapExportFacture(BaseModel):
     montant_facture_ht: Decimal
 
 
+UgapExportFactureStatus = Literal["Ok", "Validation error", "Duplicat"]
+
+
 class SilverUgapExportFactureStatus(BronzeUgapExportFacture):
     """Suivi de l'état de traitement d'une ligne bronze d'export UGAP."""
 
-    status: str
+    status: UgapExportFactureStatus
     status_details: Optional[str] = None
 
 

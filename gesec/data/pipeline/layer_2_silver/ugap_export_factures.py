@@ -9,7 +9,7 @@ from gesec.data.pipeline.db import load_rows_from_table, save_list_pydantic
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeUgapExportFacture
 from gesec.data.pipeline.layer_1_bronze.ugap_export_factures import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
 
-from .schemas import SilverUgapExportFacture, SilverUgapExportFactureStatus
+from .schemas import SilverUgapExportFacture, SilverUgapExportFactureStatus, UgapExportFactureStatus
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +156,7 @@ def assign_line_ids(rows: list[SilverUgapExportFacture]) -> None:
 
 def build_status(
     bronze: BronzeUgapExportFacture,
-    status: str,
+    status: UgapExportFactureStatus,
     status_details: Optional[str] = None,
 ) -> SilverUgapExportFactureStatus:
     return SilverUgapExportFactureStatus(

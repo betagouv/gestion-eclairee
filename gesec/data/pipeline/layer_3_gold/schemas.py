@@ -1,6 +1,6 @@
 from datetime import date
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel
 
@@ -24,6 +24,9 @@ class GoldCproExportFactureLigne(BaseModel):
     fournisseur_in_fine_siren: Optional[str] = None
 
 
+UgapLigneStatus = Literal["matched", "created", "ligne_absente", "facture_inconnue"]
+
+
 class GoldUgapLigne(BaseModel):
     source: str
     source_idx: str
@@ -31,7 +34,7 @@ class GoldUgapLigne(BaseModel):
     numero_ugap: str
     line_id: str = ""
     article_ndeg: str
-    status: str
+    status: UgapLigneStatus
     status_details: Optional[str] = None
 
 

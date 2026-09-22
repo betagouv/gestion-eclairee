@@ -8,6 +8,7 @@ from gesec.data.pipeline.db import create_engine, save_list_pydantic
 from ..layer_1_bronze.cpro_export_factures import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
 from .schemas import (
     BronzeCproExportFacture,
+    CproExportFactureStatus,
     SilverCproExportFacture,
     SilverCproExportFactureProcessingStatus,
 )
@@ -41,6 +42,7 @@ def transform_bronze_to_silver(
 
     for bronze_facture in bronze_factures:
         bronze_facture_dict = bronze_facture.model_dump()
+        status: CproExportFactureStatus
 
         # Vérifier les champs destinataire
         if (
