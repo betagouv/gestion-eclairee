@@ -1,15 +1,15 @@
-from django.contrib.auth import get_user_model
+from typing import cast
 
 import pytest
 from freezegun import freeze_time
 
 from gesec.front.ratelimit.models import RateLimitCount
 from gesec.front.ratelimit.services import check_rate_limit, check_rate_limit_for_user
+from gesec.models import User
 from tests.factories.users import UserFactory
 
 now = "2025-10-08T10:00:00+00:00"
 now_plus_1h = "2025-10-08T11:00:00+00:00"
-User = get_user_model()
 
 
 @pytest.mark.django_db
@@ -76,10 +76,10 @@ def test_expiry():
 
 @pytest.mark.django_db
 def test_for_user():
-    user = UserFactory()
+    user = cast(User, UserFactory())
     with freeze_time(now):
         r = check_rate_limit_for_user(user, 1000, 3600)
-    assert r.key == str(user.id)
+    assert r.key == str(user.pk)
     assert r.interval == 3600
     assert r.count == 1
     assert r.expiry.isoformat() == now_plus_1h

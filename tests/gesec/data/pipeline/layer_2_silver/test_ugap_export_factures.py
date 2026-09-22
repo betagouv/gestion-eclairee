@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeUgapExportFacture
 from gesec.data.pipeline.layer_2_silver.ugap_export_factures import (
@@ -15,10 +16,10 @@ from tests.gesec.data.pipeline.ugap_helpers import ugap_row
 
 
 def bronze_row(
-    source_idx: str = "11_2025_dinum_0",
-    source: str = "ugap/f.xlsx",
-    onglet: str = "11 2025 - Dinum",
-    **overrides,
+    source_idx: Any = "11_2025_dinum_0",
+    source: Any = "ugap/f.xlsx",
+    onglet: Any = "11 2025 - Dinum",
+    **overrides: Any,
 ) -> BronzeUgapExportFacture:
     return BronzeUgapExportFacture(
         **{header: cell_to_text(value) for header, value in ugap_row(**overrides).items()},
@@ -142,7 +143,7 @@ def test_transform_bronze_to_silver_rejects_invalid_types():
 
     assert rows == []
     assert statuses[0].status == "Validation error"
-    assert "date" in statuses[0].status_details
+    assert "date" in (statuses[0].status_details or "")
 
 
 def test_deduplicate_keeps_most_recent_payment_date():

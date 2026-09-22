@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 import pytest
 
@@ -50,9 +51,9 @@ def silver_ugap_line(
     line_id: int = 1,
     numero: str = "A1",
     article: str = "Y1",
-    **overrides,
+    **overrides: Any,
 ) -> SilverUgapExportFacture:
-    values = dict(
+    values: dict[str, Any] = dict(
         source="ugap/f.xlsx",
         source_idx=f"11_2025_dinum_{line_id}",
         onglet="11 2025 - Dinum",
@@ -91,9 +92,9 @@ def gold_line(
     id_cpro: str = "cpro-1",
     line_id: str = "1",
     item_reference: str = "Y1",
-    **overrides,
+    **overrides: Any,
 ) -> GoldCproExportFactureLigne:
-    values = dict(
+    values: dict[str, Any] = dict(
         id_cpro=id_cpro,
         source="facture-xml",
         xml_schema="UBL-Invoice-2",

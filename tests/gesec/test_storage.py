@@ -2,9 +2,7 @@
 
 from pathlib import Path
 
-from django.core.files.storage import default_storage
-
-from gesec.storage import FileSystemStorage
+from gesec.storage import FileSystemStorage, find_files
 
 
 def write_files(root: Path, paths: list[str]) -> None:
@@ -64,7 +62,7 @@ class TestS3StorageFindFiles:
             ],
         )
 
-        assert sorted(default_storage.find_files("find-test/cpro/factures_unzipped", r"/pivot/.*\.xml$")) == [
+        assert sorted(find_files("find-test/cpro/factures_unzipped", r"/pivot/.*\.xml$")) == [
             "find-test/cpro/factures_unzipped/facture_111111111/pivot/FAC.xml",
             "find-test/cpro/factures_unzipped/facture_111111111/pivot/PJ.pdf.factur-x.xml",
         ]
@@ -79,7 +77,7 @@ class TestS3StorageFindFiles:
             ],
         )
 
-        assert sorted(default_storage.find_files("find-zip-test", r"facture_\d+\.zip$")) == [
+        assert sorted(find_files("find-zip-test", r"facture_\d+\.zip$")) == [
             "find-zip-test/facture_111111111.zip",
             "find-zip-test/facture_222222222.zip",
         ]
@@ -87,7 +85,7 @@ class TestS3StorageFindFiles:
     def test_find_files_ignores_folder_markers(self, s3_client):
         put_objects(s3_client, ["find-markers-test/cpro/", "find-markers-test/cpro/facture.xml"])
 
-        assert list(default_storage.find_files("find-markers-test", r".*")) == ["find-markers-test/cpro/facture.xml"]
+        assert list(find_files("find-markers-test", r".*")) == ["find-markers-test/cpro/facture.xml"]
 
     def test_find_files_missing_prefix_yields_nothing(self, s3_client):
-        assert list(default_storage.find_files("find-missing-test", r".*")) == []
+        assert list(find_files("find-missing-test", r".*")) == []

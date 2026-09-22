@@ -79,7 +79,7 @@ def test_filter_files_selects_factur_x_on_filesystem_storage(tmp_path, monkeypat
         ],
     )
     storage = FileSystemStorage(location=str(tmp_path))
-    monkeypatch.setattr("gesec.data.pipeline.layer_1_bronze.cpro_export_factur_x.default_storage", storage)
+    monkeypatch.setattr("gesec.storage.default_storage", storage)
 
     assert filter_files("cpro/factures_unzipped") == [
         (

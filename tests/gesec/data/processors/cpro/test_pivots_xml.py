@@ -1,6 +1,7 @@
 import base64
 import io
 import zipfile
+from typing import Any
 
 import pymupdf
 
@@ -451,17 +452,16 @@ class TestSaveFileContent:
         # Create PJ object using alias
         pdf_pj_content = create_test_pj_zip("facture.pdf", pdf_content)
 
-        pj = PJ(
-            **{
-                "@NumOrdre": 1,
-                "Contenu": pdf_pj_content,
-                "NomPJ": "facture.pdf",
-                "CategoriePJ": CategoriePJ.FACTURE_PDF,
-                "TypePJ": TypePJ.TYPE_1,
-                "MimeTypePJ": "application/pdf",
-                "NomPJOrigine": "facture.pdf",
-            }
-        )
+        pj_values: dict[str, Any] = {
+            "@NumOrdre": 1,
+            "Contenu": pdf_pj_content,
+            "NomPJ": "facture.pdf",
+            "CategoriePJ": CategoriePJ.FACTURE_PDF,
+            "TypePJ": TypePJ.TYPE_1,
+            "MimeTypePJ": "application/pdf",
+            "NomPJOrigine": "facture.pdf",
+        }
+        pj = PJ(**pj_values)
 
         # Call save_file_content
         dirpath = "test_save_content"
@@ -485,17 +485,16 @@ class TestSaveFileContent:
         text_pj_content = create_test_pj_zip("test.txt", text_content)
 
         # Create PJ object using alias
-        pj = PJ(
-            **{
-                "@NumOrdre": 1,
-                "Contenu": text_pj_content,
-                "NomPJ": "test.txt",
-                "CategoriePJ": CategoriePJ.PJ_STANDARD,
-                "TypePJ": TypePJ.TYPE_1,
-                "MimeTypePJ": "text/plain",
-                "NomPJOrigine": "test.txt",
-            }
-        )
+        pj_values: dict[str, Any] = {
+            "@NumOrdre": 1,
+            "Contenu": text_pj_content,
+            "NomPJ": "test.txt",
+            "CategoriePJ": CategoriePJ.PJ_STANDARD,
+            "TypePJ": TypePJ.TYPE_1,
+            "MimeTypePJ": "text/plain",
+            "NomPJOrigine": "test.txt",
+        }
+        pj = PJ(**pj_values)
 
         # Call save_file_content
         dirpath = "test_save_content"

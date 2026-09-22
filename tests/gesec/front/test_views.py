@@ -1,15 +1,14 @@
 import io
+from typing import cast
 
-from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 
 import pytest
 from freezegun import freeze_time
 
 from gesec.front.ratelimit.models import RateLimitCount
+from gesec.models import User
 from tests.factories.users import UserFactory
-
-User = get_user_model()
 
 
 @pytest.mark.django_db
@@ -32,7 +31,7 @@ def test_s3_file_unauthenticated(client):
 @pytest.mark.django_db
 def test_s3_file_not_superuser(client):
     """Test that authenticated non-superuser gets 403."""
-    user = UserFactory(is_superuser=False)
+    user = cast(User, UserFactory(is_superuser=False))
     client.force_login(user)
 
     response = client.get("/s3/test.txt")
@@ -43,12 +42,12 @@ def test_s3_file_not_superuser(client):
 @pytest.mark.django_db
 def test_s3_file_rate_limited(client):
     """Test that rate limited superuser gets 403."""
-    user = UserFactory(is_superuser=True)
+    user = cast(User, UserFactory(is_superuser=True))
     client.force_login(user)
 
     with freeze_time("2025-10-08T10:00:00+00:00"):
         RateLimitCount.objects.create(
-            key=str(user.id),
+            key=str(user.pk),
             interval=3600 * 24,
             count=201,
             expiry="2025-10-09T10:00:00+00:00",
