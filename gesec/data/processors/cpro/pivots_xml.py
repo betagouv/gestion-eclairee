@@ -185,27 +185,6 @@ def extract_pivot_file(filepath: str, output_dir: str, flat_dir: bool) -> None:
     extract_pivot_obj(pivot, output_dir, flat_dir=flat_dir)
 
 
-def find_files_by_name(directory, pattern):
-    """Recursively search for files matching a regex pattern in storage.
-
-    Searches in `directory` and all its subdirectories for files whose names
-    match the regex `pattern`. Uses `default_storage` for storage-agnostic operation.
-    """
-
-    def _walk_storage(path):
-        dirs, files = default_storage.listdir(path)
-
-        for file in files:
-            if re.match(pattern, file):
-                yield join_path(path, file)
-
-        for dir_name in dirs:
-            subpath = join_path(path, dir_name)
-            yield from _walk_storage(subpath)
-
-    yield from _walk_storage(directory)
-
-
 def extract_facture(filepath: str, base_output_dir: str) -> bool:
     """Extract a facture zip file from storage.
 
