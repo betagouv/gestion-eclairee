@@ -5,7 +5,7 @@ import factory
 from gesec.models import User
 
 
-class UserFactory(factory.django.DjangoModelFactory):
+class UserFactory(factory.django.DjangoModelFactory[User]):
     class Meta:
         model = User
 
@@ -15,7 +15,7 @@ class UserFactory(factory.django.DjangoModelFactory):
     short_name = "Dupont"
 
 
-class GroupFactory(factory.django.DjangoModelFactory):
+class GroupFactory(factory.django.DjangoModelFactory[Group]):
     class Meta:
         model = Group
 

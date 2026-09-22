@@ -1,5 +1,4 @@
 import os
-from typing import cast
 
 from django.test import Client
 
@@ -9,7 +8,6 @@ import responses
 import tiktoken
 from moto import mock_aws
 
-from gesec.models import User
 from tests.factories.users import UserFactory
 
 
@@ -39,7 +37,7 @@ def s3_client():
 @pytest.fixture
 def admin_client():
     """Create an admin client for testing admin functionality"""
-    admin_user = UserFactory(is_staff=True, is_superuser=True)
+    admin_user = UserFactory.create(is_staff=True, is_superuser=True)
     client = Client()
-    client.force_login(cast(User, admin_user))
+    client.force_login(admin_user)
     return client
