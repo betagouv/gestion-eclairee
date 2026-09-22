@@ -190,9 +190,9 @@ STATICFILES_DIRS = [
 STORAGE_BACKEND = config.str("STORAGE_BACKEND", default="fs")
 match STORAGE_BACKEND:
     case "s3":
-        storage_backend_class = "storages.backends.s3.S3Storage"
+        storage_backend_class = "gesec.storage.S3Storage"
     case "fs":
-        storage_backend_class = "django.core.files.storage.FileSystemStorage"
+        storage_backend_class = "gesec.storage.FileSystemStorage"
     case _:
         raise ValueError(f"Unknown storage backend: {STORAGE_BACKEND}")
 
