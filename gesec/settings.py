@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 from django.urls import reverse_lazy
 
@@ -197,7 +198,7 @@ match STORAGE_BACKEND:
         raise ValueError(f"Unknown storage backend: {STORAGE_BACKEND}")
 
 
-STORAGES = {
+STORAGES: dict[str, dict[str, Any]] = {
     "default": {
         "BACKEND": storage_backend_class,
     },

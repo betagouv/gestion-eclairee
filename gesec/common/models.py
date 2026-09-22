@@ -111,4 +111,4 @@ class User(auth_models.AbstractBaseUser, auth_models.PermissionsMixin, BaseModel
     REQUIRED_FIELDS = []
 
     def __str__(self):
-        return self.email or self.admin_email or str(self.id)
+        return self.email or self.admin_email or str(self.pk)

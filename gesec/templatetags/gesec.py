@@ -1,3 +1,5 @@
+from typing import Any
+
 from django import template
 from django.utils.safestring import mark_safe
 
@@ -49,12 +51,15 @@ def get_item(dictionary, key):
         return dictionary.get(key)
 
 
-def _get_dotted(dictionnary: dict[str, any], key: str) -> any:
+def _get_dotted(dictionnary: dict[str, Any], key: str) -> Any:
     while "." in key:
         if not dictionnary:
             return ""
         prefix, key = key.split(".", 1)
-        dictionnary = dictionnary.get(prefix)
+        value = dictionnary.get(prefix)
+        if not isinstance(value, dict):
+            return ""
+        dictionnary = value
     return dictionnary.get(key, "")
 
 
