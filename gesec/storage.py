@@ -11,8 +11,10 @@ The yield order is implementation-dependent and not guaranteed.
 import os
 import re
 from collections.abc import Iterator
+from typing import cast
 
 from django.core.files.storage import FileSystemStorage as DjangoFileSystemStorage
+from django.core.files.storage import default_storage
 
 from storages.backends.s3 import S3Storage as DjangoStoragesS3Storage
 from storages.utils import clean_name
@@ -37,6 +39,9 @@ class S3Storage(DjangoStoragesS3Storage):
     `listdir` calls, and matching keys are yielded as soon as their page arrives.
     """
 
+    bucket_name: str
+    location: str
+
     def find_files(self, path: str, pattern: str | re.Pattern) -> Iterator[str]:
         regex = re.compile(pattern) if isinstance(pattern, str) else pattern
         prefix = self._normalize_name(clean_name(path))
@@ -52,3 +57,9 @@ class S3Storage(DjangoStoragesS3Storage):
                 relative = key[len(self.location) :].lstrip("/")
                 if regex.search(relative):
                     yield relative
+
+
+def find_files(path: str, pattern: str | re.Pattern) -> Iterator[str]:
+    """Recherche récursive dans le storage par défaut, typée sur nos backends."""
+    storage = cast(FileSystemStorage | S3Storage, default_storage)
+    return storage.find_files(path, pattern)

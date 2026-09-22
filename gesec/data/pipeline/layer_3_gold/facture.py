@@ -31,12 +31,10 @@ def load_silver_oda_ej_to_gm_mapping(silver_table_name: str) -> dict[str, list[s
             FROM {silver_table_name}""")
         )
         rows = result.fetchall()
-    mapping = {}
+    mapping: dict[str, set[str]] = {}
     for ej, gm in rows:
         mapping.setdefault(ej, set()).add(gm)
-    for ej, gm_list in mapping.items():
-        mapping[ej] = sorted(gm_list)
-    return mapping
+    return {ej: sorted(gm_list) for ej, gm_list in mapping.items()}
 
 
 def load_silver_services(table_name: str) -> list[SilverService]:

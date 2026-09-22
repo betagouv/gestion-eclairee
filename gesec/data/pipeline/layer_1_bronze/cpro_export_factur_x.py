@@ -6,15 +6,15 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from decimal import Decimal
 from time import perf_counter
-from typing import Literal
+from typing import Any, Literal, cast
 
 from django.conf import settings
-from django.core.files.storage import default_storage
 
 from tqdm import tqdm
 from xmlschema import XMLSchema, XMLSchemaException, XMLSchemaValidationError
 
 from gesec.data.pipeline.db import save_list_pydantic
+from gesec.storage import find_files
 
 from ..utils import LoadTimings, read_xml_file, resolve_n_workers
 from .schemas import BronzeCproExportFacturX, BronzeCproExportFacturXStatus
@@ -50,7 +50,7 @@ def detect_schema_version(xml: str) -> tuple[str, str]:
 def load_file(
     id_cpro: str,
     file_path: str,
-    schema: XMLSchema = None,
+    schema: XMLSchema | None = None,
     timings: LoadTimings | None = None,
 ) -> BronzeCproExportFacturX:
     if schema is None:
@@ -64,7 +64,7 @@ def load_file(
         timings.record("version", perf_counter() - start)
 
     start = perf_counter()
-    content, errors = schema.to_dict(xml, validation="lax")
+    content, errors = cast("tuple[Any, list[XMLSchemaValidationError]]", schema.to_dict(xml, validation="lax"))
     str_errors = ""
     for err in errors:
         if isinstance(err, XMLSchemaValidationError):
@@ -78,7 +78,7 @@ def load_file(
     row = BronzeCproExportFacturX(
         id_cpro=id_cpro,
         xml_schema=f"Factur-X_{schema_version}_{schema_profile}",
-        content=content,
+        content=content or {},
         errors=str_errors,
     )
     if timings is not None:
@@ -94,7 +94,7 @@ def filter_files(directory: str, ids_cpro: list[str] | None = None) -> list[tupl
     """
     result = []
     ids = None if ids_cpro is None else set(ids_cpro)
-    for filepath in tqdm(default_storage.find_files(directory, r"\.factur-x\.xml$"), "Recherche des factur-x"):
+    for filepath in tqdm(find_files(directory, r"\.factur-x\.xml$"), "Recherche des factur-x"):
         dirpath = os.path.dirname(filepath)
         if os.path.basename(dirpath) != "pivot":
             continue
@@ -166,7 +166,7 @@ def build_rows(
     return all_rows, all_status
 
 
-def clean_decimals(obj: dict) -> dict:
+def clean_decimals(obj: Any) -> Any:
     if isinstance(obj, Decimal):
         return str(obj)
     elif isinstance(obj, dict):

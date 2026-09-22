@@ -22,6 +22,8 @@ T = TypeVar("T")
 def create_engine() -> Engine:
     # Get database URL from environment
     db_url = os.environ.get("DATABASE_URL")
+    if db_url is None:
+        raise ValueError("DATABASE_URL environment variable is required")
     db_url = db_url.replace("postgres:", "postgresql+psycopg:")
 
     # Create SQLAlchemy engine
@@ -46,7 +48,7 @@ def save_list_dict(
 
 
 def save_list_pydantic(
-    list_objects: list[BaseModel],
+    list_objects: Sequence[BaseModel],
     table_name: str,
     if_exists: Literal["fail", "replace", "append", "delete_rows"] = "fail",
 ) -> None:

@@ -6,14 +6,15 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from decimal import Decimal
 from time import perf_counter
+from typing import Any, cast
 
 from django.conf import settings
-from django.core.files.storage import default_storage
 
 from tqdm import tqdm
 from xmlschema import XMLSchema, XMLSchemaValidationError
 
 from gesec.data.pipeline.db import save_list_pydantic
+from gesec.storage import find_files
 
 from ..utils import LoadTimings, read_xml_file, resolve_n_workers
 from .schemas import BronzeCproExportFactureXml, BronzeCproExportFactureXmlStatus
@@ -66,7 +67,7 @@ def detect_schema_version(xml: str) -> str | None:
 def load_file(
     id_cpro: str,
     file_path: str,
-    schema: XMLSchema = None,
+    schema: XMLSchema | None = None,
     timings: LoadTimings | None = None,
 ) -> BronzeCproExportFactureXml:
     if schema is None:
@@ -86,7 +87,7 @@ def load_file(
     xml = xml.replace('<cbc:Amount currencyID="EUR"/>', '<cbc:Amount currencyID="EUR">0.0</cbc:Amount>')
 
     start = perf_counter()
-    content = schema.to_dict(xml)
+    content = cast("dict | None", schema.to_dict(xml)) or {}
     if timings is not None:
         timings.record("parse", perf_counter() - start)
 
@@ -109,7 +110,7 @@ def filter_files(directory: str, ids_cpro: list[str] | None = None) -> list[tupl
     """
     result = []
     ids = None if ids_cpro is None else set(ids_cpro)
-    for filepath in tqdm(default_storage.find_files(directory, r"\.xml$"), "Recherche des factures XML"):
+    for filepath in tqdm(find_files(directory, r"\.xml$"), "Recherche des factures XML"):
         if filepath.endswith(".factur-x.xml"):
             continue
         dirpath = os.path.dirname(filepath)
@@ -183,7 +184,7 @@ def build_rows(
     return all_rows, all_status
 
 
-def clean_decimals(obj: dict) -> dict:
+def clean_decimals(obj: Any) -> Any:
     if isinstance(obj, Decimal):
         return str(obj)
     elif isinstance(obj, dict):

@@ -143,7 +143,7 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
                     line_amount_excl_tax=line_amount_excl_tax,
                     line_amount_incl_tax=line_amount_incl_tax,
                     line_amount_vat=line_amount_tax,
-                    currency=invoice_currency,
+                    currency=invoice_currency or "",
                 )
             )
         except Exception:

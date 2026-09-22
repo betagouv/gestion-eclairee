@@ -19,7 +19,7 @@ class SilverCproExportFacture(BaseModel):
     numero: str
 
     # État
-    etat_courant: str = None
+    etat_courant: Optional[str] = None
     instructeur: Optional[str] = None
     motif_de_rejet: Optional[str] = None
     commentaire_de_l_etat: Optional[str] = None
@@ -34,7 +34,7 @@ class SilverCproExportFacture(BaseModel):
     date_fournisseur: Optional[date] = None
     date_de_creation: Optional[date] = None
     date_de_depot: Optional[date] = None
-    date_etat_courant: date = None
+    date_etat_courant: Optional[date] = None
     date_echeance_paiement: Optional[date] = None
     valideur_1_date_de_validation: Optional[date] = None
     valideur_2_date_de_validation: Optional[date] = None
@@ -228,7 +228,7 @@ class SilverUgapExportFacture(BaseModel):
     tva_collectee: Decimal
     ce_ttc: Decimal
     qte_commandees: Decimal
-    montant_facture_ht: Decimal
+    montant_facture_ht: Optional[Decimal] = None
 
 
 UgapExportFactureStatus = Literal["Ok", "Validation error", "Duplicat"]

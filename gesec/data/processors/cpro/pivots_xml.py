@@ -254,7 +254,11 @@ def extract_factures(input_dir: str, output_dir: str, ids: list[str] | None = No
     for filename in files:
         if filename.endswith(".zip"):
             if ids is not None:
-                facture_id = re.match(r".*_(\d+).zip", filename).group(1)
+                match = re.match(r".*_(\d+).zip", filename)
+                if match is None:
+                    logger.warning("Nom de fichier zip inattendu, ignoré : %s", filename)
+                    continue
+                facture_id = match.group(1)
                 if facture_id in ids:
                     filtered_files.append(filename)
             elif filename.endswith(".zip"):

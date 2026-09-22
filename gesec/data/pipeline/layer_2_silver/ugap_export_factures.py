@@ -1,7 +1,7 @@
 import logging
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import ValidationError
 
@@ -95,7 +95,7 @@ def to_decimal(value) -> Optional[Decimal]:
 
 
 def transform_bronze_row(bronze: BronzeUgapExportFacture) -> SilverUgapExportFacture:
-    values = {}
+    values: dict[str, Any] = {}
     for column, value in bronze.model_dump().items():
         if column in META_COLUMNS:
             continue

@@ -5,7 +5,7 @@ import os
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, datetime
+from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
@@ -271,7 +271,7 @@ def extract_source_info(filename: str) -> tuple[str, str]:
     return num_ej, service
 
 
-def _parse_row(row: dict[str, str]) -> dict[str, str | date | Decimal | None]:
+def _parse_row(row: dict[str, str]) -> dict[str, object]:
     """Parse a single CSV row, converting date and amount columns to proper types.
 
     Args:
@@ -285,14 +285,14 @@ def _parse_row(row: dict[str, str]) -> dict[str, str | date | Decimal | None]:
     """
 
     # Clean column names first
-    row = {clean_column_name(k): v for k, v in row.items()}
+    values: dict[str, object] = {clean_column_name(k): v for k, v in row.items()}
 
     # Remove empty column
-    empty_value = row.pop("")
+    empty_value = values.pop("")
     assert empty_value == "", f"Value is not empty {empty_value!r}"
 
     # Check row schema
-    row_columns = set(row.keys())
+    row_columns = set(values.keys())
     assert row_columns == EXPECTED_CLEANED_COLUMNS, (
         f"Invalid columns "
         f"missings={EXPECTED_CLEANED_COLUMNS - row_columns} "
@@ -301,28 +301,28 @@ def _parse_row(row: dict[str, str]) -> dict[str, str | date | Decimal | None]:
 
     # Parse date columns
     for date_col in DATE_COLUMNS:
-        str_date = row[date_col].strip()
+        str_date = str(values[date_col]).strip()
         if str_date:
             try:
-                row[date_col] = datetime.strptime(str_date, "%d/%m/%Y").date()
+                values[date_col] = datetime.strptime(str_date, "%d/%m/%Y").date()
             except ValueError as e:
                 raise ValueError(f"Cannot parse '{date_col}' as date (expected dd/mm/yyyy): {e}")
         else:
-            row[date_col] = None
+            values[date_col] = None
 
     # Parse amount columns
     for amount_col in AMOUNT_COLUMNS:
-        str_amount = row[amount_col].strip()
+        str_amount = str(values[amount_col]).strip()
         if str_amount:
             try:
                 # Replace French decimal separator (comma with dot)
-                row[amount_col] = Decimal(row[amount_col].replace(",", "."))
+                values[amount_col] = Decimal(str(values[amount_col]).replace(",", "."))
             except (ValueError, TypeError) as e:
                 raise ValueError(f"Cannot parse '{amount_col}' as Decimal: {e}")
         else:
-            row[amount_col] = None
+            values[amount_col] = None
 
-    return row
+    return values
 
 
 def _process_csv_file(filepath: str) -> list[dict]:

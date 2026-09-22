@@ -1,6 +1,7 @@
 import sys
 import time
 from contextlib import contextmanager
+from typing import Any
 
 import pandas as pd
 
@@ -21,7 +22,7 @@ def timer(message):
 key_ej = "Numéro EJ référencé facture"
 
 with timer("Load ODA"):
-    dtype_oda = {key_ej: "str", "Domaine": "str"}
+    dtype_oda: Any = {key_ej: "str", "Domaine": "str"}
     if oda_filepath.endswith(".csv"):
         df_oda = pd.read_csv(
             oda_filepath,
@@ -60,7 +61,7 @@ print("Lignes csv:", df_chorus.shape[0])
 # Aggregation
 with timer("Do agg"):
     # Dictionnaire pour stocker les données agrégées par EJ
-    agg_data = {}
+    agg_data: dict[str, dict[str, Any]] = {}
 
     # Parcourir chaque ligne de df2
     for _, row in df_chorus.iterrows():

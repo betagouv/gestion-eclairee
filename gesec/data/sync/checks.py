@@ -5,6 +5,7 @@ import optparse
 import os
 import sys
 from decimal import ROUND_HALF_UP, Decimal
+from typing import Any
 
 from tqdm import tqdm
 
@@ -13,6 +14,14 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 IDENTIFIANT_CHORUS_PRO_COLUMN = "Identifiant Chorus Pro"
+
+
+def _to_decimal(value: object) -> Any:
+    """Convertit une valeur pandas en Decimal.
+
+    Le retour est `Any` car `Scalar` de pandas-stubs n'inclut pas `Decimal`.
+    """
+    return Decimal(str(value))
 
 
 def check_csv_and_downloads(csv_path: str, downloads_path: str) -> tuple[bool, list[str]]:
@@ -37,9 +46,10 @@ def check_csv_and_downloads(csv_path: str, downloads_path: str) -> tuple[bool, l
         reader = csv.DictReader(csvfile, delimiter=";")
 
         # Check if required column exists
-        if IDENTIFIANT_CHORUS_PRO_COLUMN not in reader.fieldnames:
+        fieldnames = reader.fieldnames or []
+        if IDENTIFIANT_CHORUS_PRO_COLUMN not in fieldnames:
             raise ValueError(
-                f"CSV must contain '{IDENTIFIANT_CHORUS_PRO_COLUMN}' column. Available columns: {reader.fieldnames}"
+                f"CSV must contain '{IDENTIFIANT_CHORUS_PRO_COLUMN}' column. Available columns: {fieldnames}"
             )
 
         for row in reader:
@@ -167,7 +177,7 @@ def check_coherence_oda(df_oda: pd.DataFrame, df_cpro: pd.DataFrame):
     df_cpro_clean = df_cpro.copy()
 
     # Cast en Decimal
-    df_oda_clean["Dépenses  2025"] = df_oda_clean["Dépenses  2025"].apply(lambda x: Decimal(str(x)))
+    df_oda_clean["Dépenses  2025"] = df_oda_clean["Dépenses  2025"].apply(_to_decimal)
     df_cpro_clean["montant_a_payer"] = df_cpro_clean["montant_a_payer"].apply(
         lambda x: x.quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
     )

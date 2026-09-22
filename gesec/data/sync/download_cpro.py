@@ -502,7 +502,7 @@ def download_items(page, params: Optional[SearchParams] = None):
     return stats
 
 
-def read_input_file(input_file: str) -> list[tuple[str, str, str, str]]:
+def read_input_file(input_file: str) -> list[tuple[str, str | None, str, str]]:
     """Read input file with EJ, SERVICES, FACTURE_NUM, and FACTURE_MONTANT columns.
 
     Args:
@@ -644,7 +644,7 @@ def search_and_download(page, params: SearchParams):
     logger.info(f"Starting search and download with params: {params}")
 
     # Initialize search page once
-    init_search_page(page, params.ignore_payment_state)
+    init_search_page(page, bool(params.ignore_payment_state))
 
     # Fill service
     if params.service:

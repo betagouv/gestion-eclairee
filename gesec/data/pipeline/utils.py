@@ -6,7 +6,7 @@ import statistics
 import threading
 from datetime import date, datetime, time
 from time import perf_counter
-from typing import Any, Type, TypeVar
+from typing import Any, Callable, Type, TypeVar
 
 from django.conf import settings
 from django.core.files.storage import default_storage
@@ -161,7 +161,7 @@ def force_string(value: str | list[str], sep: str = " ") -> str:
 
 def load_csv(
     filepath: str,
-    row_model: Type[T],
+    row_model: Callable[..., T],
     delimiter: str,
     encoding: str,
     skip_rows: int | None = None,
@@ -284,11 +284,13 @@ def load_xlsx(
                 if all(value is None for value in row_values):
                     continue
                 rows.append(
-                    row_model(
-                        **{header: cell_to_text(value) for header, value in zip(headers, row_values)},
-                        onglet=sheet_name,
-                        source=filepath,
-                        source_idx=f"{sheet_key}_{idx}",
+                    row_model.model_validate(
+                        {
+                            **{header: cell_to_text(value) for header, value in zip(headers, row_values)},
+                            "onglet": sheet_name,
+                            "source": filepath,
+                            "source_idx": f"{sheet_key}_{idx}",
+                        }
                     )
                 )
 
