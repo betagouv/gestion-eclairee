@@ -9,12 +9,12 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from django.conf import settings
 from django.core.files.storage import default_storage
 
 from tqdm import tqdm
 
 from gesec.data.pipeline.db import create_engine, save_list_dict
+from gesec.data.pipeline.utils import resolve_n_workers
 
 from .schemas import BronzeCproExportFacture
 from .utils import clean_column_name
@@ -382,11 +382,7 @@ def aggregate_csv_files(
     """
     all_rows = []
 
-    if n_workers is None:
-        if settings.STORAGE_BACKEND == "s3":
-            n_workers = 10
-        else:
-            n_workers = 1
+    n_workers = resolve_n_workers(n_workers)
 
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
         futures = {executor.submit(_process_csv_file, filepath): filepath for filepath in csv_files}

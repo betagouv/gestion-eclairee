@@ -5,11 +5,12 @@ from datetime import datetime
 from unittest.mock import patch
 
 from django.core.files.storage import FileSystemStorage
+from django.test import override_settings
 
 import pytest
 from pydantic import BaseModel, ConfigDict, Field
 
-from gesec.data.pipeline.utils import load_xlsx, model_headers, read_xml_file
+from gesec.data.pipeline.utils import load_xlsx, model_headers, read_xml_file, resolve_n_workers
 from tests.gesec.data.pipeline.ugap_helpers import build_xlsx
 
 
@@ -175,3 +176,17 @@ def test_read_xml_file_large_file(s3_client):
 
     result = read_xml_file("test_large.xml")
     assert result == xml_content
+
+
+def test_resolve_n_workers_explicit_value_wins():
+    assert resolve_n_workers(3) == 3
+
+
+def test_resolve_n_workers_defaults_to_ten_on_s3():
+    with override_settings(STORAGE_BACKEND="s3"):
+        assert resolve_n_workers() == 10
+
+
+def test_resolve_n_workers_defaults_to_one_on_fs():
+    with override_settings(STORAGE_BACKEND="fs"):
+        assert resolve_n_workers() == 1

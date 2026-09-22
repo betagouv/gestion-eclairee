@@ -15,7 +15,7 @@ from xmlschema import XMLSchema, XMLSchemaException, XMLSchemaValidationError
 
 from gesec.data.pipeline.db import save_list_pydantic
 
-from ..utils import read_xml_file
+from ..utils import read_xml_file, resolve_n_workers
 from .schemas import BronzeCproExportFacturX, BronzeCproExportFacturXStatus
 from .utils import get_ids_cpro_for_ministere
 
@@ -101,12 +101,7 @@ def build_rows(
     all_rows = []
     all_status = []
 
-    if n_workers is None:
-        if settings.STORAGE_BACKEND == "s3":
-            n_workers = 10
-        else:
-            n_workers = 1
-
+    n_workers = resolve_n_workers(n_workers)
     schema = get_xsd_schema(DEFAULT_SCHEMA_PROFILE, DEFAULT_SCHEMA_VERSION)
     with ThreadPoolExecutor(max_workers=n_workers) as executor:
         futures = {

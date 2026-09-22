@@ -5,6 +5,7 @@ import re
 from datetime import date, datetime, time
 from typing import Any, Type, TypeVar
 
+from django.conf import settings
 from django.core.files.storage import default_storage
 
 import openpyxl
@@ -15,6 +16,17 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 ModelT = TypeVar("ModelT", bound=BaseModel)
+
+
+def resolve_n_workers(n_workers: int | None = None) -> int:
+    """Number of threads used to read files from the storage.
+
+    An explicit value wins. Otherwise S3 defaults to 10 threads (network-bound
+    reads) and the filesystem to 1.
+    """
+    if n_workers is not None:
+        return n_workers
+    return 10 if settings.STORAGE_BACKEND == "s3" else 1
 
 
 def read_xml_file(file_path: str) -> str:
