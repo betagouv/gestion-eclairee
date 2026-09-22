@@ -42,6 +42,7 @@ dev = [
     "pytest-responses>=0.5.1",
     "pytest-ruff>=0.5",
     "ruff>=0.15.16",
+    "ty>=0.0.83",
 ]
 
 
@@ -78,6 +79,10 @@ pandas = ["pandas", "numpy"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "gesec.settings"
+
+
+[tool.ty.src]
+exclude = ["**/migrations"]
 
 
 [tool.coverage.run]

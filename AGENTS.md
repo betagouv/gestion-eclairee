@@ -8,7 +8,7 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - Tests : `uv run pytest --no-migrations tests`
   - ciblé : `uv run pytest --no-migrations tests/chemin/test_x.py::test_y`
   - couverture : `uv run pytest --cov=gesec --cov-report html --no-migrations tests`
-- Lint/format : `uv run ruff format; uv run ruff check --fix`
+- Lint/format : `uv run ruff format; uv run ruff check --fix; uv run ty check`
 - Django : `uv run ./manage.py <commande>` (migrate, shell, launch_pipeline...)
 - Pipeline complet : `uv run ./manage.py launch_pipeline [--ministere <code>]`
 - Extraction XML : `uv run python -m gesec.data.processors.cpro.pivots_xml -i <in> -o <out>`
@@ -40,9 +40,28 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - Double quotes, 120 colonnes (ruff), aucun commentaire.
 - Tous les fichiers se terminent par un newline, sauf les fichiers de données (CSV, exports...).
 - isort : future > stdlib > django > tiers > pandas > first-party > local.
-- Migrations exclues de ruff.
+- Migrations exclues de ruff et de ty.
 - Nouveau modèle : définir dans l'app puis le ré-exporter dans `gesec/models.py`.
 - Processors : pandas/SQLAlchemy (écritures avec `chunksize`) ; modèles Django pour le front.
+
+## Typage
+
+Vérification : `uv run ty check` (inclus dans le lint). Aucun diagnostic toléré.
+
+- Annoter aux frontières : signatures (paramètres et retour), champs de
+  modèles, constantes de module.
+- Laisser l'inférence sur les locales : variables de boucle, compréhensions,
+  expressions et résultats d'appels évidents.
+- N'annoter une locale que pour lever une ambiguïté (`dict`/`list`/`set` vides,
+  `json.loads`, `**kwargs` pydantic, retours pandas/SQLAlchemy) ou quand
+  l'inférence trompe.
+- `-> None` explicite sur les fonctions sans retour.
+- Structures explicites : `dict[str, X]`, `list[X]`, `TypedDict` pour les formes
+  stables, `Literal` pour les vocabulaires fermés. Jamais de `dict` ou `list` nus.
+- Paramètres lus : `Sequence[X]` / `Iterable[X]` plutôt que `list[X]` (invariance).
+- `Any` réservé aux frontières non typables (CSV/XML/JSON, `**kwargs` pydantic) ;
+  jamais en retour d'une fonction métier.
+- Préférer `typing.cast` ciblé ou une garde runtime à `ty: ignore`.
 
 ## Commits
 

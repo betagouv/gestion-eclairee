@@ -14,8 +14,9 @@ pytest --cov=gesec --cov-report html --no-migrations tests
 ```
 
 
-## Run linter / formatter
+## Run linter / formatter / type checker
 
 ruff format; ruff check --fix
+ty check
 
 
