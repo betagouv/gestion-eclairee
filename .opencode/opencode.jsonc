@@ -1,16 +1,3 @@
 {
-  "$schema": "https://opencode.ai/config.json",
-  // Formate les .py après chaque édition : ruff format puis ruff check --fix
-  "formatter": {
-    "ruff": {
-      "command": [
-        "sh",
-        "-c",
-        "uv run ruff format \"$1\" && uv run ruff check --fix \"$1\"",
-        "_",
-        "$FILE"
-      ],
-      "extensions": [".py"]
-    }
-  }
+  "$schema": "https://opencode.ai/config.json"
 }

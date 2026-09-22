@@ -8,7 +8,8 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - Tests : `uv run pytest --no-migrations tests`
   - ciblé : `uv run pytest --no-migrations tests/chemin/test_x.py::test_y`
   - couverture : `uv run pytest --cov=gesec --cov-report html --no-migrations tests`
-- Lint/format : `uv run ruff format; uv run ruff check --fix; uv run ty check`
+- Lint/format (corrige) : `uv run ruff format; uv run ruff check --fix`
+- Vérification (lecture seule) : `uv run ruff format --check; uv run ruff check; uv run ty check`
 - Django : `uv run ./manage.py <commande>` (migrate, shell, launch_pipeline...)
 - Pipeline complet : `uv run ./manage.py launch_pipeline [--ministere <code>]`
 - Extraction XML : `uv run python -m gesec.data.processors.cpro.pivots_xml -i <in> -o <out>`
