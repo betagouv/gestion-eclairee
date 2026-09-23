@@ -1,5 +1,4 @@
 import logging
-from decimal import ROUND_HALF_UP, Decimal
 from typing import Optional
 
 from gesec.data.pipeline.db import load_rows_from_table, save_list_pydantic
@@ -112,72 +111,6 @@ def resolve_fournisseur_in_fine(line: SilverUgapExportFacture) -> tuple[Optional
     return designation, siren
 
 
-def compute_tva_ratio(
-    ce_ht: Optional[Decimal],
-    tva_collectee: Optional[Decimal],
-    ce_ttc: Optional[Decimal],
-) -> Decimal:
-    if ce_ht is None or ce_ht == 0:
-        raise ValueError("Cannot compute TVA ratio: missing or zero CE HT")
-    if tva_collectee is not None:
-        return tva_collectee / ce_ht
-    if ce_ttc is not None:
-        return (ce_ttc - ce_ht) / ce_ht
-    raise ValueError("Cannot compute TVA ratio: missing TVA Collectée and CE TTC")
-
-
-def build_ugap_lines(id_cpro: str, ugap_lines: list[SilverUgapExportFacture]) -> list[GoldCproExportFactureLigne]:
-    result = []
-    for line in ugap_lines:
-        if not line.article_numero_vue_adv:
-            raise ValueError(f"Missing ADV name for {id_cpro} line {line.line_id}")
-        if line.montant_facture_ht is None:
-            raise ValueError(f"Missing billed amount for {id_cpro} line {line.line_id}")
-
-        ratio = compute_tva_ratio(line.ce_ht, line.tva_collectee, line.ce_ttc)
-        line_amount_excl_tax = line.montant_facture_ht
-        line_amount_vat = line_amount_excl_tax * ratio
-        line_amount_incl_tax = (line_amount_excl_tax + line_amount_vat).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
-        quantity = line.qte_commandees
-        unit_price = line_amount_excl_tax / quantity if quantity is not None and quantity > 0 else None
-        designation, siren = resolve_fournisseur_in_fine(line)
-        item_description = "\n".join(
-            value
-            for value in (
-                line.texte_adv_ligne_1,
-                line.texte_adv_ligne_2,
-                line.texte_adv_ligne_3,
-                line.texte_adv_ligne_4,
-                line.article_code_lot,
-                line.designation_du_lot,
-            )
-            if value
-        )
-        result.append(
-            GoldCproExportFactureLigne(
-                id_cpro=id_cpro,
-                source="ugap",
-                xml_schema=None,
-                line_id=str(line.line_id),
-                item_name=line.article_numero_vue_adv,
-                item_description=item_description,
-                item_reference=line.article_numero,
-                quantity=quantity,
-                quantity_unit_code="",
-                unit_price=unit_price,
-                line_amount_excl_tax=line_amount_excl_tax,
-                line_amount_vat=line_amount_vat,
-                line_amount_incl_tax=line_amount_incl_tax,
-                currency="EUR",
-                fournisseur_in_fine_designation=designation,
-                fournisseur_in_fine_siren=siren,
-            )
-        )
-    return result
-
-
 def build_ugap_ligne(
     ugap_line: SilverUgapExportFacture,
     status: UgapLigneStatus,
@@ -254,7 +187,6 @@ def match_ugap(
         for ugap_line in ugap_lines
     }
     replacements: dict[str, list[GoldCproExportFactureLigne]] = {}
-    created_lines: list[GoldCproExportFactureLigne] = []
 
     for numero, id_cpros in numero_to_id_cpros.items():
         export_lines = ugap_lines_by_numero.get(numero, [])
@@ -274,12 +206,10 @@ def match_ugap(
                     if suivi[key].status == "facture_inconnue":
                         suivi[key] = resolved
             else:
-                lines = build_ugap_lines(id_cpro, export_lines)
-                created_lines.extend(lines)
-                for ugap_line, gold_line in zip(export_lines, lines):
+                for ugap_line in export_lines:
                     key = (ugap_line.source, ugap_line.source_idx)
                     if suivi[key].status == "facture_inconnue":
-                        suivi[key] = build_ugap_ligne(ugap_line, "created", id_cpro=id_cpro, line_id=gold_line.line_id)
+                        suivi[key] = build_ugap_ligne(ugap_line, "ligne_absente", id_cpro=id_cpro)
 
     result = []
     replaced_ids = set()
@@ -290,7 +220,6 @@ def match_ugap(
         elif gold_line.id_cpro not in replaced_ids:
             result.extend(replacement)
             replaced_ids.add(gold_line.id_cpro)
-    result.extend(created_lines)
 
     return result, list(suivi.values())
 

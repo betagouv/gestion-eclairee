@@ -24,7 +24,7 @@ class GoldCproExportFactureLigne(BaseModel):
     fournisseur_in_fine_siren: Optional[str] = None
 
 
-UgapLigneStatus = Literal["matched", "created", "ligne_absente", "facture_inconnue"]
+UgapLigneStatus = Literal["matched", "ligne_absente", "facture_inconnue"]
 
 
 class GoldUgapLigne(BaseModel):

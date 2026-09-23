@@ -2,14 +2,10 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-import pytest
-
 from gesec.data.pipeline.layer_2_silver.schemas import SilverCproExportFacture, SilverUgapExportFacture
 from gesec.data.pipeline.layer_3_gold.constants import UGAP_SIREN
 from gesec.data.pipeline.layer_3_gold.facture_ligne import (
     build_ugap_ligne,
-    build_ugap_lines,
-    compute_tva_ratio,
     enrich_existing_lines,
     is_ugap_facture,
     match_ugap,
@@ -130,28 +126,6 @@ def test_is_ugap_facture():
     assert is_ugap_facture(None) is False
 
 
-def test_compute_tva_ratio_from_collected():
-    assert compute_tva_ratio(Decimal("100"), Decimal("20"), None) == Decimal("0.2")
-    assert compute_tva_ratio(Decimal("100"), Decimal("20"), Decimal("120")) == Decimal("0.2")
-
-
-def test_compute_tva_ratio_from_incl_tax():
-    assert compute_tva_ratio(Decimal("100"), None, Decimal("120")) == Decimal("0.2")
-
-
-@pytest.mark.parametrize(
-    "ce_ht, tva_collectee, ce_ttc",
-    [
-        (None, Decimal("20"), Decimal("120")),
-        (Decimal("0"), Decimal("20"), Decimal("120")),
-        (Decimal("100"), None, None),
-    ],
-)
-def test_compute_tva_ratio_errors(ce_ht, tva_collectee, ce_ttc):
-    with pytest.raises(ValueError):
-        compute_tva_ratio(ce_ht, tva_collectee, ce_ttc)
-
-
 def test_resolve_fournisseur_in_fine_fallbacks():
     line = silver_ugap_line(
         titulaire_2_editeurs_multi_editeurs="TITULAIRE 2",
@@ -168,62 +142,6 @@ def test_resolve_fournisseur_in_fine_fallbacks():
 
     line = silver_ugap_line(article_code_fourniseur="", siren_titulaire="")
     assert resolve_fournisseur_in_fine(line) == (None, None)
-
-
-def test_build_ugap_lines_maps_fields():
-    line = silver_ugap_line(
-        titulaire_2_editeurs_multi_editeurs="TITULAIRE 2",
-        siren_titulaire_2="111111111",
-    )
-
-    gold_lines = build_ugap_lines("cpro-1", [line])
-
-    assert len(gold_lines) == 1
-    gold = gold_lines[0]
-    assert gold.id_cpro == "cpro-1"
-    assert gold.source == "ugap"
-    assert gold.xml_schema is None
-    assert gold.line_id == "1"
-    assert gold.item_name == "Article 1"
-    assert gold.item_description == "Texte 1\nLOT/001\nDésignation lot"
-    assert gold.item_reference == "Y1"
-    assert gold.quantity == Decimal("2")
-    assert gold.quantity_unit_code == ""
-    assert gold.unit_price == Decimal("50")
-    assert gold.line_amount_excl_tax == Decimal("100")
-    assert gold.line_amount_vat == Decimal("20")
-    assert gold.line_amount_incl_tax == Decimal("120")
-    assert gold.currency == "EUR"
-    assert gold.fournisseur_in_fine_designation == "TITULAIRE 2"
-    assert gold.fournisseur_in_fine_siren == "111111111"
-
-
-def test_build_ugap_lines_rounds_incl_tax_half_up():
-    line = silver_ugap_line(ce_ht=Decimal("1"), tva_collectee=Decimal("0.005"), montant_facture_ht=Decimal("1"))
-
-    gold = build_ugap_lines("cpro-1", [line])[0]
-
-    assert gold.line_amount_vat == Decimal("0.005")
-    assert gold.line_amount_incl_tax == Decimal("1.01")
-
-
-def test_build_ugap_lines_with_zero_quantity():
-    line = silver_ugap_line(qte_commandees=Decimal("0"))
-
-    assert build_ugap_lines("cpro-1", [line])[0].unit_price is None
-
-
-def test_build_ugap_lines_rejects_missing_adv_name():
-    with pytest.raises(ValueError):
-        build_ugap_lines("cpro-1", [silver_ugap_line(article_numero_vue_adv="")])
-
-
-def test_build_ugap_lines_rejects_missing_amount():
-    line = silver_ugap_line()
-    line.montant_facture_ht = None
-
-    with pytest.raises(ValueError):
-        build_ugap_lines("cpro-1", [line])
 
 
 def test_build_ugap_ligne():
@@ -262,22 +180,19 @@ def test_enrich_existing_lines_returns_consumed():
     assert consumed == {("ugap/f.xlsx", "11_2025_dinum_1"): "1"}
 
 
-def test_match_ugap_creates_lines_without_gold_lines():
+def test_match_ugap_without_gold_lines_flags_ligne_absente():
     factures = [silver_facture(numero="A1", id_cpro="cpro-1")]
     ugap_lines = [silver_ugap_line(line_id=1, numero="A1", article="Y1")]
 
     lines, suivi = match_ugap(factures, [], ugap_lines)
 
-    assert len(lines) == 1
-    assert lines[0].id_cpro == "cpro-1"
-    assert lines[0].source == "ugap"
-    assert lines[0].line_id == "1"
+    assert lines == []
     assert len(suivi) == 1
     assert (suivi[0].source_idx, suivi[0].status, suivi[0].id_cpro, suivi[0].line_id) == (
         "11_2025_dinum_1",
-        "created",
+        "ligne_absente",
         "cpro-1",
-        "1",
+        "",
     )
 
 
