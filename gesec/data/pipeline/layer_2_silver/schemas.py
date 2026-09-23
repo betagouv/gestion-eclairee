@@ -245,6 +245,8 @@ class SilverCproExportFactureXmlFacture(BaseModel):
     id_cpro: str
     xml_schema: str
     numero: str
+    delivery_id: Optional[str] = None
+    reference_ugap: Optional[str] = None
 
 
 class SilverCproExportFactureXmlLigne(BaseModel):

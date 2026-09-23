@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Optional
 
 from gesec.data.pipeline.db import load_rows_from_table, save_list_pydantic
@@ -11,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TABLE_NAME = "silver_" + __name__.split(".")[-1]
 
+RE_REFERENCE_UGAP = re.compile(r"Référence UGAP\s*:\s*(\d+)")
+
 
 def extract_numero(content: dict) -> Optional[str]:
     value = content.get("cbc:ID")
@@ -19,6 +22,48 @@ def extract_numero(content: dict) -> Optional[str]:
     if value is None:
         return None
     return str(value)
+
+
+def extract_delivery_id(content: dict) -> Optional[str]:
+    delivery = content.get("cac:Delivery")
+    if isinstance(delivery, list):
+        deliveries = delivery
+    elif isinstance(delivery, dict):
+        deliveries = [delivery]
+    else:
+        return None
+    identifiers: list[str] = []
+    for item in deliveries:
+        value = item.get("cbc:ID")
+        if isinstance(value, dict):
+            value = value.get("$")
+        if value is None or not str(value).strip():
+            continue
+        identifiers.append(str(value))
+    if not identifiers:
+        return None
+    if len(set(identifiers)) > 1:
+        logger.warning(f"Multiple distinct cac:Delivery cbc:ID, keeping first: {identifiers}")
+    return identifiers[0]
+
+
+def extract_reference_ugap(content: dict) -> Optional[str]:
+    notes = content.get("cbc:Note")
+    if notes is None:
+        return None
+    if isinstance(notes, (str, dict)):
+        notes = [notes]
+    elif not isinstance(notes, list):
+        return None
+    for note in notes:
+        if isinstance(note, dict):
+            note = note.get("$")
+        if not isinstance(note, str):
+            continue
+        match = RE_REFERENCE_UGAP.search(note)
+        if match is not None:
+            return match.group(1).lstrip("0") or "0"
+    return None
 
 
 def transform_to_silver(bronze_factures: list[BronzeCproExportFactureXml]) -> list[SilverCproExportFactureXmlFacture]:
@@ -33,6 +78,8 @@ def transform_to_silver(bronze_factures: list[BronzeCproExportFactureXml]) -> li
                 id_cpro=bronze.id_cpro,
                 xml_schema=bronze.xml_schema,
                 numero=numero,
+                delivery_id=extract_delivery_id(bronze.content),
+                reference_ugap=extract_reference_ugap(bronze.content),
             )
         )
     return result
