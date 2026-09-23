@@ -66,6 +66,13 @@ _Éviter_ : FacturX, facturx
 Document attaché à une facture dans Chorus Pro (bon de commande, bon de
 livraison, PDF de la facture...).
 
+**Commande UGAP** :
+Commande passée par un client auprès de l'UGAP ; une commande peut donner lieu
+à plusieurs factures.
+_Dans les sources_ : « Cde Client - N° » (export UGAP), `cac:Delivery/cbc:ID`
+(facture XML), « Référence UGAP » (note XML, millésimes récents seulement).
+_Éviter_ : référence UGAP, numéro UGAP
+
 ### Acteurs
 
 **Émetteur** :
@@ -104,7 +111,8 @@ _Éviter_ : numéro d'engagement (sauf citation d'un export)
 **Bon de commande** :
 Forme d'engagement juridique à laquelle une facture peut être rattachée ; le
 numéro de bon de commande porté par la facture est plus précis que l'EJ.
-_Dans les sources_ : « Numéro du bon de commande » (Chorus Pro)
+_Dans les sources_ : « Numéro du bon de commande » (Chorus Pro),
+« Cde Client - N° cde chez le client » (UGAP)
 _Éviter_ : BC
 
 **Domaine** :
