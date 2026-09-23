@@ -58,25 +58,25 @@ def silver_ugap_line(
         source_idx=f"11_2025_dinum_{line_id}",
         onglet="11 2025 - Dinum",
         line_id=line_id,
-        cde_client_ndeg=numero,
-        article_ndeg=article,
+        cde_client_numero=numero,
+        article_numero=article,
         cde_client_jour_de_creation=date(2025, 4, 10),
         cde_client_date_paiement_client=date(2025, 11, 6),
         compte_crm_do_univers_bp="ETABLISSEMENTS PUBLICS",
-        compte_crm_ndeg_donneur_d_ordre="99082863",
+        compte_crm_numero_donneur_d_ordre="99082863",
         ministere="M.CUL",
         part_nom_1_organ="MUSEE ORSAY",
         siren="180092447",
         inclus="Oui",
         code_gm="33.01.04",
         designation_gm="Services téléphonie fixe",
-        marche_ndeg="616024",
+        marche_numero="616024",
         article_code_lot="LOT/001",
         designation_du_lot="Désignation lot",
         article_code_fourniseur="FOURNISSEUR",
         siren_titulaire="343059564",
         type_entreprise_tpe_pme_pmi_eti_grande_entreprise="Grande Entreprise",
-        article_ndeg_vue_adv="Article 1",
+        article_numero_vue_adv="Article 1",
         texte_adv_ligne_1="Texte 1",
         ce_ht=Decimal("100"),
         tva_collectee=Decimal("20"),
@@ -215,7 +215,7 @@ def test_build_ugap_lines_with_zero_quantity():
 
 def test_build_ugap_lines_rejects_missing_adv_name():
     with pytest.raises(ValueError):
-        build_ugap_lines("cpro-1", [silver_ugap_line(article_ndeg_vue_adv="")])
+        build_ugap_lines("cpro-1", [silver_ugap_line(article_numero_vue_adv="")])
 
 
 def test_build_ugap_lines_rejects_missing_amount():
@@ -236,7 +236,7 @@ def test_build_ugap_ligne():
     assert suivi.id_cpro == "cpro-1"
     assert suivi.numero_ugap == "A9"
     assert suivi.line_id == ""
-    assert suivi.article_ndeg == "Y9"
+    assert suivi.article_numero == "Y9"
     assert suivi.status == "ligne_absente"
     assert suivi.status_details is None
 

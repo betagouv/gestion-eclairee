@@ -72,7 +72,7 @@ class SilverCproExportFacture(BaseModel):
     devise_de_la_facture: str
     type_de_tva: Optional[str] = None
     motif_d_exoneration: Optional[str] = None
-    certificat_de_depot_ndeg: Optional[str] = None
+    certificat_de_depot_numero: Optional[str] = None
     identifiant_numerisation: Optional[str] = None
 
     # Numéros de référence
@@ -185,12 +185,12 @@ class SilverUgapExportFacture(BaseModel):
     onglet: str
     line_id: int
 
-    cde_client_ndeg: str
-    cde_client_ndeg_cde_chez_le_client: str = ""
+    cde_client_numero: str
+    cde_client_numero_cde_chez_le_client: str = ""
     cde_client_jour_de_creation: date
     cde_client_date_paiement_client: date
     compte_crm_do_univers_bp: str
-    compte_crm_ndeg_donneur_d_ordre: str
+    compte_crm_numero_donneur_d_ordre: str
     ministere: str
     part_nom_1_organ: str
     part_nom_2_organ: str = ""
@@ -201,7 +201,7 @@ class SilverUgapExportFacture(BaseModel):
     ac_se_bp_operateur_etat: str = ""
     code_gm: str
     designation_gm: str
-    marche_ndeg: str
+    marche_numero: str
     type_d_offre_logiciels: str = ""
     article_code_lot: str
     designation_du_lot: str
@@ -209,7 +209,7 @@ class SilverUgapExportFacture(BaseModel):
     siren_titulaire: str
     boa_tete_de_groupe_mondiale_pays: str = ""
     type_entreprise_tpe_pme_pmi_eti_grande_entreprise: str
-    article_ndeg: str
+    article_numero: str
     constructeur_hardware_ajout_manuel: str = ""
     titulaire_2_editeurs_multi_editeurs: str = ""
     siren_titulaire_2: str = ""
@@ -219,7 +219,7 @@ class SilverUgapExportFacture(BaseModel):
     siren_ss_traitant: str = ""
     pays_ss_traitant: str = ""
     type_ent_ss_traitant: str = ""
-    article_ndeg_vue_adv: str
+    article_numero_vue_adv: str
     texte_adv_ligne_1: str = ""
     texte_adv_ligne_2: str = ""
     texte_adv_ligne_3: str = ""

@@ -53,8 +53,8 @@ def test_transform_bronze_row_types_and_dates():
     assert row.ce_ttc == Decimal("7.13")
     assert row.qte_commandees == Decimal("0.27")
     assert row.montant_facture_ht == Decimal("12.34")
-    assert row.article_ndeg == "5650607"
-    assert row.cde_client_ndeg == "104521399"
+    assert row.article_numero == "5650607"
+    assert row.cde_client_numero == "104521399"
     assert row.line_id == 0
 
 
@@ -219,7 +219,7 @@ def test_line_ids_are_assigned_per_facture_after_deduplication():
         ]
     )
 
-    assert [(row.cde_client_ndeg, row.article_ndeg, row.line_id) for row in rows] == [
+    assert [(row.cde_client_numero, row.article_numero, row.line_id) for row in rows] == [
         ("A", "1", 1),
         ("B", "2", 1),
         ("A", "3", 2),

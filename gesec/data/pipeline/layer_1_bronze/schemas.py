@@ -70,7 +70,7 @@ class BronzeCproExportFacture(BaseModel):
     devise_de_la_facture: Optional[str] = None
     type_de_tva: Optional[str] = None
     motif_d_exoneration: Optional[str] = None
-    certificat_de_depot_ndeg: Optional[str] = None
+    certificat_de_depot_numero: Optional[str] = Field(default=None, validation_alias="certificat_de_depot_ndeg")
     identifiant_numerisation: Optional[str] = None
 
     # Numéros de référence
@@ -297,12 +297,12 @@ class BronzeUgapExportFacture(BaseModel):
     source_idx: str
     onglet: str
 
-    cde_client_ndeg: str = Field(validation_alias="Cde Client - N°")
-    cde_client_ndeg_cde_chez_le_client: str = Field(validation_alias="Cde Client - N° cde chez le client")
+    cde_client_numero: str = Field(validation_alias="Cde Client - N°")
+    cde_client_numero_cde_chez_le_client: str = Field(validation_alias="Cde Client - N° cde chez le client")
     cde_client_jour_de_creation: str = Field(validation_alias="Cde client - Jour de création")
     cde_client_date_paiement_client: str = Field(validation_alias="Cde client - Date Paiement client")
     compte_crm_do_univers_bp: str = Field(validation_alias="Compte CRM DO - Univers BP")
-    compte_crm_ndeg_donneur_d_ordre: str = Field(validation_alias="Compte CRM - N° donneur d'ordre")
+    compte_crm_numero_donneur_d_ordre: str = Field(validation_alias="Compte CRM - N° donneur d'ordre")
     ministere: str = Field(validation_alias="Ministère")
     part_nom_1_organ: str = Field(validation_alias="Part.: nom 1 organ.")
     part_nom_2_organ: str = Field(validation_alias="Part.: nom 2 organ.")
@@ -313,7 +313,7 @@ class BronzeUgapExportFacture(BaseModel):
     ac_se_bp_operateur_etat: str = Field(validation_alias="AC/SE (BP operateur état)")
     code_gm: str = Field(validation_alias="Code GM")
     designation_gm: str = Field(validation_alias="Désignation GM")
-    marche_ndeg: str = Field(validation_alias="Marché - N°")
+    marche_numero: str = Field(validation_alias="Marché - N°")
     type_d_offre_logiciels: str = Field(validation_alias="Type d'offre Logiciels")
     article_code_lot: str = Field(validation_alias="Article - Code Lot")
     designation_du_lot: str = Field(validation_alias="Désignation du Lot")
@@ -323,7 +323,7 @@ class BronzeUgapExportFacture(BaseModel):
     type_entreprise_tpe_pme_pmi_eti_grande_entreprise: str = Field(
         validation_alias="Type Entreprise: TPE/PME-PMI/ETI/Grande Entreprise"
     )
-    article_ndeg: str = Field(validation_alias="Article - N°")
+    article_numero: str = Field(validation_alias="Article - N°")
     constructeur_hardware_ajout_manuel: str = Field(validation_alias="Constructeur (hardware ajout manuel)")
     titulaire_2_editeurs_multi_editeurs: str = Field(validation_alias="Titulaire 2 (Editeurs Multi Editeurs)")
     siren_titulaire_2: str = Field(validation_alias="Siren Titulaire 2")
@@ -333,7 +333,7 @@ class BronzeUgapExportFacture(BaseModel):
     siren_ss_traitant: str = Field(validation_alias="Siren Ss Traitant")
     pays_ss_traitant: str = Field(validation_alias="Pays Ss Traitant")
     type_ent_ss_traitant: str = Field(validation_alias="Type ent Ss Traitant")
-    article_ndeg_vue_adv: str = Field(validation_alias="Article - N° (vue ADV)")
+    article_numero_vue_adv: str = Field(validation_alias="Article - N° (vue ADV)")
     texte_adv_ligne_1: str = Field(validation_alias="Texte ADV ligne 1")
     texte_adv_ligne_2: str = Field(validation_alias="Texte ADV ligne 2")
     texte_adv_ligne_3: str = Field(validation_alias="Texte ADV ligne 3")

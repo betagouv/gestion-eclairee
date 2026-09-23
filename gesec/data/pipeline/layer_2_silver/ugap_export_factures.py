@@ -22,7 +22,7 @@ META_COLUMNS = {"source", "source_idx", "onglet"}
 DATE_COLUMNS = {"cde_client_jour_de_creation", "cde_client_date_paiement_client"}
 AMOUNT_COLUMNS = {"ce_ht", "tva_collectee", "ce_ttc", "qte_commandees", "montant_facture_ht"}
 EMPTY_TEXT_COLUMNS = {
-    "cde_client_ndeg_cde_chez_le_client",
+    "cde_client_numero_cde_chez_le_client",
     "part_nom_2_organ",
     "sae_niveau_3",
     "sae_niveau_4",
@@ -126,7 +126,7 @@ def recency_key(row: SilverUgapExportFacture) -> tuple[date, date]:
 def deduplicate(
     rows: list[SilverUgapExportFacture],
 ) -> tuple[list[SilverUgapExportFacture], set[tuple[str, str]]]:
-    """Dédoublonne sur (cde_client_ndeg, article_ndeg) en gardant la ligne la plus récente.
+    """Dédoublonne sur (cde_client_numero, article_numero) en gardant la ligne la plus récente.
 
     Le tie-break se fait sur l'ordre d'ingestion : à dates égales, la dernière
     ligne rencontrée l'emporte.
@@ -134,7 +134,7 @@ def deduplicate(
     kept: dict[tuple[str, str], SilverUgapExportFacture] = {}
     duplicates: set[tuple[str, str]] = set()
     for row in rows:
-        key = (row.cde_client_ndeg, row.article_ndeg)
+        key = (row.cde_client_numero, row.article_numero)
         current = kept.get(key)
         if current is None:
             kept[key] = row
@@ -150,8 +150,8 @@ def deduplicate(
 def assign_line_ids(rows: list[SilverUgapExportFacture]) -> None:
     counters: dict[str, int] = {}
     for row in rows:
-        counters[row.cde_client_ndeg] = counters.get(row.cde_client_ndeg, 0) + 1
-        row.line_id = counters[row.cde_client_ndeg]
+        counters[row.cde_client_numero] = counters.get(row.cde_client_numero, 0) + 1
+        row.line_id = counters[row.cde_client_numero]
 
 
 def build_status(
@@ -187,7 +187,7 @@ def transform_bronze_to_silver(
         if error is not None:
             statuses.append(build_status(bronze, "Validation error", str(error)))
         elif (bronze.source, bronze.source_idx) in duplicates:
-            statuses.append(build_status(bronze, "Duplicat", "Doublon sur (cde_client_ndeg, article_ndeg)"))
+            statuses.append(build_status(bronze, "Duplicat", "Doublon sur (commande, article)"))
         else:
             statuses.append(build_status(bronze, "Ok"))
     return kept_rows, statuses

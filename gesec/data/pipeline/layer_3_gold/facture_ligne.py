@@ -129,7 +129,7 @@ def compute_tva_ratio(
 def build_ugap_lines(id_cpro: str, ugap_lines: list[SilverUgapExportFacture]) -> list[GoldCproExportFactureLigne]:
     result = []
     for line in ugap_lines:
-        if not line.article_ndeg_vue_adv:
+        if not line.article_numero_vue_adv:
             raise ValueError(f"Missing ADV name for {id_cpro} line {line.line_id}")
         if line.montant_facture_ht is None:
             raise ValueError(f"Missing billed amount for {id_cpro} line {line.line_id}")
@@ -161,9 +161,9 @@ def build_ugap_lines(id_cpro: str, ugap_lines: list[SilverUgapExportFacture]) ->
                 source="ugap",
                 xml_schema=None,
                 line_id=str(line.line_id),
-                item_name=line.article_ndeg_vue_adv,
+                item_name=line.article_numero_vue_adv,
                 item_description=item_description,
-                item_reference=line.article_ndeg,
+                item_reference=line.article_numero,
                 quantity=quantity,
                 quantity_unit_code="",
                 unit_price=unit_price,
@@ -189,9 +189,9 @@ def build_ugap_ligne(
         source=ugap_line.source,
         source_idx=ugap_line.source_idx,
         id_cpro=id_cpro,
-        numero_ugap=ugap_line.cde_client_ndeg,
+        numero_ugap=ugap_line.cde_client_numero,
         line_id=line_id,
-        article_ndeg=ugap_line.article_ndeg,
+        article_numero=ugap_line.article_numero,
         status=status,
         status_details=status_details,
     )
@@ -202,7 +202,7 @@ def enrich_existing_lines(
     ugap_lines: list[SilverUgapExportFacture],
 ) -> tuple[list[GoldCproExportFactureLigne], dict[tuple[str, str], str]]:
     """Enrichit les lignes gold existantes et retourne les lignes UGAP consommées."""
-    by_reference = {normalize_reference(line.article_ndeg): line for line in ugap_lines}
+    by_reference = {normalize_reference(line.article_numero): line for line in ugap_lines}
     enriched_lines = []
     consumed: dict[tuple[str, str], str] = {}
     for gold_line in gold_lines:
@@ -230,9 +230,9 @@ def match_ugap(
 ) -> tuple[list[GoldCproExportFactureLigne], list[GoldUgapLigne]]:
     """Rapproche les lignes UGAP des factures et lignes gold.
 
-    La facture est rapprochée par `numero == cde_client_ndeg`, dans le périmètre
+    La facture est rapprochée par `numero == cde_client_numero`, dans le périmètre
     des factures dont le fournisseur est l'UGAP, puis la ligne par
-    `item_reference == article_ndeg`. Chaque ligne UGAP est suivie dans une
+    `item_reference == article_numero`. Chaque ligne UGAP est suivie dans une
     ligne de suivi unique. En cas de re-dépôt (plusieurs `id_cpro` pour un même
     numero), le premier traité l'emporte.
     """
@@ -243,7 +243,7 @@ def match_ugap(
 
     ugap_lines_by_numero: dict[str, list[SilverUgapExportFacture]] = {}
     for ugap_line in ugap_lines:
-        ugap_lines_by_numero.setdefault(ugap_line.cde_client_ndeg, []).append(ugap_line)
+        ugap_lines_by_numero.setdefault(ugap_line.cde_client_numero, []).append(ugap_line)
 
     gold_lines_by_id_cpro: dict[str, list[GoldCproExportFactureLigne]] = {}
     for gold_line in gold_lines:

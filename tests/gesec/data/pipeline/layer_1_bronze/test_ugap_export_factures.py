@@ -79,8 +79,8 @@ def test_load_bronze_selects_dinum_sheets_only(s3_client, ugap_file):
 def test_load_bronze_keeps_raw_text(s3_client, ugap_file):
     row = load_bronze(ugap_file)[0]
 
-    assert row.cde_client_ndeg == "104521399"
-    assert row.article_ndeg == "5650607"
+    assert row.cde_client_numero == "104521399"
+    assert row.article_numero == "5650607"
     assert row.part_nom_2_organ == "#"
     assert row.type_d_offre_logiciels == "-"
     assert row.article_code_fourniseur == "SOC FRANCAISE DU RADIOTELEPHONE - S"
