@@ -1,6 +1,7 @@
 import json
 import logging
 from decimal import Decimal
+from typing import Optional
 
 from tqdm import tqdm
 
@@ -21,11 +22,21 @@ def load_bronze_rows(table_name: str) -> list[BronzeCproExportFactureXml]:
     return load_rows_from_table(table_name, BronzeCproExportFactureXml)
 
 
+def extract_item_identity(item: dict, item_description: str) -> tuple[Optional[str], str]:
+    first_line = item_description.split("\n")[0]
+    item_name = item.get("cbc:Name")
+    std_id = item.get("cac:StandardItemIdentification")
+    if std_id is not None:
+        return std_id["cbc:ID"], item_name or first_line
+    if isinstance(item_name, str) and item_name.strip().isdigit():
+        return item_name, first_line
+    return None, item_name or first_line
+
+
 def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> list[SilverCproExportFactureXmlLigne]:
     result = []
     for line in content["cac:InvoiceLine"]:
         item = line["cac:Item"]
-        std_id = item.get("cac:StandardItemIdentification")
         line_amount_excl_tax = Decimal(line["cbc:LineExtensionAmount"]["$"])
         line_amount_tax = None
         if line_amount_excl_tax.is_zero():
@@ -98,6 +109,7 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
 
         item_description = "\n".join(x for x in line["cac:Item"].get("cbc:Description", [""]) if x)
         line_note = line.get("cbc:Note", "")
+        item_reference, item_name = extract_item_identity(item, item_description)
 
         try:
             result.append(
@@ -107,9 +119,9 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
                     line_id=line["cbc:ID"],
                     quantity_unit_code=quantity_unit_code,
                     quantity=quantity,
-                    item_name=line["cac:Item"].get("cbc:Name") or item_description.split("\n")[0],
+                    item_name=item_name,
                     item_description=item_description + (f"\n{line_note}" if line_note else ""),
-                    item_reference=std_id["cbc:ID"] if std_id is not None else None,
+                    item_reference=item_reference,
                     unit_price=line["cac:Price"]["cbc:PriceAmount"]["$"],
                     line_amount_excl_tax=line_amount_excl_tax,
                     line_amount_incl_tax=line_amount_incl_tax,
