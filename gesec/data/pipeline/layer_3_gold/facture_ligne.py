@@ -1,9 +1,13 @@
 import logging
+import re
 from typing import Optional
 
 from gesec.data.pipeline.db import load_rows_from_table, save_list_pydantic
 from gesec.data.pipeline.layer_2_silver.cpro_export_factur_x_ligne import (
     DEFAULT_TABLE_NAME as SILVER_FACTUR_X_LIGNE_DEFAULT_TABLE_NAME,
+)
+from gesec.data.pipeline.layer_2_silver.cpro_export_facture_xml_facture import (
+    DEFAULT_TABLE_NAME as SILVER_FACTURE_XML_FACTURE_DEFAULT_TABLE_NAME,
 )
 from gesec.data.pipeline.layer_2_silver.cpro_export_facture_xml_ligne import (
     DEFAULT_TABLE_NAME as SILVER_FACTURE_XML_LIGNE_DEFAULT_TABLE_NAME,
@@ -13,6 +17,7 @@ from gesec.data.pipeline.layer_2_silver.cpro_export_factures import (
 )
 from gesec.data.pipeline.layer_2_silver.schemas import (
     SilverCproExportFacture,
+    SilverCproExportFactureXmlFacture,
     SilverCproExportFactureXmlLigne,
     SilverCproExportFacturXLigne,
     SilverUgapExportFacture,
@@ -28,6 +33,8 @@ logger = logging.getLogger(__name__)
 TABLE_NAME = "gesec_facture_ligne"
 UGAP_LIGNE_TABLE_NAME = "gesec_facture_ugap_ligne"
 
+RE_IDENTIFIANT_LIVRAISON = re.compile(r"^(\d+)-\d+$")
+
 
 def load_factur_x_rows(table_name: str) -> list[SilverCproExportFacturXLigne]:
     return load_rows_from_table(table_name, SilverCproExportFacturXLigne)
@@ -39,6 +46,10 @@ def load_facture_xml_rows(table_name: str) -> list[SilverCproExportFactureXmlLig
 
 def load_silver_factures(table_name: str) -> list[SilverCproExportFacture]:
     return load_rows_from_table(table_name, SilverCproExportFacture)
+
+
+def load_silver_facture_xml_factures(table_name: str) -> list[SilverCproExportFactureXmlFacture]:
+    return load_rows_from_table(table_name, SilverCproExportFactureXmlFacture)
 
 
 def load_silver_ugap_rows(table_name: str) -> list[SilverUgapExportFacture]:
@@ -100,6 +111,16 @@ def normalize_reference(value: Optional[str]) -> Optional[str]:
     return value
 
 
+def extract_numero_commande_ugap(delivery_id: Optional[str]) -> Optional[str]:
+    if delivery_id is None:
+        return None
+    match = RE_IDENTIFIANT_LIVRAISON.match(delivery_id)
+    if match is None:
+        logger.warning(f"Identifiant de livraison non conforme: {delivery_id!r}")
+        return None
+    return normalize_reference(match.group(1))
+
+
 def resolve_fournisseur_in_fine(line: SilverUgapExportFacture) -> tuple[Optional[str], Optional[str]]:
     designation = (
         line.titulaire_2_editeurs_multi_editeurs
@@ -122,7 +143,7 @@ def build_ugap_ligne(
         source=ugap_line.source,
         source_idx=ugap_line.source_idx,
         id_cpro=id_cpro,
-        numero_ugap=ugap_line.cde_client_numero,
+        numero_commande_ugap=ugap_line.cde_client_numero,
         line_id=line_id,
         article_numero=ugap_line.article_numero,
         status=status,
@@ -130,21 +151,76 @@ def build_ugap_ligne(
     )
 
 
-def enrich_existing_lines(
+def match_ugap(
+    factures: list[SilverCproExportFacture],
+    xml_factures: list[SilverCproExportFactureXmlFacture],
     gold_lines: list[GoldCproExportFactureLigne],
     ugap_lines: list[SilverUgapExportFacture],
-) -> tuple[list[GoldCproExportFactureLigne], dict[tuple[str, str], str]]:
-    """Enrichit les lignes gold existantes et retourne les lignes UGAP consommées."""
-    by_reference = {normalize_reference(line.article_numero): line for line in ugap_lines}
-    enriched_lines = []
-    consumed: dict[tuple[str, str], str] = {}
-    for gold_line in gold_lines:
-        ugap_line = by_reference.get(normalize_reference(gold_line.item_reference))
-        if ugap_line is None:
-            enriched_lines.append(gold_line)
+) -> tuple[list[GoldCproExportFactureLigne], list[GoldUgapLigne]]:
+    """Rapproche les lignes UGAP des lignes gold par commande puis par article.
+
+    La commande est lue dans les métadonnées XML des factures UGAP
+    (`cac:Delivery/cbc:ID`, préfixe avant `-`) et comparée à `cde_client_numero`
+    normalisé ; l'article est comparé à `item_reference` normalisé. Toutes les
+    factures d'une commande sont parcourues : chaque correspondance produit une
+    ligne de suivi `matched` et enrichit en une passe `fournisseur_in_fine_*`
+    des lignes gold, dont l'ordre d'origine est conservé.
+    """
+    id_cpros_ugap = {
+        facture.identifiant_chorus_pro for facture in factures if is_ugap_facture(facture.fournisseur_identifiant)
+    }
+
+    id_cpros_by_commande: dict[str, list[str]] = {}
+    for xml_facture in xml_factures:
+        if xml_facture.id_cpro not in id_cpros_ugap:
             continue
-        designation, siren = resolve_fournisseur_in_fine(ugap_line)
-        enriched_lines.append(
+        commande = extract_numero_commande_ugap(xml_facture.delivery_id)
+        if commande is None:
+            continue
+        id_cpros_by_commande.setdefault(commande, []).append(xml_facture.id_cpro)
+    id_cpros_by_commande = {commande: sorted(set(id_cpros)) for commande, id_cpros in id_cpros_by_commande.items()}
+
+    gold_lines_by_id_cpro: dict[str, list[GoldCproExportFactureLigne]] = {}
+    for gold_line in gold_lines:
+        gold_lines_by_id_cpro.setdefault(gold_line.id_cpro, []).append(gold_line)
+
+    enrichment: dict[tuple[str, str], tuple[Optional[str], Optional[str]]] = {}
+    suivi: list[GoldUgapLigne] = []
+
+    for ugap_line in sorted(ugap_lines, key=lambda line: (line.source, line.source_idx)):
+        commande = normalize_reference(ugap_line.cde_client_numero)
+        article = normalize_reference(ugap_line.article_numero)
+        id_cpros = id_cpros_by_commande.get(commande) if commande is not None else None
+        if not id_cpros:
+            suivi.append(build_ugap_ligne(ugap_line, "facture_inconnue"))
+            continue
+
+        found = False
+        for id_cpro in id_cpros:
+            for gold_line in gold_lines_by_id_cpro.get(id_cpro, []):
+                if normalize_reference(gold_line.item_reference) != article:
+                    continue
+                found = True
+                enrichment[(id_cpro, gold_line.line_id)] = resolve_fournisseur_in_fine(ugap_line)
+                suivi.append(build_ugap_ligne(ugap_line, "matched", id_cpro=id_cpro, line_id=gold_line.line_id))
+        if not found:
+            suivi.append(
+                build_ugap_ligne(
+                    ugap_line,
+                    "ligne_absente",
+                    id_cpro=id_cpros[0],
+                    status_details=f"article absent des {len(id_cpros)} factures de la commande",
+                )
+            )
+
+    result = []
+    for gold_line in gold_lines:
+        values = enrichment.get((gold_line.id_cpro, gold_line.line_id))
+        if values is None:
+            result.append(gold_line)
+            continue
+        designation, siren = values
+        result.append(
             gold_line.model_copy(
                 update={
                     "fournisseur_in_fine_designation": designation,
@@ -152,76 +228,8 @@ def enrich_existing_lines(
                 }
             )
         )
-        consumed[(ugap_line.source, ugap_line.source_idx)] = gold_line.line_id
-    return enriched_lines, consumed
 
-
-def match_ugap(
-    factures: list[SilverCproExportFacture],
-    gold_lines: list[GoldCproExportFactureLigne],
-    ugap_lines: list[SilverUgapExportFacture],
-) -> tuple[list[GoldCproExportFactureLigne], list[GoldUgapLigne]]:
-    """Rapproche les lignes UGAP des factures et lignes gold.
-
-    La facture est rapprochée par `numero == cde_client_numero`, dans le périmètre
-    des factures dont le fournisseur est l'UGAP, puis la ligne par
-    `item_reference == article_numero`. Chaque ligne UGAP est suivie dans une
-    ligne de suivi unique. En cas de re-dépôt (plusieurs `id_cpro` pour un même
-    numero), le premier traité l'emporte.
-    """
-    numero_to_id_cpros: dict[str, list[str]] = {}
-    for facture in factures:
-        if is_ugap_facture(facture.fournisseur_identifiant):
-            numero_to_id_cpros.setdefault(facture.numero, []).append(facture.identifiant_chorus_pro)
-
-    ugap_lines_by_numero: dict[str, list[SilverUgapExportFacture]] = {}
-    for ugap_line in ugap_lines:
-        ugap_lines_by_numero.setdefault(ugap_line.cde_client_numero, []).append(ugap_line)
-
-    gold_lines_by_id_cpro: dict[str, list[GoldCproExportFactureLigne]] = {}
-    for gold_line in gold_lines:
-        gold_lines_by_id_cpro.setdefault(gold_line.id_cpro, []).append(gold_line)
-
-    suivi = {
-        (ugap_line.source, ugap_line.source_idx): build_ugap_ligne(ugap_line, "facture_inconnue")
-        for ugap_line in ugap_lines
-    }
-    replacements: dict[str, list[GoldCproExportFactureLigne]] = {}
-
-    for numero, id_cpros in numero_to_id_cpros.items():
-        export_lines = ugap_lines_by_numero.get(numero, [])
-        if not export_lines:
-            continue
-        for id_cpro in id_cpros:
-            existing_lines = gold_lines_by_id_cpro.get(id_cpro, [])
-            if existing_lines:
-                enriched_lines, consumed = enrich_existing_lines(existing_lines, export_lines)
-                replacements[id_cpro] = enriched_lines
-                for ugap_line in export_lines:
-                    key = (ugap_line.source, ugap_line.source_idx)
-                    if key in consumed:
-                        resolved = build_ugap_ligne(ugap_line, "matched", id_cpro=id_cpro, line_id=consumed[key])
-                    else:
-                        resolved = build_ugap_ligne(ugap_line, "ligne_absente", id_cpro=id_cpro)
-                    if suivi[key].status == "facture_inconnue":
-                        suivi[key] = resolved
-            else:
-                for ugap_line in export_lines:
-                    key = (ugap_line.source, ugap_line.source_idx)
-                    if suivi[key].status == "facture_inconnue":
-                        suivi[key] = build_ugap_ligne(ugap_line, "ligne_absente", id_cpro=id_cpro)
-
-    result = []
-    replaced_ids = set()
-    for gold_line in gold_lines:
-        replacement = replacements.get(gold_line.id_cpro)
-        if replacement is None:
-            result.append(gold_line)
-        elif gold_line.id_cpro not in replaced_ids:
-            result.extend(replacement)
-            replaced_ids.add(gold_line.id_cpro)
-
-    return result, list(suivi.values())
+    return result, suivi
 
 
 def process_to_gold(
@@ -229,16 +237,18 @@ def process_to_gold(
     silver_facture_xml_table_name: str = SILVER_FACTURE_XML_LIGNE_DEFAULT_TABLE_NAME,
     silver_facture_table_name: str = SILVER_FACTURE_DEFAULT_TABLE_NAME,
     silver_ugap_table_name: str = SILVER_UGAP_DEFAULT_TABLE_NAME,
+    silver_facture_xml_facture_table_name: str = SILVER_FACTURE_XML_FACTURE_DEFAULT_TABLE_NAME,
 ) -> None:
     factur_x_rows = load_factur_x_rows(silver_factur_x_table_name)
     facture_xml_rows = load_facture_xml_rows(silver_facture_xml_table_name)
     factures = load_silver_factures(silver_facture_table_name)
+    xml_factures = load_silver_facture_xml_factures(silver_facture_xml_facture_table_name)
     ugap_rows = load_silver_ugap_rows(silver_ugap_table_name)
 
     gold_lines = transform_to_gold(factur_x_rows=factur_x_rows, facture_xml_rows=facture_xml_rows)
     logger.info(f"Transformé en {len(gold_lines)} lignes gold depuis les factures XML et Factur-X")
 
-    gold_lines, ugap_lignes = match_ugap(factures, gold_lines, ugap_rows)
+    gold_lines, ugap_lignes = match_ugap(factures, xml_factures, gold_lines, ugap_rows)
     logger.info(f"Rapprochement UGAP: {len(gold_lines)} lignes gold, {len(ugap_lignes)} lignes de suivi")
 
     if gold_lines:

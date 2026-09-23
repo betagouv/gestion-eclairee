@@ -31,7 +31,7 @@ class GoldUgapLigne(BaseModel):
     source: str
     source_idx: str
     id_cpro: Optional[str] = None
-    numero_ugap: str
+    numero_commande_ugap: str
     line_id: str = ""
     article_numero: str
     status: UgapLigneStatus

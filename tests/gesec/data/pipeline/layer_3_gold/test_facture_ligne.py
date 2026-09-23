@@ -1,12 +1,16 @@
 from datetime import date
 from decimal import Decimal
-from typing import Any
+from typing import Any, Optional
 
-from gesec.data.pipeline.layer_2_silver.schemas import SilverCproExportFacture, SilverUgapExportFacture
+from gesec.data.pipeline.layer_2_silver.schemas import (
+    SilverCproExportFacture,
+    SilverCproExportFactureXmlFacture,
+    SilverUgapExportFacture,
+)
 from gesec.data.pipeline.layer_3_gold.constants import UGAP_SIREN
 from gesec.data.pipeline.layer_3_gold.facture_ligne import (
     build_ugap_ligne,
-    enrich_existing_lines,
+    extract_numero_commande_ugap,
     is_ugap_facture,
     match_ugap,
     normalize_reference,
@@ -16,7 +20,7 @@ from gesec.data.pipeline.layer_3_gold.schemas import GoldCproExportFactureLigne
 
 
 def silver_facture(
-    numero: str = "A1",
+    numero: str = "900000002",
     id_cpro: str = "cpro-1",
     fournisseur_identifiant: str = UGAP_SIREN,
 ) -> SilverCproExportFacture:
@@ -43,10 +47,22 @@ def silver_facture(
     )
 
 
+def silver_facture_xml(
+    id_cpro: str = "cpro-1",
+    delivery_id: Optional[str] = "0900000001-0080000002",
+) -> SilverCproExportFactureXmlFacture:
+    return SilverCproExportFactureXmlFacture(
+        id_cpro=id_cpro,
+        xml_schema="UBL-Invoice-2",
+        numero="700123456789",
+        delivery_id=delivery_id,
+    )
+
+
 def silver_ugap_line(
     line_id: int = 1,
-    numero: str = "A1",
-    article: str = "Y1",
+    numero: str = "900000001",
+    article: str = "7000001",
     **overrides: Any,
 ) -> SilverUgapExportFacture:
     values: dict[str, Any] = dict(
@@ -59,7 +75,7 @@ def silver_ugap_line(
         cde_client_jour_de_creation=date(2025, 4, 10),
         cde_client_date_paiement_client=date(2025, 11, 6),
         compte_crm_do_univers_bp="ETABLISSEMENTS PUBLICS",
-        compte_crm_numero_donneur_d_ordre="99082863",
+        compte_crm_numero_donneur_d_ordre="80000002",
         ministere="M.CUL",
         part_nom_1_organ="MUSEE ORSAY",
         siren="180092447",
@@ -86,8 +102,8 @@ def silver_ugap_line(
 
 def gold_line(
     id_cpro: str = "cpro-1",
-    line_id: str = "1",
-    item_reference: str = "Y1",
+    line_id: str = "00010",
+    item_reference: str = "7000001",
     **overrides: Any,
 ) -> GoldCproExportFactureLigne:
     values: dict[str, Any] = dict(
@@ -126,6 +142,14 @@ def test_is_ugap_facture():
     assert is_ugap_facture(None) is False
 
 
+def test_extract_numero_commande_ugap():
+    assert extract_numero_commande_ugap(None) is None
+    assert extract_numero_commande_ugap("") is None
+    assert extract_numero_commande_ugap("abc") is None
+    assert extract_numero_commande_ugap("0900000001-0080000002") == "900000001"
+    assert extract_numero_commande_ugap("900000001-80000002") == "900000001"
+
+
 def test_resolve_fournisseur_in_fine_fallbacks():
     line = silver_ugap_line(
         titulaire_2_editeurs_multi_editeurs="TITULAIRE 2",
@@ -152,103 +176,205 @@ def test_build_ugap_ligne():
     assert suivi.source == "ugap/f.xlsx"
     assert suivi.source_idx == "11_2025_dinum_3"
     assert suivi.id_cpro == "cpro-1"
-    assert suivi.numero_ugap == "A9"
+    assert suivi.numero_commande_ugap == "A9"
     assert suivi.line_id == ""
     assert suivi.article_numero == "Y9"
     assert suivi.status == "ligne_absente"
     assert suivi.status_details is None
 
-    suivi = build_ugap_ligne(line, "matched", id_cpro="cpro-1", line_id="4")
+    suivi = build_ugap_ligne(line, "matched", id_cpro="cpro-1", line_id="00010")
 
-    assert suivi.line_id == "4"
+    assert suivi.line_id == "00010"
     assert suivi.status == "matched"
 
 
-def test_enrich_existing_lines_returns_consumed():
-    lines = [
-        gold_line(line_id="1", item_reference="Y1"),
-        gold_line(line_id="2", item_reference="Y2"),
-    ]
-    ugap_lines = [silver_ugap_line(line_id=1, article="Y1"), silver_ugap_line(line_id=2, article="Y3")]
+def test_match_ugap_requires_xml_metadata():
+    factures = [silver_facture(numero="900000001", id_cpro="cpro-1")]
+    gold_lines = [gold_line(id_cpro="cpro-1", line_id="00010", item_reference="7000001")]
+    ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
 
-    enriched, consumed = enrich_existing_lines(lines, ugap_lines)
+    lines, suivi = match_ugap(factures, [], gold_lines, ugap_lines)
 
-    assert [line.line_id for line in enriched] == ["1", "2"]
-    assert enriched[0].fournisseur_in_fine_designation == "FOURNISSEUR"
-    assert enriched[0].fournisseur_in_fine_siren == "343059564"
-    assert enriched[1].fournisseur_in_fine_designation is None
-    assert consumed == {("ugap/f.xlsx", "11_2025_dinum_1"): "1"}
+    assert lines == gold_lines
+    assert lines[0].fournisseur_in_fine_siren is None
+    assert [(row.status, row.id_cpro) for row in suivi] == [("facture_inconnue", None)]
 
 
-def test_match_ugap_without_gold_lines_flags_ligne_absente():
-    factures = [silver_facture(numero="A1", id_cpro="cpro-1")]
-    ugap_lines = [silver_ugap_line(line_id=1, numero="A1", article="Y1")]
+def test_match_ugap_enriches_matched_gold_line():
+    factures = [silver_facture(numero="900000002", id_cpro="cpro-1")]
+    xml_factures = [silver_facture_xml(id_cpro="cpro-1")]
+    gold_lines = [gold_line(id_cpro="cpro-1", line_id="00010", item_reference="7000001")]
+    ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
 
-    lines, suivi = match_ugap(factures, [], ugap_lines)
+    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
 
-    assert lines == []
+    assert len(lines) == 1
+    assert lines[0].fournisseur_in_fine_designation == "FOURNISSEUR"
+    assert lines[0].fournisseur_in_fine_siren == "343059564"
     assert len(suivi) == 1
-    assert (suivi[0].source_idx, suivi[0].status, suivi[0].id_cpro, suivi[0].line_id) == (
-        "11_2025_dinum_1",
-        "ligne_absente",
+    assert (suivi[0].numero_commande_ugap, suivi[0].status, suivi[0].id_cpro, suivi[0].line_id) == (
+        "900000001",
+        "matched",
         "cpro-1",
-        "",
+        "00010",
     )
 
 
-def test_match_ugap_enriches_existing_lines():
-    factures = [silver_facture(numero="A1", id_cpro="cpro-1")]
-    gold_lines = [gold_line(line_id="1", item_reference="Y1"), gold_line(line_id="2", item_reference="Y2")]
-    ugap_lines = [silver_ugap_line(line_id=1, numero="A1", article="Y1")]
+def test_match_ugap_normalizes_references():
+    factures = [silver_facture(numero="900000002", id_cpro="cpro-1")]
+    xml_factures = [silver_facture_xml(id_cpro="cpro-1")]
+    gold_lines = [gold_line(id_cpro="cpro-1", line_id="00010", item_reference="000000000007000001")]
+    ugap_lines = [silver_ugap_line(numero="00900000001", article="0007000001")]
 
-    lines, suivi = match_ugap(factures, gold_lines, ugap_lines)
+    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
 
-    assert len(lines) == 2
     assert lines[0].fournisseur_in_fine_siren == "343059564"
-    assert lines[1].fournisseur_in_fine_siren is None
-    assert len(suivi) == 1
-    assert (suivi[0].status, suivi[0].id_cpro, suivi[0].line_id) == ("matched", "cpro-1", "1")
+    assert [row.status for row in suivi] == ["matched"]
+
+
+def test_match_ugap_enriches_all_commande_factures():
+    factures = [
+        silver_facture(numero="900000003", id_cpro="cpro-b"),
+        silver_facture(numero="900000002", id_cpro="cpro-a"),
+    ]
+    xml_factures = [silver_facture_xml(id_cpro="cpro-b"), silver_facture_xml(id_cpro="cpro-a")]
+    gold_lines = [
+        gold_line(id_cpro="cpro-b", line_id="00010", item_reference="7000001"),
+        gold_line(id_cpro="cpro-a", line_id="00010", item_reference="7000001"),
+    ]
+    ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
+
+    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
+
+    assert [line.fournisseur_in_fine_siren for line in lines] == ["343059564", "343059564"]
+    assert [(row.status, row.id_cpro, row.line_id) for row in suivi] == [
+        ("matched", "cpro-a", "00010"),
+        ("matched", "cpro-b", "00010"),
+    ]
 
 
 def test_match_ugap_flags_ligne_absente():
-    factures = [silver_facture(numero="A1", id_cpro="cpro-1")]
-    gold_lines = [gold_line(line_id="1", item_reference="Y2")]
-    ugap_lines = [silver_ugap_line(line_id=1, numero="A1", article="Y1")]
+    factures = [
+        silver_facture(numero="900000003", id_cpro="cpro-b"),
+        silver_facture(numero="900000002", id_cpro="cpro-a"),
+    ]
+    xml_factures = [silver_facture_xml(id_cpro="cpro-b"), silver_facture_xml(id_cpro="cpro-a")]
+    gold_lines = [
+        gold_line(id_cpro="cpro-a", line_id="00010", item_reference="9999999"),
+        gold_line(id_cpro="cpro-b", line_id="00010", item_reference="8888888"),
+    ]
+    ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
 
-    lines, suivi = match_ugap(factures, gold_lines, ugap_lines)
-
-    assert lines == gold_lines
-    assert (suivi[0].status, suivi[0].id_cpro, suivi[0].line_id) == ("ligne_absente", "cpro-1", "")
-
-
-def test_match_ugap_without_export_lines_keeps_gold_lines():
-    factures = [silver_facture(numero="A1", id_cpro="cpro-1")]
-    gold_lines = [gold_line(line_id="1"), gold_line(line_id="2")]
-
-    lines, suivi = match_ugap(factures, gold_lines, [])
+    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
 
     assert lines == gold_lines
-    assert suivi == []
+    assert len(suivi) == 1
+    assert (suivi[0].status, suivi[0].id_cpro, suivi[0].line_id, suivi[0].status_details) == (
+        "ligne_absente",
+        "cpro-a",
+        "",
+        "article absent des 2 factures de la commande",
+    )
 
 
 def test_match_ugap_flags_facture_inconnue():
-    factures = [silver_facture(numero="A1", id_cpro="cpro-1")]
-    ugap_lines = [silver_ugap_line(line_id=1, numero="A9", article="Y9")]
+    factures = [silver_facture(numero="900000002", id_cpro="cpro-1")]
+    xml_factures = [silver_facture_xml(id_cpro="cpro-1")]
+    ugap_lines = [silver_ugap_line(numero="999999999", article="7000001")]
 
-    lines, suivi = match_ugap(factures, [], ugap_lines)
+    lines, suivi = match_ugap(factures, xml_factures, [], ugap_lines)
 
     assert lines == []
     assert len(suivi) == 1
-    assert (suivi[0].numero_ugap, suivi[0].status, suivi[0].id_cpro) == ("A9", "facture_inconnue", None)
+    assert (suivi[0].numero_commande_ugap, suivi[0].status, suivi[0].id_cpro) == (
+        "999999999",
+        "facture_inconnue",
+        None,
+    )
 
 
 def test_match_ugap_ignores_non_ugap_factures():
-    factures = [silver_facture(numero="A1", id_cpro="cpro-1", fournisseur_identifiant="123456789")]
-    gold_lines = [gold_line(line_id="1", item_reference="Y1")]
-    ugap_lines = [silver_ugap_line(line_id=1, numero="A1", article="Y1")]
+    factures = [silver_facture(numero="900000001", id_cpro="cpro-1", fournisseur_identifiant="123456789")]
+    xml_factures = [silver_facture_xml(id_cpro="cpro-1")]
+    gold_lines = [gold_line(id_cpro="cpro-1", line_id="00010", item_reference="7000001")]
+    ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
 
-    lines, suivi = match_ugap(factures, gold_lines, ugap_lines)
+    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
 
     assert lines == gold_lines
     assert lines[0].fournisseur_in_fine_siren is None
     assert [row.status for row in suivi] == ["facture_inconnue"]
+
+
+def test_match_ugap_ignores_invalid_delivery_id():
+    factures = [silver_facture(numero="900000002", id_cpro="cpro-1")]
+    xml_factures = [
+        silver_facture_xml(id_cpro="cpro-1", delivery_id=None),
+        silver_facture_xml(id_cpro="cpro-1", delivery_id="abc"),
+    ]
+    gold_lines = [gold_line(id_cpro="cpro-1", line_id="00010", item_reference="7000001")]
+    ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
+
+    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
+
+    assert lines == gold_lines
+    assert lines[0].fournisseur_in_fine_siren is None
+    assert [row.status for row in suivi] == ["facture_inconnue"]
+
+
+def test_match_ugap_preserves_gold_line_order():
+    factures = [silver_facture(numero="900000002", id_cpro="cpro-1")]
+    xml_factures = [silver_facture_xml(id_cpro="cpro-1")]
+    gold_lines = [
+        gold_line(id_cpro="cpro-1", line_id="00010", item_reference="1111111"),
+        gold_line(id_cpro="cpro-1", line_id="00020", item_reference="7000001"),
+        gold_line(id_cpro="cpro-1", line_id="00030", item_reference="2222222"),
+    ]
+    ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
+
+    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
+
+    assert [line.line_id for line in lines] == ["00010", "00020", "00030"]
+    assert [line.fournisseur_in_fine_siren for line in lines] == [None, "343059564", None]
+    assert [(row.status, row.line_id) for row in suivi] == [("matched", "00020")]
+
+
+def test_match_ugap_conflicting_suppliers_last_sorted_wins():
+    factures = [silver_facture(numero="900000002", id_cpro="cpro-1")]
+    xml_factures = [silver_facture_xml(id_cpro="cpro-1")]
+    gold_lines = [gold_line(id_cpro="cpro-1", line_id="00010", item_reference="7000001")]
+    ugap_lines = [
+        silver_ugap_line(
+            source="ugap/b.xlsx",
+            source_idx="1",
+            numero="900000001",
+            article="7000001",
+            article_code_fourniseur="B",
+            siren_titulaire="222222222",
+        ),
+        silver_ugap_line(
+            source="ugap/a.xlsx",
+            source_idx="2",
+            numero="900000001",
+            article="7000001",
+            article_code_fourniseur="A",
+            siren_titulaire="111111111",
+        ),
+    ]
+
+    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
+
+    assert lines[0].fournisseur_in_fine_designation == "B"
+    assert lines[0].fournisseur_in_fine_siren == "222222222"
+    assert [(row.status, row.source) for row in suivi] == [("matched", "ugap/a.xlsx"), ("matched", "ugap/b.xlsx")]
+
+
+def test_match_ugap_without_export_lines_keeps_gold_lines():
+    factures = [silver_facture(numero="900000002", id_cpro="cpro-1")]
+    xml_factures = [silver_facture_xml(id_cpro="cpro-1")]
+    gold_lines = [gold_line(id_cpro="cpro-1"), gold_line(id_cpro="cpro-1", line_id="00020")]
+
+    lines, suivi = match_ugap(factures, xml_factures, gold_lines, [])
+
+    assert lines == gold_lines
+    assert suivi == []
