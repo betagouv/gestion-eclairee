@@ -137,64 +137,67 @@ def test_transform_bronze_to_silver_rejects_invalid_types():
     assert "date" in (statuses[0].status_details or "")
 
 
-def test_deduplicate_keeps_most_recent_payment_date():
+def test_deduplicate_keeps_distinct_payments():
+    early: dict[str, Any] = {"Cde client - Date Paiement client": "01/01/2025"}
+    late: dict[str, Any] = {"Cde client - Date Paiement client": "01/01/2026"}
     rows, statuses = transform_bronze_to_silver(
         [
-            bronze_row(
-                source_idx="old",
-                **{
-                    "Cde client - Date Paiement client": "01/01/2025",
-                    "Cde client - Jour de création": "01/01/2024",
-                },
-            ),
-            bronze_row(
-                source_idx="new",
-                **{
-                    "Cde client - Date Paiement client": "01/01/2026",
-                    "Cde client - Jour de création": "01/01/2024",
-                },
-            ),
+            bronze_row(source_idx="p1", **early),
+            bronze_row(source_idx="p2", **late),
         ]
     )
 
-    assert [row.source_idx for row in rows] == ["new"]
+    assert [row.source_idx for row in rows] == ["p1", "p2"]
+    assert [row.cde_client_date_paiement_client for row in rows] == [date(2025, 1, 1), date(2026, 1, 1)]
+    assert {status.status for status in statuses} == {"Ok"}
+
+
+def test_deduplicate_keeps_distinct_amounts():
+    partial: dict[str, Any] = {"Montant Facturé HT": 100}
+    full: dict[str, Any] = {"Montant Facturé HT": 200}
+    rows, statuses = transform_bronze_to_silver(
+        [
+            bronze_row(source_idx="a_partial", **partial),
+            bronze_row(source_idx="b_full", **full),
+        ]
+    )
+
+    assert [row.source_idx for row in rows] == ["a_partial", "b_full"]
+    assert {status.status for status in statuses} == {"Ok"}
+
+
+def test_deduplicate_same_payment_ignores_creation_day():
+    first: dict[str, Any] = {
+        "Cde client - Date Paiement client": "01/01/2025",
+        "Cde client - Jour de création": "01/01/2024",
+    }
+    second: dict[str, Any] = {
+        "Cde client - Date Paiement client": "01/01/2025",
+        "Cde client - Jour de création": "01/01/2026",
+    }
+    rows, statuses = transform_bronze_to_silver(
+        [
+            bronze_row(source_idx="a_first", **first),
+            bronze_row(source_idx="b_second", **second),
+        ]
+    )
+
+    assert [row.source_idx for row in rows] == ["b_second"]
+    assert rows[0].cde_client_jour_de_creation == date(2026, 1, 1)
     status_by_idx = {status.source_idx: status for status in statuses}
-    assert status_by_idx["new"].status == "Ok"
-    assert status_by_idx["old"].status == "Duplicat"
+    assert status_by_idx["b_second"].status == "Ok"
+    assert status_by_idx["a_first"].status == "Duplicat"
 
 
-def test_deduplicate_keeps_most_recent_creation_day():
-    rows, _statuses = transform_bronze_to_silver(
-        [
-            bronze_row(
-                source_idx="old",
-                **{
-                    "Cde client - Date Paiement client": "01/01/2025",
-                    "Cde client - Jour de création": "01/01/2024",
-                },
-            ),
-            bronze_row(
-                source_idx="new",
-                **{
-                    "Cde client - Date Paiement client": "01/01/2025",
-                    "Cde client - Jour de création": "01/01/2026",
-                },
-            ),
-        ]
-    )
-
-    assert [row.source_idx for row in rows] == ["new"]
-
-
-def test_deduplicate_tie_break_on_ingestion_order():
+def test_deduplicate_last_sorted_wins():
     rows, statuses = transform_bronze_to_silver(
         [
-            bronze_row(source_idx="first", source="ugap/a.xlsx"),
             bronze_row(source_idx="second", source="ugap/b.xlsx"),
+            bronze_row(source_idx="first", source="ugap/a.xlsx"),
         ]
     )
 
     assert [row.source_idx for row in rows] == ["second"]
     status_by_idx = {status.source_idx: status for status in statuses}
-    assert status_by_idx["first"].status == "Duplicat"
     assert status_by_idx["second"].status == "Ok"
+    assert status_by_idx["first"].status == "Duplicat"

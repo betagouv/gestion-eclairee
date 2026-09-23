@@ -115,34 +115,29 @@ def transform_bronze_row(bronze: BronzeUgapExportFacture) -> SilverUgapExportFac
     )
 
 
-def recency_key(row: SilverUgapExportFacture) -> tuple[date, date]:
-    return (
-        row.cde_client_date_paiement_client or date.min,
-        row.cde_client_jour_de_creation or date.min,
-    )
-
-
 def deduplicate(
     rows: list[SilverUgapExportFacture],
 ) -> tuple[list[SilverUgapExportFacture], set[tuple[str, str]]]:
-    """Dédoublonne sur (cde_client_numero, article_numero) en gardant la ligne la plus récente.
+    """Dédoublonne sur (commande, article, date de paiement, montant HT) en gardant la dernière ligne triée.
 
-    Le tie-break se fait sur l'ordre d'ingestion : à dates égales, la dernière
-    ligne rencontrée l'emporte.
+    Les lignes sont triées par (source, source_idx) avant le dédoublonnage pour
+    rendre le résultat déterministe vis-à-vis de l'ordre de lecture en base. À
+    clé égale, la dernière ligne triée l'emporte ; les lignes évincées sont
+    retournées comme duplicats.
     """
-    kept: dict[tuple[str, str], SilverUgapExportFacture] = {}
+    kept: dict[tuple[str, str, Optional[date], Optional[Decimal]], SilverUgapExportFacture] = {}
     duplicates: set[tuple[str, str]] = set()
-    for row in rows:
-        key = (row.cde_client_numero, row.article_numero)
+    for row in sorted(rows, key=lambda row: (row.source, row.source_idx)):
+        key = (
+            row.cde_client_numero,
+            row.article_numero,
+            row.cde_client_date_paiement_client,
+            row.montant_facture_ht,
+        )
         current = kept.get(key)
-        if current is None:
-            kept[key] = row
-            continue
-        if recency_key(row) >= recency_key(current):
+        if current is not None:
             duplicates.add((current.source, current.source_idx))
-            kept[key] = row
-        else:
-            duplicates.add((row.source, row.source_idx))
+        kept[key] = row
     return list(kept.values()), duplicates
 
 
@@ -178,7 +173,9 @@ def transform_bronze_to_silver(
         if error is not None:
             statuses.append(build_status(bronze, "Validation error", str(error)))
         elif (bronze.source, bronze.source_idx) in duplicates:
-            statuses.append(build_status(bronze, "Duplicat", "Doublon sur (commande, article)"))
+            statuses.append(
+                build_status(bronze, "Duplicat", "Doublon sur (commande, article, date de paiement, montant HT)")
+            )
         else:
             statuses.append(build_status(bronze, "Ok"))
     return kept_rows, statuses
