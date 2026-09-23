@@ -55,7 +55,6 @@ def test_transform_bronze_row_types_and_dates():
     assert row.montant_facture_ht == Decimal("12.34")
     assert row.article_numero == "5650607"
     assert row.cde_client_numero == "104521399"
-    assert row.line_id == 0
 
 
 def test_to_text_sentinels_and_types():
@@ -199,28 +198,3 @@ def test_deduplicate_tie_break_on_ingestion_order():
     status_by_idx = {status.source_idx: status for status in statuses}
     assert status_by_idx["first"].status == "Duplicat"
     assert status_by_idx["second"].status == "Ok"
-
-
-def test_line_ids_are_assigned_per_facture_after_deduplication():
-    cells_a1: dict[str, Any] = {"Cde Client - N°": "A", "Article - N°": 1}
-    cells_b1: dict[str, Any] = {"Cde Client - N°": "B", "Article - N°": 2}
-    cells_a2: dict[str, Any] = {"Cde Client - N°": "A", "Article - N°": 3}
-    cells_a1_old: dict[str, Any] = {
-        "Cde Client - N°": "A",
-        "Article - N°": 1,
-        "Cde client - Date Paiement client": "01/01/2020",
-    }
-    rows, _statuses = transform_bronze_to_silver(
-        [
-            bronze_row(source_idx="a1", **cells_a1),
-            bronze_row(source_idx="b1", **cells_b1),
-            bronze_row(source_idx="a2", **cells_a2),
-            bronze_row(source_idx="a1_old", **cells_a1_old),
-        ]
-    )
-
-    assert [(row.cde_client_numero, row.article_numero, row.line_id) for row in rows] == [
-        ("A", "1", 1),
-        ("B", "2", 1),
-        ("A", "3", 2),
-    ]

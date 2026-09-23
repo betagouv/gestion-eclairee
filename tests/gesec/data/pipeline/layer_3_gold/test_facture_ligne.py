@@ -60,16 +60,15 @@ def silver_facture_xml(
 
 
 def silver_ugap_line(
-    line_id: int = 1,
+    source_idx: str = "11_2025_dinum_1",
     numero: str = "900000001",
     article: str = "7000001",
     **overrides: Any,
 ) -> SilverUgapExportFacture:
     values: dict[str, Any] = dict(
         source="ugap/f.xlsx",
-        source_idx=f"11_2025_dinum_{line_id}",
+        source_idx=source_idx,
         onglet="11 2025 - Dinum",
-        line_id=line_id,
         cde_client_numero=numero,
         article_numero=article,
         cde_client_jour_de_creation=date(2025, 4, 10),
@@ -169,7 +168,7 @@ def test_resolve_fournisseur_in_fine_fallbacks():
 
 
 def test_build_ugap_ligne():
-    line = silver_ugap_line(line_id=3, numero="A9", article="Y9")
+    line = silver_ugap_line(source_idx="11_2025_dinum_3", numero="A9", article="Y9")
 
     suivi = build_ugap_ligne(line, "ligne_absente", id_cpro="cpro-1")
 

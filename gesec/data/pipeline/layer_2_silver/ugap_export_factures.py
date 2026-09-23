@@ -111,7 +111,6 @@ def transform_bronze_row(bronze: BronzeUgapExportFacture) -> SilverUgapExportFac
         source=bronze.source,
         source_idx=bronze.source_idx,
         onglet=bronze.onglet,
-        line_id=0,
         **values,
     )
 
@@ -147,13 +146,6 @@ def deduplicate(
     return list(kept.values()), duplicates
 
 
-def assign_line_ids(rows: list[SilverUgapExportFacture]) -> None:
-    counters: dict[str, int] = {}
-    for row in rows:
-        counters[row.cde_client_numero] = counters.get(row.cde_client_numero, 0) + 1
-        row.line_id = counters[row.cde_client_numero]
-
-
 def build_status(
     bronze: BronzeUgapExportFacture,
     status: UgapExportFactureStatus,
@@ -180,7 +172,6 @@ def transform_bronze_to_silver(
 
     valid_rows = [silver for _bronze, silver, error in parsed if error is None and silver is not None]
     kept_rows, duplicates = deduplicate(valid_rows)
-    assign_line_ids(kept_rows)
 
     statuses = []
     for bronze, _silver, error in parsed:

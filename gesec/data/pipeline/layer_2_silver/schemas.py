@@ -183,7 +183,6 @@ class SilverUgapExportFacture(BaseModel):
     source: str
     source_idx: str
     onglet: str
-    line_id: int
 
     cde_client_numero: str
     cde_client_numero_cde_chez_le_client: str = ""
