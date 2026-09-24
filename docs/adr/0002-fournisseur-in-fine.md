@@ -45,11 +45,24 @@ analyse ultérieure ; le libellé « Référence UGAP » n'est plus extrait, sa
 couverture (1 937 commandes) étant incluse dans celle de `cac:Delivery`
 (1 940), absente de l'ancien format et divergente sur 4 factures.
 
-Les chaînes de repli sont indépendantes pour la désignation
-(`Titulaire 2` → `Constructeur` → `Code fournisseur` → NULL) et pour le SIREN
-(`Siren Titulaire 2` → `SIREN Titulaire` → NULL). Les sentinelles `'-'`, `'#'`
-et vide valent NULL. Les lignes d'export invalides sont rejetées en silver et
-tracées avec le statut `Validation error`.
+La résolution du fournisseur in fine se fait par cas, couplant désignation et
+SIREN pour que le SIREN corresponde toujours au nom affiché :
+
+- `Titulaire 2 (Editeurs Multi Editeurs)` renseigné → désignation et SIREN
+  Titulaire 2 ; SIREN absent → NULL. Replier sur `SIREN Titulaire` mettrait le
+  SIREN de SCC France (424982650) sous les 180 lignes de ce cas dont le SIREN
+  Titulaire 2 est absent (74 éditeurs distincts) : ce SIREN désigne un
+  distributeur, pas l'éditeur nommé.
+- sinon `Constructeur (hardware ajout manuel)` renseigné → désignation seule,
+  SIREN NULL en attendant une table manuelle constructeur → SIREN (34
+  constructeurs mesurés). `SIREN Titulaire` est celui d'un distributeur,
+  variable selon le marché (APPLE → 5 SIREN), et ne désigne pas le
+  constructeur nommé.
+- sinon → `Article - Code fourniseur` et `SIREN Titulaire`, déjà cohérents.
+
+Aucun repli croisé entre cas. La sentinelle `NA` est écartée au profit de NULL.
+Les sentinelles `'-'`, `'#'` et vide valent NULL. Les lignes d'export invalides
+sont rejetées en silver et tracées avec le statut `Validation error`.
 
 ## Options écartées
 

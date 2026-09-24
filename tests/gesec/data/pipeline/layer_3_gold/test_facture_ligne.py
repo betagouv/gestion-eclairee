@@ -149,7 +149,7 @@ def test_extract_numero_commande_ugap():
     assert extract_numero_commande_ugap("900000001-80000002") == "900000001"
 
 
-def test_resolve_fournisseur_in_fine_fallbacks():
+def test_resolve_fournisseur_in_fine_cases():
     line = silver_ugap_line(
         titulaire_2_editeurs_multi_editeurs="TITULAIRE 2",
         constructeur_hardware_ajout_manuel="CONSTRUCTEUR",
@@ -157,8 +157,14 @@ def test_resolve_fournisseur_in_fine_fallbacks():
     )
     assert resolve_fournisseur_in_fine(line) == ("TITULAIRE 2", "111111111")
 
+    line = silver_ugap_line(
+        titulaire_2_editeurs_multi_editeurs="TITULAIRE 2",
+        constructeur_hardware_ajout_manuel="CONSTRUCTEUR",
+    )
+    assert resolve_fournisseur_in_fine(line) == ("TITULAIRE 2", None)
+
     line = silver_ugap_line(constructeur_hardware_ajout_manuel="CONSTRUCTEUR")
-    assert resolve_fournisseur_in_fine(line) == ("CONSTRUCTEUR", "343059564")
+    assert resolve_fournisseur_in_fine(line) == ("CONSTRUCTEUR", None)
 
     line = silver_ugap_line()
     assert resolve_fournisseur_in_fine(line) == ("FOURNISSEUR", "343059564")

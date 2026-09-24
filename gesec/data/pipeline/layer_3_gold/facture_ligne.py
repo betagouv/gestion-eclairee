@@ -122,14 +122,11 @@ def extract_numero_commande_ugap(delivery_id: Optional[str]) -> Optional[str]:
 
 
 def resolve_fournisseur_in_fine(line: SilverUgapExportFacture) -> tuple[Optional[str], Optional[str]]:
-    designation = (
-        line.titulaire_2_editeurs_multi_editeurs
-        or line.constructeur_hardware_ajout_manuel
-        or line.article_code_fourniseur
-        or None
-    )
-    siren = line.siren_titulaire_2 or line.siren_titulaire or None
-    return designation, siren
+    if line.titulaire_2_editeurs_multi_editeurs:
+        return line.titulaire_2_editeurs_multi_editeurs, line.siren_titulaire_2 or None
+    if line.constructeur_hardware_ajout_manuel:
+        return line.constructeur_hardware_ajout_manuel, None
+    return line.article_code_fourniseur or None, line.siren_titulaire or None
 
 
 def build_ugap_ligne(
