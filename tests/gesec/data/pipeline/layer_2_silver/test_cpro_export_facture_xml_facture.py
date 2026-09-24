@@ -1,11 +1,13 @@
 import logging
 
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeCproExportFactureXml
+from gesec.data.pipeline.layer_2_silver import cpro_export_facture_xml_facture as module
 from gesec.data.pipeline.layer_2_silver.cpro_export_facture_xml_facture import (
     extract_delivery_id,
-    extract_reference_ugap,
+    extract_note,
     transform_to_silver,
 )
+from gesec.data.pipeline.layer_2_silver.schemas import SilverCproExportFactureXmlFactureStatus
 
 
 def bronze_facture(content: dict, id_cpro: str = "1") -> BronzeCproExportFactureXml:
@@ -35,94 +37,135 @@ def test_extract_delivery_id_list_keeps_first():
     assert extract_delivery_id(content) == "0900000001-0080000002"
 
 
-def test_extract_delivery_id_absent():
-    assert extract_delivery_id({}) is None
-
-
-def test_extract_delivery_id_empty_is_ignored():
-    assert extract_delivery_id({"cac:Delivery": {"cbc:ID": ""}}) is None
-    content = {
-        "cac:Delivery": [
-            {"cbc:ID": ""},
-            {"cbc:ID": "0900000001-0080000002"},
-        ]
-    }
+def test_extract_delivery_id_skips_null_item():
+    content = {"cac:Delivery": [None, {"cbc:ID": "0900000001-0080000002"}]}
 
     assert extract_delivery_id(content) == "0900000001-0080000002"
 
 
-def test_extract_delivery_id_multiple_distinct_keeps_first_and_warns(caplog):
-    content = {
-        "cac:Delivery": [
-            {"cbc:ID": "0900000001-0080000002"},
-            {"cbc:ID": "0900000003-0080000004"},
-        ]
-    }
+def test_extract_delivery_id_empty_values_are_ignored():
+    assert extract_delivery_id({"cac:Delivery": {"cbc:ID": ""}}) is None
+    assert extract_delivery_id({"cac:Delivery": {"cbc:ID": None}}) is None
+    assert extract_delivery_id({"cac:Delivery": [{"cbc:ID": " "}]}) is None
 
-    with caplog.at_level(logging.WARNING):
-        delivery_id = extract_delivery_id(content)
+    content = {"cac:Delivery": [{"cbc:ID": ""}, {"cbc:ID": "0900000001-0080000002"}]}
 
-    assert delivery_id == "0900000001-0080000002"
-    assert any(record.levelno == logging.WARNING for record in caplog.records)
-    assert "0900000003-0080000004" in caplog.text
+    assert extract_delivery_id(content) == "0900000001-0080000002"
 
 
-def test_extract_reference_ugap_list():
-    content = {"cbc:Note": ["Texte libre", "Référence UGAP : 0900000005", "Autre"]}
-
-    assert extract_reference_ugap(content) == "900000005"
-
-
-def test_extract_reference_ugap_string():
-    assert extract_reference_ugap({"cbc:Note": "Référence UGAP : 0900000005"}) == "900000005"
+def test_extract_delivery_id_absent_or_null_is_none():
+    assert extract_delivery_id({}) is None
+    assert extract_delivery_id({"cac:Delivery": None}) is None
+    assert extract_delivery_id({"cac:Delivery": []}) is None
+    assert extract_delivery_id({"cac:Delivery": [None]}) is None
+    assert extract_delivery_id({"cac:Delivery": [{}]}) is None
 
 
-def test_extract_reference_ugap_dict():
-    assert extract_reference_ugap({"cbc:Note": {"$": "Référence UGAP : 0900000005"}}) == "900000005"
+def test_extract_delivery_id_unknown_shapes_are_none():
+    assert extract_delivery_id({"cac:Delivery": "0900000001-0080000002"}) is None
+    assert extract_delivery_id({"cac:Delivery": [42]}) is None
+    assert extract_delivery_id({"cac:Delivery": [{"cbc:ID": ["0900000001"]}]}) is None
+    assert extract_delivery_id({"cac:Delivery": [{"cbc:ID": 42}]}) is None
 
 
-def test_extract_reference_ugap_absent():
-    assert extract_reference_ugap({}) is None
+def test_extract_note_joins_strings():
+    content = {"cbc:Note": ["Facture", "Référence UGAP : 0900000001"]}
+
+    assert extract_note(content) == "Facture\nRéférence UGAP : 0900000001"
 
 
-def test_extract_reference_ugap_without_label():
-    assert extract_reference_ugap({"cbc:Note": ["Texte libre", "Sans libellé"]}) is None
-    assert extract_reference_ugap({"cbc:Note": "Référence UGAP : ABC"}) is None
+def test_extract_note_dict_value():
+    assert extract_note({"cbc:Note": {"$": "Texte"}}) == "Texte"
 
 
-def test_extract_reference_ugap_strips_leading_zeros():
-    assert extract_reference_ugap({"cbc:Note": "Référence UGAP : 0900000001"}) == "900000001"
-    assert extract_reference_ugap({"cbc:Note": "Référence UGAP : 000"}) == "0"
+def test_extract_note_single_string():
+    assert extract_note({"cbc:Note": "Texte"}) == "Texte"
 
 
-def test_transform_to_silver_fills_delivery_id_and_reference_ugap():
+def test_extract_note_ignores_null_and_empty():
+    assert extract_note({"cbc:Note": [None]}) == ""
+    assert extract_note({"cbc:Note": ["", "Texte"]}) == "Texte"
+    assert extract_note({"cbc:Note": [None, "Un", {"$": "Deux"}]}) == "Un\nDeux"
+
+
+def test_extract_note_ignores_exotic_types():
+    assert extract_note({"cbc:Note": [42, ["Texte"]]}) == ""
+    assert extract_note({"cbc:Note": 42}) == ""
+    assert extract_note({"cbc:Note": {"$": None}}) == ""
+
+
+def test_extract_note_absent():
+    assert extract_note({}) == ""
+    assert extract_note({"cbc:Note": None}) == ""
+
+
+def test_transform_to_silver_fills_delivery_note_and_status():
     content = {
         "cbc:ID": "7001234567",
         "cac:Delivery": {"cbc:ID": "0900000001-0080000002"},
         "cbc:Note": ["Facture", "Référence UGAP : 0900000001"],
     }
 
-    factures = transform_to_silver([bronze_facture(content)])
+    factures, statuses = transform_to_silver([bronze_facture(content)])
 
     assert len(factures) == 1
     assert factures[0].numero == "7001234567"
+    assert factures[0].delivery == {"cbc:ID": "0900000001-0080000002"}
     assert factures[0].delivery_id == "0900000001-0080000002"
-    assert factures[0].reference_ugap == "900000001"
+    assert factures[0].note == "Facture\nRéférence UGAP : 0900000001"
+    assert statuses == [SilverCproExportFactureXmlFactureStatus(id_cpro="1", status="Ok")]
 
 
-def test_transform_to_silver_keeps_facture_without_note():
-    content = {
-        "cbc:ID": "7001234567",
-        "cac:Delivery": {"cbc:ID": "0900000001-0080000002"},
-    }
+def test_transform_to_silver_keeps_facture_with_empty_delivery_and_note():
+    content = {"cbc:ID": "7001234567", "cac:Delivery": [None], "cbc:Note": [None]}
 
-    factures = transform_to_silver([bronze_facture(content)])
+    factures, statuses = transform_to_silver([bronze_facture(content)])
 
     assert len(factures) == 1
-    assert factures[0].reference_ugap is None
+    assert factures[0].delivery == [None]
+    assert factures[0].delivery_id is None
+    assert factures[0].note == ""
+    assert statuses == [SilverCproExportFactureXmlFactureStatus(id_cpro="1", status="Ok")]
 
 
-def test_transform_to_silver_skips_facture_without_numero():
+def test_transform_to_silver_exposes_all_delivery_ids_in_raw_delivery():
+    delivery = [{"cbc:ID": "0900000001-0080000002"}, {"cbc:ID": "0900000003-0080000004"}]
+    content = {"cbc:ID": "7001234567", "cac:Delivery": delivery}
+
+    factures, statuses = transform_to_silver([bronze_facture(content)])
+
+    assert factures[0].delivery_id == "0900000001-0080000002"
+    assert factures[0].delivery == delivery
+    assert statuses == [SilverCproExportFactureXmlFactureStatus(id_cpro="1", status="Ok")]
+
+
+def test_transform_to_silver_flags_facture_without_numero():
     content = {"cac:Delivery": {"cbc:ID": "0900000001-0080000002"}}
 
-    assert transform_to_silver([bronze_facture(content)]) == []
+    factures, statuses = transform_to_silver([bronze_facture(content)])
+
+    assert factures == []
+    assert len(statuses) == 1
+    assert statuses[0].status == "Error"
+    assert statuses[0].status_details
+
+
+def test_transform_to_silver_isolates_facture_error(monkeypatch, caplog):
+    def boom(content):
+        if content.get("cbc:ID") == "7001234567":
+            raise ValueError("boom")
+        return None
+
+    broken = bronze_facture({"cbc:ID": "7001234567"}, id_cpro="broken")
+    healthy = bronze_facture({"cbc:ID": "7001234568"}, id_cpro="healthy")
+    monkeypatch.setattr(module, "extract_delivery_id", boom)
+
+    with caplog.at_level(logging.ERROR):
+        factures, statuses = transform_to_silver([broken, healthy])
+
+    assert [facture.id_cpro for facture in factures] == ["healthy"]
+    assert statuses == [
+        SilverCproExportFactureXmlFactureStatus(id_cpro="broken", status="Error", status_details="ValueError('boom')"),
+        SilverCproExportFactureXmlFactureStatus(id_cpro="healthy", status="Ok"),
+    ]
+    assert any(record.levelno == logging.ERROR for record in caplog.records)

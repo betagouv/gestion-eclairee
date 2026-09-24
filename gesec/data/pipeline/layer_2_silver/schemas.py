@@ -1,6 +1,6 @@
 from datetime import date
 from decimal import Decimal
-from typing import Literal, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel
 
@@ -244,8 +244,18 @@ class SilverCproExportFactureXmlFacture(BaseModel):
     id_cpro: str
     xml_schema: str
     numero: str
+    delivery: Optional[Any] = None
     delivery_id: Optional[str] = None
-    reference_ugap: Optional[str] = None
+    note: str = ""
+
+
+CproExportFactureXmlFactureStatus = Literal["Ok", "Error"]
+
+
+class SilverCproExportFactureXmlFactureStatus(BaseModel):
+    id_cpro: str
+    status: CproExportFactureXmlFactureStatus
+    status_details: Optional[str] = None
 
 
 class SilverCproExportFactureXmlLigne(BaseModel):

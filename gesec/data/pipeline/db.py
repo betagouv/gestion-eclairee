@@ -96,13 +96,14 @@ def pydantic_model_to_dtype(model_class: Type[BaseModel]) -> dict:
     """
 
     # Mapping des types Python vers types SQLAlchemy
-    type_mapping = {
+    type_mapping: dict[Any, type] = {
         str: sqlalchemy.types.TEXT,
         int: sqlalchemy.types.INTEGER,
         float: sqlalchemy.types.FLOAT,
         bool: sqlalchemy.types.BOOLEAN,
         dict: JSONB,
         list: HSTORE,
+        Any: JSONB,
         datetime.date: sqlalchemy.types.DATE,
         datetime.datetime: sqlalchemy.types.TIMESTAMP,
         datetime.time: sqlalchemy.types.TIME,
