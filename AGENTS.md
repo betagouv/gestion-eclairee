@@ -44,6 +44,9 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - Migrations exclues de ruff et de ty.
 - Nouveau modèle : définir dans l'app puis le ré-exporter dans `gesec/models.py`.
 - Processors : pandas/SQLAlchemy (écritures avec `chunksize`) ; modèles Django pour le front.
+- Aucun secret, donnée sensible ou à caractère personnel dans les fichiers
+  commités (code, docs, ADR, AGENTS.md, README.md...). Toléré dans les plans,
+  qui ne sont pas commités.
 
 ## Typage
 
@@ -116,3 +119,6 @@ La contrainte unique sur gm échouait sur les factures sans engagement.
 - `STORAGE_BACKEND=fs|s3` ; entrées pipeline attendues sous la racine du storage
   (`cpro/exports`, `cpro/factures_unzipped`, `oda/...`, `budat/...`).
 - `ALBERT_API_KEY` / `ALBERT_BASE_URL` pour le LLM.
+- `PROD_DB_URL` : accès optionnel à la base de production pour investiguer
+  bugs et choix de conception. Lecture seule : ne jamais écrire en prod, et
+  toujours borner les requêtes SQL (`LIMIT`) vu le volume de données.
