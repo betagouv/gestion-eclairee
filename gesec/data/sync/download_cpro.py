@@ -527,7 +527,7 @@ def read_input_file(input_file: str) -> list[tuple[str, str | None, str, str]]:
             assert not ej or len(ej) == 10, f"row with invalid EJ: {row}"
             # assert services_str, f"Row with empty SERVICES: {row}"
 
-            if len(facture_num) < 3:
+            if facture_num and len(facture_num) < 3:
                 logger.warning("Facture num too short: %r.", row)
                 facture_num = ""
 
