@@ -32,3 +32,4 @@ def launch_pipeline(ministere: str | None = None, n_workers: int | None = None):
     ## Gold
     gold.facture.process_silver_to_gold()
     gold.facture_ligne.process_to_gold()
+    gold.meta_budat.process_to_gold()
