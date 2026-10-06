@@ -31,8 +31,8 @@ class XlsxRow(BaseModel):
     b: str = Field(default="", validation_alias="B")
 
 
-def put_xlsx(s3_client, key: str, sheets: dict[str, list[list]], banner: bool = True) -> None:
-    s3_client.Bucket("test-depec").put_object(Key=key, Body=build_xlsx(sheets, banner=banner))
+def put_xlsx(s3_client, key: str, sheets: dict[str, list[list]]) -> None:
+    s3_client.Bucket("test-depec").put_object(Key=key, Body=build_xlsx(sheets))
 
 
 def test_load_xlsx_selects_matching_sheets(s3_client):
@@ -45,7 +45,7 @@ def test_load_xlsx_selects_matching_sheets(s3_client):
         },
     )
 
-    rows = load_xlsx("ugap/test.xlsx", XlsxRow, re.compile("dinum", re.IGNORECASE))
+    rows = load_xlsx("ugap/test.xlsx", XlsxRow, re.compile("dinum", re.IGNORECASE), skip_rows=0)
 
     assert len(rows) == 2
     assert {row.onglet for row in rows} == {"11 2025 - Dinum"}
@@ -61,7 +61,7 @@ def test_load_xlsx_converts_cells_to_text(s3_client):
         {"Dinum": [["A", "B"], [1.0, datetime(2025, 4, 10)], [0.27, "-"], [None, "x"]]},
     )
 
-    rows = load_xlsx("ugap/text.xlsx", XlsxRow, re.compile("dinum", re.IGNORECASE))
+    rows = load_xlsx("ugap/text.xlsx", XlsxRow, re.compile("dinum", re.IGNORECASE), skip_rows=0)
 
     assert rows[0].a == "1"
     assert rows[0].b == "2025-04-10T00:00:00"
@@ -76,7 +76,7 @@ def test_load_xlsx_reads_after_storage_handle_is_closed(tmp_path):
     (tmp_path / "test.xlsx").write_bytes(build_xlsx({"Dinum": [["A", "B"], [1, "a"]]}))
 
     with patch("gesec.data.pipeline.utils.default_storage", storage):
-        rows = load_xlsx("test.xlsx", XlsxRow, re.compile("dinum", re.IGNORECASE))
+        rows = load_xlsx("test.xlsx", XlsxRow, re.compile("dinum", re.IGNORECASE), skip_rows=0)
 
     assert [(row.a, row.b) for row in rows] == [("1", "a")]
 
@@ -88,6 +88,7 @@ def test_load_xlsx_applies_source_key(s3_client):
         "ugap/test.xlsx",
         XlsxRow,
         re.compile("dinum", re.IGNORECASE),
+        skip_rows=0,
         source_key=lambda sheet: "cle",
     )
 
@@ -104,7 +105,7 @@ def test_load_xlsx_source_idx_is_unique_across_sheets(s3_client):
         },
     )
 
-    rows = load_xlsx("ugap/test.xlsx", XlsxRow, re.compile("dinum", re.IGNORECASE))
+    rows = load_xlsx("ugap/test.xlsx", XlsxRow, re.compile("dinum", re.IGNORECASE), skip_rows=0)
 
     assert [row.source_idx for row in rows] == ["Dinum 1_0", "Dinum 2_0"]
 
@@ -113,14 +114,14 @@ def test_load_xlsx_raises_without_matching_sheet(s3_client):
     put_xlsx(s3_client, "ugap/test.xlsx", {"11 2025 - DAE": [["A"], [1]]})
 
     with pytest.raises(ValueError, match="No sheet matching"):
-        load_xlsx("ugap/test.xlsx", XlsxRow, re.compile("dinum", re.IGNORECASE))
+        load_xlsx("ugap/test.xlsx", XlsxRow, re.compile("dinum", re.IGNORECASE), skip_rows=0)
 
 
 def test_load_xlsx_raises_on_unexpected_headers(s3_client):
     put_xlsx(s3_client, "ugap/test.xlsx", {"Dinum": [["A", "C"], [1, 2]]})
 
     with pytest.raises(ValueError, match="Unexpected headers"):
-        load_xlsx("ugap/test.xlsx", XlsxRow, re.compile("dinum", re.IGNORECASE))
+        load_xlsx("ugap/test.xlsx", XlsxRow, re.compile("dinum", re.IGNORECASE), skip_rows=0)
 
 
 def test_model_headers_uses_validation_aliases():

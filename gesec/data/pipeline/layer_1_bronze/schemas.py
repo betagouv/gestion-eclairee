@@ -288,7 +288,13 @@ class BronzeCproAnnuaireService(BaseModel):
 
 
 class BronzeUgapExportFacture(BaseModel):
-    """Ligne brute importée depuis un export Excel de factures UGAP."""
+    """Ligne brute importée depuis un export Excel de factures UGAP.
+
+    Les libellés des colonnes « Siren Titulaire 2 » / « Type ent Titulaire 2 »
+    et « Siren Ss Traitant » / « Type ent Ss Traitant » sont inversés dans
+    l'export : le SIREN est sous le libellé « Type ent ... ». Le mapping suit le
+    contenu des colonnes, pas leur libellé.
+    """
 
     model_config = ConfigDict(validate_by_alias=True, validate_by_name=True)
 
@@ -297,51 +303,51 @@ class BronzeUgapExportFacture(BaseModel):
     source_idx: str
     onglet: str
 
-    cde_client_numero: str = Field(validation_alias="Cde Client - N°")
-    cde_client_numero_cde_chez_le_client: str = Field(validation_alias="Cde Client - N° cde chez le client")
-    cde_client_jour_de_creation: str = Field(validation_alias="Cde client - Jour de création")
-    cde_client_date_paiement_client: str = Field(validation_alias="Cde client - Date Paiement client")
-    compte_crm_do_univers_bp: str = Field(validation_alias="Compte CRM DO - Univers BP")
-    compte_crm_numero_donneur_d_ordre: str = Field(validation_alias="Compte CRM - N° donneur d'ordre")
-    ministere: str = Field(validation_alias="Ministère")
+    numero_commande_ugap: str = Field(validation_alias="Numéro de commande UGAP")
+    numero_commande_chez_le_client: str = Field(validation_alias="Numéro de commande chez le client")
+    numero_facture: str = Field(validation_alias="N° facture")
+    jour_creation_commande_ugap: str = Field(validation_alias="Jour de création de la commande UGAP")
+    jour_paiement_commande_ugap: str = Field(validation_alias="Jour de paiement de la commande UGAP")
+    univers_clients_ugap: str = Field(validation_alias="Univers clients UGAP")
+    code_donneur_d_ordre: str = Field(validation_alias="Code du Donneur d'ordre")
+    ministere: str = Field(validation_alias="Ministe de rattachement et ou tutelle")
     part_nom_1_organ: str = Field(validation_alias="Part.: nom 1 organ.")
     part_nom_2_organ: str = Field(validation_alias="Part.: nom 2 organ.")
     siren: str = Field(validation_alias="SIREN")
-    inclus: str = Field(validation_alias="Inclus")
     sae_niveau_3: str = Field(validation_alias="SAE Niveau 3")
     sae_niveau_4: str = Field(validation_alias="SAE Niveau 4")
     ac_se_bp_operateur_etat: str = Field(validation_alias="AC/SE (BP operateur état)")
     code_gm: str = Field(validation_alias="Code GM")
-    designation_gm: str = Field(validation_alias="Désignation GM")
+    designation_gm: str = Field(validation_alias="Désignation du GM")
     marche_numero: str = Field(validation_alias="Marché - N°")
-    type_d_offre_logiciels: str = Field(validation_alias="Type d'offre Logiciels")
-    article_code_lot: str = Field(validation_alias="Article - Code Lot")
+    type_offre_logicielle: str = Field(validation_alias="Type offre logicielle")
+    code_lot: str = Field(validation_alias="Code Lot")
     designation_du_lot: str = Field(validation_alias="Désignation du Lot")
-    article_code_fourniseur: str = Field(validation_alias="Article - Code fourniseur")
-    siren_titulaire: str = Field(validation_alias="SIREN Titulaire")
-    boa_tete_de_groupe_mondiale_pays: str = Field(validation_alias="BOA - Tête de groupe mondiale - Pays")
-    type_entreprise_tpe_pme_pmi_eti_grande_entreprise: str = Field(
-        validation_alias="Type Entreprise: TPE/PME-PMI/ETI/Grande Entreprise"
-    )
-    article_numero: str = Field(validation_alias="Article - N°")
-    constructeur_hardware_ajout_manuel: str = Field(validation_alias="Constructeur (hardware ajout manuel)")
-    titulaire_2_editeurs_multi_editeurs: str = Field(validation_alias="Titulaire 2 (Editeurs Multi Editeurs)")
-    siren_titulaire_2: str = Field(validation_alias="Siren Titulaire 2")
-    pays_du_titualire_2: str = Field(validation_alias="Pays du Titualire 2")
-    type_ent_titulaire_2: str = Field(validation_alias="Type ent Titulaire 2")
-    sous_traitant_sur_marches_presta: str = Field(validation_alias="Sous Traitant (sur marchés Presta)")
-    siren_ss_traitant: str = Field(validation_alias="Siren Ss Traitant")
+    designation_titulaire_marche: str = Field(validation_alias="Désignation du Titualire de marché")
+    pays_titulaire_1: str = Field(validation_alias="Pays Titulaire 1")
+    type_entreprise_titulaire_1: str = Field(validation_alias="Type Entreprise Titulaire 1")
+    siren_titulaire_1: str = Field(validation_alias="Siren Titultaire 1")
+    code_article_ugap: str = Field(validation_alias="Code Article UGAP")
+    constructeur_article: str = Field(validation_alias="Constructeur de l'article")
+    titulaire_rang_2: str = Field(validation_alias="Titulaire de rang 2 (Marche Multi Editeurs)")
+    pays_titulaire_2: str = Field(validation_alias="Pays Titulaire 2")
+    # Libellés inversés dans l'export : le type est sous « Siren Titulaire 2 », le SIREN sous « Type ent Titulaire 2 ».
+    type_ent_titulaire_2: str = Field(validation_alias="Siren Titulaire 2")
+    siren_titulaire_2: str = Field(validation_alias="Type ent Titulaire 2")
+    sous_traitant: str = Field(validation_alias="Sous Traitant (sur marchés Presta)")
     pays_ss_traitant: str = Field(validation_alias="Pays Ss Traitant")
-    type_ent_ss_traitant: str = Field(validation_alias="Type ent Ss Traitant")
+    # Idem : le type est sous « Siren Ss Traitant », le SIREN sous « Type ent Ss Traitant ».
+    type_ent_ss_traitant: str = Field(validation_alias="Siren Ss Traitant")
+    siren_ss_traitant: str = Field(validation_alias="Type ent Ss Traitant")
     article_numero_vue_adv: str = Field(validation_alias="Article - N° (vue ADV)")
     texte_adv_ligne_1: str = Field(validation_alias="Texte ADV ligne 1")
     texte_adv_ligne_2: str = Field(validation_alias="Texte ADV ligne 2")
     texte_adv_ligne_3: str = Field(validation_alias="Texte ADV ligne 3")
     texte_adv_ligne_4: str = Field(validation_alias="Texte ADV ligne 4")
     ce_ht: Decimal = Field(validation_alias="CE HT")
-    tva_collectee: Decimal = Field(validation_alias="TVA Collectée")
+    tva: Decimal = Field(validation_alias="TVA")
     ce_ttc: Decimal = Field(validation_alias="CE TTC")
-    qte_commandees: Decimal = Field(validation_alias="Qté commandées")
+    qte_article_commandee: Decimal = Field(validation_alias="Qté Article commandée")
     montant_facture_ht: Decimal = Field(validation_alias="Montant Facturé HT")
 
 

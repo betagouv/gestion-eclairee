@@ -184,49 +184,49 @@ class SilverUgapExportFacture(BaseModel):
     source_idx: str
     onglet: str
 
-    cde_client_numero: str
-    cde_client_numero_cde_chez_le_client: str = ""
-    cde_client_jour_de_creation: date
-    cde_client_date_paiement_client: date
-    compte_crm_do_univers_bp: str
-    compte_crm_numero_donneur_d_ordre: str
+    numero_commande_ugap: str
+    numero_commande_chez_le_client: str = ""
+    numero_facture: str = ""
+    jour_creation_commande_ugap: date
+    jour_paiement_commande_ugap: date
+    univers_clients_ugap: str
+    code_donneur_d_ordre: str
     ministere: str
     part_nom_1_organ: str
     part_nom_2_organ: str = ""
     siren: str
-    inclus: str
     sae_niveau_3: str = ""
     sae_niveau_4: str = ""
     ac_se_bp_operateur_etat: str = ""
     code_gm: str
     designation_gm: str
     marche_numero: str
-    type_d_offre_logiciels: str = ""
-    article_code_lot: str
+    type_offre_logicielle: str = ""
+    code_lot: str
     designation_du_lot: str
-    article_code_fourniseur: str
-    siren_titulaire: str
-    boa_tete_de_groupe_mondiale_pays: str = ""
-    type_entreprise_tpe_pme_pmi_eti_grande_entreprise: str
-    article_numero: str
-    constructeur_hardware_ajout_manuel: str = ""
-    titulaire_2_editeurs_multi_editeurs: str = ""
-    siren_titulaire_2: str = ""
-    pays_du_titualire_2: str = ""
+    designation_titulaire_marche: str
+    siren_titulaire_1: str
+    pays_titulaire_1: str = ""
+    type_entreprise_titulaire_1: str
+    code_article_ugap: str
+    constructeur_article: str = ""
+    titulaire_rang_2: str = ""
+    pays_titulaire_2: str = ""
     type_ent_titulaire_2: str = ""
-    sous_traitant_sur_marches_presta: str = ""
-    siren_ss_traitant: str = ""
+    siren_titulaire_2: str = ""
+    sous_traitant: str = ""
     pays_ss_traitant: str = ""
     type_ent_ss_traitant: str = ""
+    siren_ss_traitant: str = ""
     article_numero_vue_adv: str
     texte_adv_ligne_1: str = ""
     texte_adv_ligne_2: str = ""
     texte_adv_ligne_3: str = ""
     texte_adv_ligne_4: str = ""
     ce_ht: Decimal
-    tva_collectee: Decimal
+    tva: Decimal
     ce_ttc: Decimal
-    qte_commandees: Decimal
+    qte_article_commandee: Decimal
     montant_facture_ht: Optional[Decimal] = None
 
 

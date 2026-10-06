@@ -68,31 +68,30 @@ def silver_ugap_line(
     values: dict[str, Any] = dict(
         source="ugap/f.xlsx",
         source_idx=source_idx,
-        onglet="11 2025 - Dinum",
-        cde_client_numero=numero,
-        article_numero=article,
-        cde_client_jour_de_creation=date(2025, 4, 10),
-        cde_client_date_paiement_client=date(2025, 11, 6),
-        compte_crm_do_univers_bp="ETABLISSEMENTS PUBLICS",
-        compte_crm_numero_donneur_d_ordre="80000002",
+        onglet="Dinum 2025",
+        numero_commande_ugap=numero,
+        code_article_ugap=article,
+        jour_creation_commande_ugap=date(2025, 4, 10),
+        jour_paiement_commande_ugap=date(2025, 11, 6),
+        univers_clients_ugap="ETABLISSEMENTS PUBLICS",
+        code_donneur_d_ordre="80000002",
         ministere="M.CUL",
         part_nom_1_organ="MUSEE ORSAY",
         siren="180092447",
-        inclus="Oui",
         code_gm="33.01.04",
         designation_gm="Services téléphonie fixe",
         marche_numero="616024",
-        article_code_lot="LOT/001",
+        code_lot="LOT/001",
         designation_du_lot="Désignation lot",
-        article_code_fourniseur="FOURNISSEUR",
-        siren_titulaire="343059564",
-        type_entreprise_tpe_pme_pmi_eti_grande_entreprise="Grande Entreprise",
+        designation_titulaire_marche="FOURNISSEUR",
+        siren_titulaire_1="343059564",
+        type_entreprise_titulaire_1="Grande Entreprise",
         article_numero_vue_adv="Article 1",
         texte_adv_ligne_1="Texte 1",
         ce_ht=Decimal("100"),
-        tva_collectee=Decimal("20"),
+        tva=Decimal("20"),
         ce_ttc=Decimal("120"),
-        qte_commandees=Decimal("2"),
+        qte_article_commandee=Decimal("2"),
         montant_facture_ht=Decimal("100"),
     )
     values.update(overrides)
@@ -151,25 +150,25 @@ def test_extract_numero_commande_ugap():
 
 def test_resolve_fournisseur_in_fine_cases():
     line = silver_ugap_line(
-        titulaire_2_editeurs_multi_editeurs="TITULAIRE 2",
-        constructeur_hardware_ajout_manuel="CONSTRUCTEUR",
+        titulaire_rang_2="TITULAIRE 2",
+        constructeur_article="CONSTRUCTEUR",
         siren_titulaire_2="111111111",
     )
     assert resolve_fournisseur_in_fine(line) == ("TITULAIRE 2", "111111111")
 
     line = silver_ugap_line(
-        titulaire_2_editeurs_multi_editeurs="TITULAIRE 2",
-        constructeur_hardware_ajout_manuel="CONSTRUCTEUR",
+        titulaire_rang_2="TITULAIRE 2",
+        constructeur_article="CONSTRUCTEUR",
     )
     assert resolve_fournisseur_in_fine(line) == ("TITULAIRE 2", None)
 
-    line = silver_ugap_line(constructeur_hardware_ajout_manuel="CONSTRUCTEUR")
+    line = silver_ugap_line(constructeur_article="CONSTRUCTEUR")
     assert resolve_fournisseur_in_fine(line) == ("CONSTRUCTEUR", None)
 
     line = silver_ugap_line()
     assert resolve_fournisseur_in_fine(line) == ("FOURNISSEUR", "343059564")
 
-    line = silver_ugap_line(article_code_fourniseur="", siren_titulaire="")
+    line = silver_ugap_line(designation_titulaire_marche="", siren_titulaire_1="")
     assert resolve_fournisseur_in_fine(line) == (None, None)
 
 
@@ -354,16 +353,16 @@ def test_match_ugap_conflicting_suppliers_last_sorted_wins():
             source_idx="1",
             numero="900000001",
             article="7000001",
-            article_code_fourniseur="B",
-            siren_titulaire="222222222",
+            designation_titulaire_marche="B",
+            siren_titulaire_1="222222222",
         ),
         silver_ugap_line(
             source="ugap/a.xlsx",
             source_idx="2",
             numero="900000001",
             article="7000001",
-            article_code_fourniseur="A",
-            siren_titulaire="111111111",
+            designation_titulaire_marche="A",
+            siren_titulaire_1="111111111",
         ),
     ]
 

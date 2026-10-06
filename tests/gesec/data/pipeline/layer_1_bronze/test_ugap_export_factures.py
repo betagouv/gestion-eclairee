@@ -25,20 +25,22 @@ def load_bronze(filepath: str) -> list[BronzeUgapExportFacture]:
         filepath,
         BronzeUgapExportFacture,
         DINUM_SHEET_PATTERN,
+        skip_rows=0,
         source_key=clean_column_name,
     )
 
 
 @pytest.fixture
 def ugap_file(s3_client) -> str:
-    key = "ugap/exports/2026_08_24_DINUM_DAE_10_lignes.xlsx"
+    key = "ugap/exports/2026_10_01.xlsx"
     put_file(
         s3_client,
         key,
         build_ugap_xlsx(
             {
-                "11 2025 - Dinum": [ugap_row(), ugap_row(**{"Article - N°": 5650760})],
-                "11 2025 - DAE": [ugap_row(**{"Cde Client - N°": 999})],
+                "Dinum 2025": [ugap_row(), ugap_row(**{"Code Article UGAP": 899638})],
+                "Dinum janv sept 2026": [ugap_row(**{"Numéro de commande UGAP": 103858991})],
+                "DAE 2025": [ugap_row(**{"Numéro de commande UGAP": 999})],
             }
         ),
     )
@@ -66,33 +68,42 @@ def test_list_xlsx_files_keeps_only_sorted_xlsx(s3_client):
     assert list_xlsx_files("ugap/exports") == ["ugap/exports/a.xlsx", "ugap/exports/b.xlsx"]
 
 
-def test_load_bronze_selects_dinum_sheets_only(s3_client, ugap_file):
+def test_load_bronze_imports_all_dinum_sheets(s3_client, ugap_file):
     rows = load_bronze(ugap_file)
 
-    assert len(rows) == 2
-    assert {row.onglet for row in rows} == {"11 2025 - Dinum"}
+    assert len(rows) == 3
+    assert {row.onglet for row in rows} == {"Dinum 2025", "Dinum janv sept 2026"}
     assert all(row.source == ugap_file for row in rows)
-    assert [row.source_idx for row in rows] == ["11_2025_dinum_0", "11_2025_dinum_1"]
-    assert rows[0].source_idx.startswith(clean_column_name("11 2025 - Dinum"))
+    assert [row.source_idx for row in rows] == ["dinum_2025_0", "dinum_2025_1", "dinum_janv_sept_2026_0"]
+    assert rows[0].source_idx.startswith(clean_column_name("Dinum 2025"))
+    assert rows[2].source_idx.startswith(clean_column_name("Dinum janv sept 2026"))
 
 
 def test_load_bronze_keeps_raw_text(s3_client, ugap_file):
     row = load_bronze(ugap_file)[0]
 
-    assert row.cde_client_numero == "104521399"
-    assert row.article_numero == "5650607"
+    assert row.numero_commande_ugap == "103858990"
+    assert row.numero_facture == "7004133026"
+    assert row.code_article_ugap == "899637"
     assert row.part_nom_2_organ == "#"
-    assert row.type_d_offre_logiciels == "-"
-    assert row.article_code_fourniseur == "SOC FRANCAISE DU RADIOTELEPHONE - S"
+    assert row.type_offre_logicielle == "Multi Editeurs"
+    assert row.designation_titulaire_marche == "SCC FRANCE"
+
+
+def test_load_bronze_maps_swapped_siren_columns(s3_client, ugap_file):
+    row = load_bronze(ugap_file)[0]
+
+    assert row.siren_titulaire_2 == "410117303"
+    assert row.type_ent_titulaire_2 == "PME"
 
 
 def test_load_bronze_parses_amounts_as_decimal(s3_client, ugap_file):
     row = load_bronze(ugap_file)[0]
 
     assert row.ce_ht == Decimal("5.94")
-    assert row.tva_collectee == Decimal("1.19")
+    assert row.tva == Decimal("1.19")
     assert row.ce_ttc == Decimal("7.13")
-    assert row.qte_commandees == Decimal("1")
+    assert row.qte_article_commandee == Decimal("1")
     assert row.montant_facture_ht == Decimal("5.94")
 
 
@@ -124,24 +135,24 @@ def test_load_bronze_converts_datetimes_to_iso(s3_client):
                 "Dinum": [
                     ugap_row(
                         **{
-                            "Cde client - Jour de création": datetime(2025, 4, 10),
-                            "Cde client - Date Paiement client": date(2025, 11, 6),
+                            "Jour de création de la commande UGAP": datetime(2025, 4, 10),
+                            "Jour de paiement de la commande UGAP": date(2025, 11, 6),
                         }
                     )
-                ]
+                ],
             }
         ),
     )
 
     row = load_bronze(key)[0]
 
-    assert row.cde_client_jour_de_creation in ("2025-04-10", "2025-04-10T00:00:00")
-    assert row.cde_client_date_paiement_client in ("2025-11-06", "2025-11-06T00:00:00")
+    assert row.jour_creation_commande_ugap in ("2025-04-10", "2025-04-10T00:00:00")
+    assert row.jour_paiement_commande_ugap in ("2025-11-06", "2025-11-06T00:00:00")
 
 
 def test_load_bronze_raises_without_dinum_sheet(s3_client):
     key = "ugap/exports/dae_only.xlsx"
-    put_file(s3_client, key, build_ugap_xlsx({"11 2025 - DAE": [ugap_row()]}))
+    put_file(s3_client, key, build_ugap_xlsx({"DAE 2025": [ugap_row()]}))
 
     with pytest.raises(ValueError, match="No sheet matching"):
         load_bronze(key)

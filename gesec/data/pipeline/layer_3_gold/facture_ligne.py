@@ -122,11 +122,11 @@ def extract_numero_commande_ugap(delivery_id: Optional[str]) -> Optional[str]:
 
 
 def resolve_fournisseur_in_fine(line: SilverUgapExportFacture) -> tuple[Optional[str], Optional[str]]:
-    if line.titulaire_2_editeurs_multi_editeurs:
-        return line.titulaire_2_editeurs_multi_editeurs, line.siren_titulaire_2 or None
-    if line.constructeur_hardware_ajout_manuel:
-        return line.constructeur_hardware_ajout_manuel, None
-    return line.article_code_fourniseur or None, line.siren_titulaire or None
+    if line.titulaire_rang_2:
+        return line.titulaire_rang_2, line.siren_titulaire_2 or None
+    if line.constructeur_article:
+        return line.constructeur_article, None
+    return line.designation_titulaire_marche or None, line.siren_titulaire_1 or None
 
 
 def build_ugap_ligne(
@@ -140,9 +140,9 @@ def build_ugap_ligne(
         source=ugap_line.source,
         source_idx=ugap_line.source_idx,
         id_cpro=id_cpro,
-        numero_commande_ugap=ugap_line.cde_client_numero,
+        numero_commande_ugap=ugap_line.numero_commande_ugap,
         line_id=line_id,
-        article_numero=ugap_line.article_numero,
+        article_numero=ugap_line.code_article_ugap,
         status=status,
         status_details=status_details,
     )
@@ -157,7 +157,7 @@ def match_ugap(
     """Rapproche les lignes UGAP des lignes gold par commande puis par article.
 
     La commande est lue dans les métadonnées XML des factures UGAP
-    (`cac:Delivery/cbc:ID`, préfixe avant `-`) et comparée à `cde_client_numero`
+    (`cac:Delivery/cbc:ID`, préfixe avant `-`) et comparée à `numero_commande_ugap`
     normalisé ; l'article est comparé à `item_reference` normalisé. Toutes les
     factures d'une commande sont parcourues : chaque correspondance produit une
     ligne de suivi `matched` et enrichit en une passe `fournisseur_in_fine_*`
@@ -185,8 +185,8 @@ def match_ugap(
     suivi: list[GoldUgapLigne] = []
 
     for ugap_line in sorted(ugap_lines, key=lambda line: (line.source, line.source_idx)):
-        commande = normalize_reference(ugap_line.cde_client_numero)
-        article = normalize_reference(ugap_line.article_numero)
+        commande = normalize_reference(ugap_line.numero_commande_ugap)
+        article = normalize_reference(ugap_line.code_article_ugap)
         id_cpros = id_cpros_by_commande.get(commande) if commande is not None else None
         if not id_cpros:
             suivi.append(build_ugap_ligne(ugap_line, "facture_inconnue"))

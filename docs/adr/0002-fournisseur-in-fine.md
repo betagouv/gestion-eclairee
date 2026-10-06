@@ -13,14 +13,14 @@ est identifiée par le SIREN `776056467`.
 
 Le rapprochement se fait en deux temps : les factures UGAP sont rattachées à
 leur commande par `cac:Delivery/cbc:ID` de la facture XML (partie avant `-`,
-« commande-donneur d'ordre », normalisée), comparée à « Cde Client - N° »
-normalisée ; puis chaque ligne l'est par article normalisé. La couverture
+« commande-donneur d'ordre », normalisée), comparée à « Numéro de commande
+UGAP » normalisée ; puis chaque ligne l'est par article normalisé. La couverture
 totale de `cac:Delivery/cbc:ID` est mesurée sur les seules factures UGAP
 (40 732, deux formats UBL) ; l'extraction s'applique à tous les fournisseurs,
 l'identifiant restant optionnel hors UGAP. Le `cbc:ID` du XML
 est le numéro de facture, pas le numéro de commande : l'égalité supposée
-initialement `numero == « Cde Client - N° »` était erronée, jamais mesurée, et
-la production était intégralement `facture_inconnue`. L'enrichissement
+initialement `numero == « Numéro de commande UGAP »` était erronée, jamais
+mesurée, et la production était intégralement `facture_inconnue`. L'enrichissement
 `fournisseur_in_fine_*` couvre toutes les lignes gold `(commande, article)` des
 factures d'une commande, y compris les commandes multi-factures (3 194
 mesurées). Chaque correspondance `(ligne UGAP, ligne gold)` produit une ligne de
@@ -48,21 +48,29 @@ couverture (1 937 commandes) étant incluse dans celle de `cac:Delivery`
 La résolution du fournisseur in fine se fait par cas, couplant désignation et
 SIREN pour que le SIREN corresponde toujours au nom affiché :
 
-- `Titulaire 2 (Editeurs Multi Editeurs)` renseigné → désignation et SIREN
-  Titulaire 2 ; SIREN absent → NULL. Replier sur `SIREN Titulaire` mettrait le
+- `Titulaire de rang 2 (Marche Multi Editeurs)` renseigné → désignation et SIREN
+  Titulaire 2 ; SIREN absent → NULL. Replier sur `Siren Titultaire 1` mettrait le
   SIREN de SCC France (424982650) sous les 180 lignes de ce cas dont le SIREN
   Titulaire 2 est absent (74 éditeurs distincts) : ce SIREN désigne un
   distributeur, pas l'éditeur nommé.
-- sinon `Constructeur (hardware ajout manuel)` renseigné → désignation seule,
+- sinon `Constructeur de l'article` renseigné → désignation seule,
   SIREN NULL en attendant une table manuelle constructeur → SIREN (34
-  constructeurs mesurés). `SIREN Titulaire` est celui d'un distributeur,
+  constructeurs mesurés). `Siren Titultaire 1` est celui d'un distributeur,
   variable selon le marché (APPLE → 5 SIREN), et ne désigne pas le
   constructeur nommé.
-- sinon → `Article - Code fourniseur` et `SIREN Titulaire`, déjà cohérents.
+- sinon → `Désignation du Titualire de marché` et `Siren Titultaire 1`, déjà
+  cohérents.
+
+Dans l'export, les libellés « Siren Titulaire 2 » / « Type ent Titulaire 2 » et
+« Siren Ss Traitant » / « Type ent Ss Traitant » sont inversés : le SIREN est
+sous la colonne libellée « Type ent ... ». Le champ `siren_titulaire_2` lit donc
+« Type ent Titulaire 2 », `siren_ss_traitant` lit « Type ent Ss Traitant » et
+leurs pendants `type_ent_*` lisent les colonnes « Siren ... ».
 
 Aucun repli croisé entre cas. La sentinelle `NA` est écartée au profit de NULL.
-Les sentinelles `'-'`, `'#'` et vide valent NULL. Les lignes d'export invalides
-sont rejetées en silver et tracées avec le statut `Validation error`.
+Les sentinelles `'-'`, `'#'`, `'#N/A'`, `'N/A'` et vide valent NULL, ainsi que
+`0` pour le constructeur. Les lignes d'export invalides sont rejetées en silver
+et tracées avec le statut `Validation error`.
 
 ## Options écartées
 

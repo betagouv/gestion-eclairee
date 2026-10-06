@@ -15,26 +15,28 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_TABLE_NAME = "silver_" + __name__.split(".")[-1]
 
-SENTINELS = {"", "-", "#"}
+SENTINELS = {"", "-", "#", "#N/A", "N/A"}
 
 META_COLUMNS = {"source", "source_idx", "onglet"}
 
-DATE_COLUMNS = {"cde_client_jour_de_creation", "cde_client_date_paiement_client"}
-AMOUNT_COLUMNS = {"ce_ht", "tva_collectee", "ce_ttc", "qte_commandees", "montant_facture_ht"}
+DATE_COLUMNS = {"jour_creation_commande_ugap", "jour_paiement_commande_ugap"}
+AMOUNT_COLUMNS = {"ce_ht", "tva", "ce_ttc", "qte_article_commandee", "montant_facture_ht"}
+ZERO_AS_EMPTY_COLUMNS = {"constructeur_article"}
 EMPTY_TEXT_COLUMNS = {
-    "cde_client_numero_cde_chez_le_client",
+    "numero_commande_chez_le_client",
+    "numero_facture",
     "part_nom_2_organ",
     "sae_niveau_3",
     "sae_niveau_4",
     "ac_se_bp_operateur_etat",
-    "type_d_offre_logiciels",
-    "boa_tete_de_groupe_mondiale_pays",
-    "constructeur_hardware_ajout_manuel",
-    "titulaire_2_editeurs_multi_editeurs",
+    "type_offre_logicielle",
+    "pays_titulaire_1",
+    "constructeur_article",
+    "titulaire_rang_2",
     "siren_titulaire_2",
-    "pays_du_titualire_2",
+    "pays_titulaire_2",
     "type_ent_titulaire_2",
-    "sous_traitant_sur_marches_presta",
+    "sous_traitant",
     "siren_ss_traitant",
     "pays_ss_traitant",
     "type_ent_ss_traitant",
@@ -104,7 +106,10 @@ def transform_bronze_row(bronze: BronzeUgapExportFacture) -> SilverUgapExportFac
         elif column in AMOUNT_COLUMNS:
             values[column] = to_decimal(value)
         elif column in EMPTY_TEXT_COLUMNS:
-            values[column] = to_text(value) or ""
+            text = to_text(value)
+            if column in ZERO_AS_EMPTY_COLUMNS and text == "0":
+                text = None
+            values[column] = text or ""
         else:
             values[column] = to_text(value)
     return SilverUgapExportFacture(
@@ -129,9 +134,9 @@ def deduplicate(
     duplicates: set[tuple[str, str]] = set()
     for row in sorted(rows, key=lambda row: (row.source, row.source_idx)):
         key = (
-            row.cde_client_numero,
-            row.article_numero,
-            row.cde_client_date_paiement_client,
+            row.numero_commande_ugap,
+            row.code_article_ugap,
+            row.jour_paiement_commande_ugap,
             row.montant_facture_ht,
         )
         current = kept.get(key)

@@ -16,9 +16,9 @@ from tests.gesec.data.pipeline.ugap_helpers import ugap_row
 
 
 def bronze_row(
-    source_idx: str = "11_2025_dinum_0",
+    source_idx: str = "dinum_2025_0",
     source: str = "ugap/f.xlsx",
-    onglet: str = "11 2025 - Dinum",
+    onglet: str = "Dinum 2025",
     **overrides: Any,
 ) -> BronzeUgapExportFacture:
     return BronzeUgapExportFacture(
@@ -35,32 +35,35 @@ def test_default_table_name():
 
 def test_transform_bronze_row_types_and_dates():
     overrides: dict[str, Any] = {
-        "Cde client - Jour de création": "10/04/2025",
-        "Cde client - Date Paiement client": datetime(2025, 11, 6),
+        "Jour de création de la commande UGAP": "10/04/2025",
+        "Jour de paiement de la commande UGAP": datetime(2025, 11, 6),
         "CE HT": 5.94,
-        "TVA Collectée": 1.19,
+        "TVA": 1.19,
         "CE TTC": 7.13,
-        "Qté commandées": 0.27,
+        "Qté Article commandée": 0.27,
         "Montant Facturé HT": 12.34,
-        "Article - N°": 5650607,
+        "Code Article UGAP": 5650607,
     }
     row = transform_bronze_row(bronze_row(**overrides))
 
-    assert row.cde_client_jour_de_creation == date(2025, 4, 10)
-    assert row.cde_client_date_paiement_client == date(2025, 11, 6)
+    assert row.jour_creation_commande_ugap == date(2025, 4, 10)
+    assert row.jour_paiement_commande_ugap == date(2025, 11, 6)
     assert row.ce_ht == Decimal("5.94")
-    assert row.tva_collectee == Decimal("1.19")
+    assert row.tva == Decimal("1.19")
     assert row.ce_ttc == Decimal("7.13")
-    assert row.qte_commandees == Decimal("0.27")
+    assert row.qte_article_commandee == Decimal("0.27")
     assert row.montant_facture_ht == Decimal("12.34")
-    assert row.article_numero == "5650607"
-    assert row.cde_client_numero == "104521399"
+    assert row.code_article_ugap == "5650607"
+    assert row.numero_commande_ugap == "103858990"
+    assert row.numero_facture == "7004133026"
 
 
 def test_to_text_sentinels_and_types():
     assert to_text(None) is None
     assert to_text("-") is None
     assert to_text("  # ") is None
+    assert to_text("#N/A") is None
+    assert to_text("N/A") is None
     assert to_text("   ") is None
     assert to_text("  Titulaire  ") == "Titulaire"
     assert to_text(343059564) == "343059564"
@@ -87,36 +90,45 @@ def test_to_decimal_sentinels_and_errors():
 def test_transform_siren_is_stripped():
     overrides: dict[str, Any] = {
         "SIREN": 180092447,
-        "SIREN Titulaire": " 343059564 ",
-        "Siren Titulaire 2": "-",
+        "Siren Titultaire 1": " 424982650 ",
+        "Type ent Titulaire 2": "-",
     }
     row = transform_bronze_row(bronze_row(**overrides))
 
     assert row.siren == "180092447"
-    assert row.siren_titulaire == "343059564"
+    assert row.siren_titulaire_1 == "424982650"
     assert row.siren_titulaire_2 == ""
+
+
+def test_transform_maps_swapped_siren_columns():
+    row = transform_bronze_row(bronze_row())
+
+    assert row.type_ent_titulaire_2 == "PME"
+    assert row.siren_titulaire_2 == "410117303"
 
 
 def test_transform_empty_texts_become_empty_strings():
     overrides: dict[str, Any] = {
         "Part.: nom 2 organ.": "#",
         "SAE Niveau 4": None,
-        "Type d'offre Logiciels": "-",
-        "Titulaire 2 (Editeurs Multi Editeurs)": "  ",
+        "Type offre logicielle": "#N/A",
+        "Constructeur de l'article": 0,
+        "Titulaire de rang 2 (Marche Multi Editeurs)": "  ",
     }
     row = transform_bronze_row(bronze_row(**overrides))
 
     assert row.part_nom_2_organ == ""
     assert row.sae_niveau_4 == ""
-    assert row.type_d_offre_logiciels == ""
-    assert row.titulaire_2_editeurs_multi_editeurs == ""
+    assert row.type_offre_logicielle == ""
+    assert row.constructeur_article == ""
+    assert row.titulaire_rang_2 == ""
 
 
 def test_transform_bronze_to_silver_rejects_missing_keys():
-    missing_article: dict[str, Any] = {"Article - N°": None}
+    missing_article: dict[str, Any] = {"Code Article UGAP": None}
     rows, statuses = transform_bronze_to_silver(
         [
-            bronze_row(source_idx="a", **{"Cde Client - N°": "#"}),
+            bronze_row(source_idx="a", **{"Numéro de commande UGAP": "#"}),
             bronze_row(source_idx="b", **missing_article),
             bronze_row(source_idx="c"),
         ]
@@ -130,7 +142,7 @@ def test_transform_bronze_to_silver_rejects_missing_keys():
 
 
 def test_transform_bronze_to_silver_rejects_invalid_types():
-    rows, statuses = transform_bronze_to_silver([bronze_row(**{"Cde client - Jour de création": "not a date"})])
+    rows, statuses = transform_bronze_to_silver([bronze_row(**{"Jour de création de la commande UGAP": "not a date"})])
 
     assert rows == []
     assert statuses[0].status == "Validation error"
@@ -138,8 +150,8 @@ def test_transform_bronze_to_silver_rejects_invalid_types():
 
 
 def test_deduplicate_keeps_distinct_payments():
-    early: dict[str, Any] = {"Cde client - Date Paiement client": "01/01/2025"}
-    late: dict[str, Any] = {"Cde client - Date Paiement client": "01/01/2026"}
+    early: dict[str, Any] = {"Jour de paiement de la commande UGAP": "01/01/2025"}
+    late: dict[str, Any] = {"Jour de paiement de la commande UGAP": "01/01/2026"}
     rows, statuses = transform_bronze_to_silver(
         [
             bronze_row(source_idx="p1", **early),
@@ -148,7 +160,7 @@ def test_deduplicate_keeps_distinct_payments():
     )
 
     assert [row.source_idx for row in rows] == ["p1", "p2"]
-    assert [row.cde_client_date_paiement_client for row in rows] == [date(2025, 1, 1), date(2026, 1, 1)]
+    assert [row.jour_paiement_commande_ugap for row in rows] == [date(2025, 1, 1), date(2026, 1, 1)]
     assert {status.status for status in statuses} == {"Ok"}
 
 
@@ -168,12 +180,12 @@ def test_deduplicate_keeps_distinct_amounts():
 
 def test_deduplicate_same_payment_ignores_creation_day():
     first: dict[str, Any] = {
-        "Cde client - Date Paiement client": "01/01/2025",
-        "Cde client - Jour de création": "01/01/2024",
+        "Jour de paiement de la commande UGAP": "01/01/2025",
+        "Jour de création de la commande UGAP": "01/01/2024",
     }
     second: dict[str, Any] = {
-        "Cde client - Date Paiement client": "01/01/2025",
-        "Cde client - Jour de création": "01/01/2026",
+        "Jour de paiement de la commande UGAP": "01/01/2025",
+        "Jour de création de la commande UGAP": "01/01/2026",
     }
     rows, statuses = transform_bronze_to_silver(
         [
@@ -183,7 +195,7 @@ def test_deduplicate_same_payment_ignores_creation_day():
     )
 
     assert [row.source_idx for row in rows] == ["b_second"]
-    assert rows[0].cde_client_jour_de_creation == date(2026, 1, 1)
+    assert rows[0].jour_creation_commande_ugap == date(2026, 1, 1)
     status_by_idx = {status.source_idx: status for status in statuses}
     assert status_by_idx["b_second"].status == "Ok"
     assert status_by_idx["a_first"].status == "Duplicat"

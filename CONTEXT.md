@@ -69,8 +69,9 @@ livraison, PDF de la facture...).
 **Commande UGAP** :
 Commande passée par un client auprès de l'UGAP ; une commande peut donner lieu
 à plusieurs factures.
-_Dans les sources_ : « Cde Client - N° » (export UGAP), `cac:Delivery/cbc:ID`
-(facture XML), « Référence UGAP » (note XML, millésimes récents seulement).
+_Dans les sources_ : « Numéro de commande UGAP » (export UGAP),
+`cac:Delivery/cbc:ID` (facture XML), « Référence UGAP » (note XML, millésimes
+récents seulement).
 _Éviter_ : référence UGAP, numéro UGAP
 
 ### Acteurs
@@ -95,8 +96,10 @@ croisement des lignes de facture avec les exports de factures des centrales
 d'achat. Le fournisseur in fine est distinct du fournisseur porté
 par la facture et de l'émetteur ; le terme est transverse aux centrales
 d'achat, même si seule l'UGAP l'alimente aujourd'hui.
-_Dans les sources_ : « Titulaire 2 (Editeurs Multi Editeurs) »,
-« Constructeur (hardware ajout manuel) », « Article - Code fourniseur » (UGAP)
+_Dans les sources_ : « Titulaire de rang 2 (Marche Multi Editeurs) »,
+« Constructeur de l'article », « Désignation du Titualire de marché » (UGAP) ;
+pour les titulaires 2 et sous-traitants, l'export place le SIREN sous le libellé
+« Type ent ... » (libellés inversés).
 _Éviter_ : Titulaire, Constructeur, Code fournisseur
 
 ### Rattachement budgétaire
@@ -112,7 +115,7 @@ _Éviter_ : numéro d'engagement (sauf citation d'un export)
 Forme d'engagement juridique à laquelle une facture peut être rattachée ; le
 numéro de bon de commande porté par la facture est plus précis que l'EJ.
 _Dans les sources_ : « Numéro du bon de commande » (Chorus Pro),
-« Cde Client - N° cde chez le client » (UGAP)
+« Numéro de commande chez le client » (UGAP)
 _Éviter_ : BC
 
 **Domaine** :

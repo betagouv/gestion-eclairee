@@ -4,39 +4,39 @@ from typing import Any
 import openpyxl
 
 UGAP_HEADERS = [
-    "Cde Client - N°",
-    "Cde Client - N° cde chez le client",
-    "Cde client - Jour de création",
-    "Cde client - Date Paiement client",
-    "Compte CRM DO - Univers BP",
-    "Compte CRM - N° donneur d'ordre",
-    "Ministère",
+    "Numéro de commande UGAP",
+    "Numéro de commande chez le client",
+    "N° facture",
+    "Jour de création de la commande UGAP",
+    "Jour de paiement de la commande UGAP",
+    "Univers clients UGAP",
+    "Code du Donneur d'ordre",
+    "Ministe de rattachement et ou tutelle",
     "Part.: nom 1 organ.",
     "Part.: nom 2 organ.",
     "SIREN",
-    "Inclus",
     "SAE Niveau 3",
     "SAE Niveau 4",
     "AC/SE (BP operateur état)",
     "Code GM",
-    "Désignation GM",
+    "Désignation du GM",
     "Marché - N°",
-    "Type d'offre Logiciels",
-    "Article - Code Lot",
+    "Type offre logicielle",
+    "Code Lot",
     "Désignation du Lot",
-    "Article - Code fourniseur",
-    "SIREN Titulaire",
-    "BOA - Tête de groupe mondiale - Pays",
-    "Type Entreprise: TPE/PME-PMI/ETI/Grande Entreprise",
-    "Article - N°",
-    "Constructeur (hardware ajout manuel)",
-    "Titulaire 2 (Editeurs Multi Editeurs)",
+    "Désignation du Titualire de marché",
+    "Pays Titulaire 1",
+    "Type Entreprise Titulaire 1",
+    "Siren Titultaire 1",
+    "Code Article UGAP",
+    "Constructeur de l'article",
+    "Titulaire de rang 2 (Marche Multi Editeurs)",
+    "Pays Titulaire 2",
     "Siren Titulaire 2",
-    "Pays du Titualire 2",
     "Type ent Titulaire 2",
     "Sous Traitant (sur marchés Presta)",
-    "Siren Ss Traitant",
     "Pays Ss Traitant",
+    "Siren Ss Traitant",
     "Type ent Ss Traitant",
     "Article - N° (vue ADV)",
     "Texte ADV ligne 1",
@@ -44,56 +44,56 @@ UGAP_HEADERS = [
     "Texte ADV ligne 3",
     "Texte ADV ligne 4",
     "CE HT",
-    "TVA Collectée",
+    "TVA",
     "CE TTC",
-    "Qté commandées",
+    "Qté Article commandée",
     "Montant Facturé HT",
 ]
 
 UGAP_ROW = {
-    "Cde Client - N°": 104521399,
-    "Cde Client - N° cde chez le client": "E2024001253",
-    "Cde client - Jour de création": "10/04/2025",
-    "Cde client - Date Paiement client": "06/11/2025",
-    "Compte CRM DO - Univers BP": "ETABLISSEMENTS PUBLICS",
-    "Compte CRM - N° donneur d'ordre": 99082863,
-    "Ministère": "M.CUL",
-    "Part.: nom 1 organ.": "MUSEE ORSAY ET MUSEE ORANGERIE",
+    "Numéro de commande UGAP": 103858990,
+    "Numéro de commande chez le client": 1000414071,
+    "N° facture": 7004133026,
+    "Jour de création de la commande UGAP": "12/12/2023",
+    "Jour de paiement de la commande UGAP": "01/01/2025",
+    "Univers clients UGAP": "CAISSES ET ENTREPRISES",
+    "Code du Donneur d'ordre": 75900029,
+    "Ministe de rattachement et ou tutelle": "Non affecté",
+    "Part.: nom 1 organ.": "CNAV",
     "Part.: nom 2 organ.": "#",
-    "SIREN": 180092447,
-    "Inclus": "Oui",
-    "SAE Niveau 3": "MUSEES ORSAY & MUSEE ORANGERIE",
+    "SIREN": 180035032,
+    "SAE Niveau 3": "#",
     "SAE Niveau 4": "#",
-    "AC/SE (BP operateur état)": "S/E",
-    "Code GM": "33.01.04",
-    "Désignation GM": "Services téléphonie fixe",
-    "Marché - N°": 616024,
-    "Type d'offre Logiciels": "-",
-    "Article - Code Lot": "19U103/001",
-    "Désignation du Lot": "Services de téléphonie fixe ainsi que les prestations associées",
-    "Article - Code fourniseur": "SOC FRANCAISE DU RADIOTELEPHONE - S",
-    "SIREN Titulaire": 343059564,
-    "BOA - Tête de groupe mondiale - Pays": "LUXEMBOURG",
-    "Type Entreprise: TPE/PME-PMI/ETI/Grande Entreprise": "Grande Entreprise",
-    "Article - N°": 5650607,
-    "Constructeur (hardware ajout manuel)": "-",
-    "Titulaire 2 (Editeurs Multi Editeurs)": "-",
-    "Siren Titulaire 2": "-",
-    "Pays du Titualire 2": "-",
-    "Type ent Titulaire 2": "-",
-    "Sous Traitant (sur marchés Presta)": "-",
-    "Siren Ss Traitant": "-",
-    "Pays Ss Traitant": "-",
-    "Type ent Ss Traitant": "-",
-    "Article - N° (vue ADV)": "Indonésie - Fixe",
-    "Texte ADV ligne 1": "Indonésie - Fixe",
-    "Texte ADV ligne 2": "par 1000 minutes",
-    "Texte ADV ligne 3": "Reste Asie et Océanie",
-    "Texte ADV ligne 4": "Communications fixes sortantes - accès direct",
+    "AC/SE (BP operateur état)": "#",
+    "Code GM": "33.02.11",
+    "Désignation du GM": "Logiciels pour l'environnement de travai",
+    "Marché - N°": 617409,
+    "Type offre logicielle": "Multi Editeurs",
+    "Code Lot": "19U045/001",
+    "Désignation du Lot": "Commercialisation et animation d'une bibliothèque multi-édit",
+    "Désignation du Titualire de marché": "SCC FRANCE",
+    "Pays Titulaire 1": "UNITED KINGDOM",
+    "Type Entreprise Titulaire 1": "Grande Entreprise",
+    "Siren Titultaire 1": 424982650,
+    "Code Article UGAP": 899637,
+    "Constructeur de l'article": "HP",
+    "Titulaire de rang 2 (Marche Multi Editeurs)": "CITRIX SYSTEMES FRANCE",
+    "Pays Titulaire 2": "FRANCE",
+    "Siren Titulaire 2": "PME",
+    "Type ent Titulaire 2": 410117303,
+    "Sous Traitant (sur marchés Presta)": "#N/A",
+    "Pays Ss Traitant": "#N/A",
+    "Siren Ss Traitant": "#N/A",
+    "Type ent Ss Traitant": "#N/A",
+    "Article - N° (vue ADV)": "Souscription - Editeur 14984",
+    "Texte ADV ligne 1": "Souscription - Editeur 14984",
+    "Texte ADV ligne 2": "Windows 11 Pro",
+    "Texte ADV ligne 3": "lors de la reprise du PC réformé ou de l'intervention",
+    "Texte ADV ligne 4": "Livré avec clavier et souris",
     "CE HT": 5.94,
-    "TVA Collectée": 1.19,
+    "TVA": 1.19,
     "CE TTC": 7.13,
-    "Qté commandées": 1.0,
+    "Qté Article commandée": 1.0,
     "Montant Facturé HT": 5.94,
 }
 
@@ -104,13 +104,11 @@ def ugap_row(**overrides: Any) -> dict[str, Any]:
     return row
 
 
-def build_xlsx(sheets: dict[str, list[list]], banner: bool = True) -> bytes:
+def build_xlsx(sheets: dict[str, list[list]]) -> bytes:
     workbook = openpyxl.Workbook()
     workbook.remove(workbook.active)
     for title, rows in sheets.items():
         worksheet = workbook.create_sheet(title)
-        if banner:
-            worksheet.append([None] * len(rows[0]))
         for row in rows:
             worksheet.append(row)
     buffer = io.BytesIO()
@@ -118,9 +116,9 @@ def build_xlsx(sheets: dict[str, list[list]], banner: bool = True) -> bytes:
     return buffer.getvalue()
 
 
-def build_ugap_xlsx(sheets: dict[str, list[dict]], banner: bool = True) -> bytes:
+def build_ugap_xlsx(sheets: dict[str, list[dict]]) -> bytes:
     matrices = {
         title: [UGAP_HEADERS] + [[row.get(header) for header in UGAP_HEADERS] for row in rows]
         for title, rows in sheets.items()
     }
-    return build_xlsx(matrices, banner=banner)
+    return build_xlsx(matrices)

@@ -36,6 +36,7 @@ def process_files_to_bronze(directory: str = DEFAULT_DIRECTORY, table_name: str 
             filepath,
             BronzeUgapExportFacture,
             DINUM_SHEET_PATTERN,
+            skip_rows=0,
             source_key=clean_column_name,
         )
         logger.info(f"Processed {len(file_rows)} rows in {filepath}")
