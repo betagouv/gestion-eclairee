@@ -1,0 +1,68 @@
+Code;Domaine;Segment;Contexte
+32.01;Énergie, fluides, carburants;Énergie et fluides de réseaux;Fluides et énergies livrés via réseaux : eau, électricité, gaz naturel, chauffage urbain / clim. Pas le fioul/biomasse hors réseau (32.02) ni les carburants véhicules (32.03).
+32.02;Énergie, fluides, carburants;Énergie et fluides hors réseaux;Énergies et fluides hors réseaux de distribution : fioul, gaz conditionné, biomasse/charbon, fluides industriels ou médicaux. Pas l'électricité/gaz de réseau (32.01).
+32.03;Énergie, fluides, carburants;Carbu, huiles, pdts pétroliers;Carburants et produits pétroliers pour mobilité ou stocks (terrestre, aérien, maritime, vrac, OPEX, lubrifiants). Pas l'achat/location de véhicules (34) ni l'énergie de bâtiment (32.01/32.02).
+32.04;Énergie, fluides, carburants;Stocks immatériels;Actifs immatériels environnementaux : quotas d'émissions GES uniquement.
+33.01;Informatique et télécoms;Télécommunications;Télécoms opérateurs et équipements associés : mobile, fixe/PABX, satellite, visioconférence, sécurité télécoms. Pas le LAN/WAN data (33.05) ni les PC (33.06).
+33.02;Informatique et télécoms;Logiciels;Licences, souscriptions éditeur, seats, droit d'usage logiciel (métier, bureautique, RH, finance, cyber, IA) et support de licence. Si l'objet dominant est TMA/MCO/hébergement/prestation SI → 33.04, pas 33.02.
+33.03;Informatique et télécoms;Matériel informatique;Matériel IT d'infrastructure : serveurs, mainframe, stockage/archivage, location et maintenance de ce matériel. Pas les PC/écrans/périphériques de bureau (33.06) ni le réseau (33.05).
+33.04;Informatique et télécoms;Prestations informatiques;Prestations de service SI : conseil SI, développement, TMA/TRA, MCO applicatif, hébergement/cloud/SecNumCloud, SaaS opéré, helpdesk, installation, exploitation. Pas la seule licence éditeur (33.02) ni le conseil métier hors SI (40.01).
+33.05;Informatique et télécoms;Réseaux informatiques et télécom;Réseaux de données : switches, routeurs, câblage courant faible, fibre data, maintenance réseau. Pas l'abonnement opérateur téléphonie (33.01).
+33.06;Informatique et télécoms;Poste de travail;Poste de travail utilisateur : PC, portables, écrans, périphériques, maintenance PDT. Pas serveurs/stockage (33.03).
+34.01;Véhicules et services connexes;Véhicules terrestres;Achat de véhicules terrestres (VP, utilitaires, PL, sanitaires, voirie, 2-roues, engins, remorques). Pas location (34.04) ni entretien (34.03).
+34.02;Véhicules et services connexes;Autres modes de transports;Acquisition d'aéronefs, navires, trains civils et pièces détachées associées. Pas le transport de personnes comme billet (35.03).
+34.03;Véhicules et services connexes;Entretien, réparation véhicules;Entretien, réparation, pièces, pneus, aménagement de véhicules. Pas l'achat du véhicule neuf (34.01) ni le carburant (32.03).
+34.04;Véhicules et services connexes;Location, financement véhicules;Location et financement de véhicules (LLD, courte/moyenne durée, engins, 2-roues, redevances). Pas l'achat (34.01).
+35.01;Transport de pers. et de biens;Affranchissement et expédition;Courrier et affranchissement : machines, location/maintenance, frais postaux, colis, express, routage, tournées. Pas le transport de marchandises lourd (35.02).
+35.02;Transport de pers. et de biens;Transport de biens et logistique;Transport de marchandises et logistique : air/mer/route/fer, affrètement, manutention/stock, déménagement, archivage, fonds/objets d'art. Pas les frais de déplacement agent (35.03).
+35.03;Transport de pers. et de biens;Voyages et déplacements;Voyages et déplacements professionnels : billets, hôtel, restaurant (hors resto collective), frais remboursés à l'agent, transport personnes. Pas la restauration collective de site (41.04).
+35.04;Transport de pers. et de biens;Prestations assistance en escale;Assistance en escale aéroportuaire uniquement.
+36.01;Biens immo. et tvx. construction;Loyers, charges loca et copro;Loyers et charges locatives / copropriété / location d'espace nu. Pas les travaux (36.02) ni l'achat immobilier (36.08).
+36.02;Biens immo. et tvx. construction;Opération de travaux indivi. bâtiments;Opérations de travaux sur bâtiments : construction neuve, rénovation, réhabilitation, normes, démolition, dépollution. Pas l'entretien courant (37) ni les routes (36.03).
+36.03;Biens immo. et tvx. construction;Opération de travaux indivi. infra transports et routes;Travaux d'infrastructures de transport et routes : terrassement, revêtement, ouvrages d'art, VRD, aménagement paysager lié. Pas le petit entretien routier récurrent (37.04).
+36.04;Biens immo. et tvx. construction;Prestations intellectuelles travaux;Prestations intellectuelles liées aux travaux : AMOA, MOE, études/audits travaux, mandat de maîtrise d'ouvrage. Pas le conseil SI (33.04) ni le conseil métier général (40.01).
+36.05;Biens immo. et tvx. construction;Fourniture et matériel tvx bât;Fournitures et matériel pour travaux bâtiment : matériaux, chantier, serrurerie, menuiserie, CVC/plomberie, élec, ELI, bornes IRVE. Pas le mobilier de bureau (41.03).
+36.06;Biens immo. et tvx. construction;Fourniture tvx infra transport et routes;Fournitures pour infra routes/transports : signalisation, éclairage, vidéo-surveillance route, matériaux d'entretien (béton, sel…).
+36.07;Biens immo. et tvx. construction;Partenariat Public Privé;Redevances de partenariats public-privé (investissement, financement, fonctionnement).
+36.08;Biens immo. et tvx. construction;Acquisition immo foncière;Acquisition de bâtiments ou terrains et redevances de financement immobilier. Pas les loyers (36.01).
+37.01;Maintenance exploit bât et infra;Prestation de services bâtiments;Services d'exploitation de bâtiments : nettoyage, espaces verts, gardiennage, accueil/conciergerie, 3D. Pas la maintenance technique CVC/élec (37.02).
+37.02;Maintenance exploit bât et infra;Presta maintenance et répa tech;Maintenance technique des installations : électricité, CVC, plomberie, ascenseurs, SSI, VRD hors route, contrôles réglementaires, groupes électrogènes. Pas les petits travaux de second œuvre (37.03).
+37.03;Maintenance exploit bât et infra;Presta tvx récurrent bât;Petits travaux récurrents bâtiment (métallerie, menuiserie, peinture, maçonnerie légère, couverture, petits CVC/élec/plomberie). Pas la construction/rénovation lourde (36.02).
+37.04;Maintenance exploit bât et infra;Presta tvx maintenance infra et routes;Entretien et travaux récurrents de routes et équipements routiers (yc déneigement). Pas la construction neuve de routes (36.03).
+37.05;Maintenance exploit bât et infra;Presta multiservices et multitechniques;Contrats multiservices et/ou multitechniques d'exploitation. Regroupe souvent nettoyage + maintenance technique.
+38.01;Moyens de communication;Matériel communication;Matériel et contenus de communication : objets promo, événementiel, photo/vidéo, audiovisuel. Pas les prestations d'agence (38.02).
+38.02;Moyens de communication;Prestation communication;Prestations de communication : création, événementiel, scénographie, conseil com, agences, pub, affichage légal, frais de représentation. Pas l'impression/copieurs (39).
+39.01;Moyens d'impression;Solutions d'impression;Solutions d'impression de bureau : imprimantes, copieurs (achat/location/maintenance), toners, sous-traitance édition DILA. Pas le papier courant (41.02) ni la repro industrielle seule (39.02).
+39.02;Moyens d'impression;Impression, reprographie;Centres de reprographie / éditique industrielle : matériel, maintenance, encrage industriel, services de repro externalisés.
+40.01;Presta intellectuelles et forma;Prestations intellectuelles;Conseil et études hors SI dominant : audit, stratégie/organisation, recrutement, conseil métier, enquêtes, traduction, droits d'auteur, R&D métier. Mission SI/intégrateur/ESN → 33.04.
+40.02;Presta intellectuelles et forma;Formation;Formations (informatique enseignée, management, langues, HSCT, métier, concours, coaching, enseignement supérieur). Pas la prestation SI opérative (33.04).
+40.03;Presta intellectuelles et forma;Services juridiques;Conseil et représentation juridique (hors commissaires de justice détaillés en 40.04).
+40.04;Presta intellectuelles et forma;#N/A;Commissaires de justice et frais associés (poursuites, débours, indemnités, phase amiable).
+41.01;Moyens généraux;Abonnement et documentation;Presse, ouvrages, bases documentaires, livres (yc DILA). Pas les licences logicielles (33.02).
+41.02;Moyens généraux;Fournitures de bureau;Papier et fournitures de bureau / accessoires. Pas les cartouches d'imprimante seules si marché impression (39) ni le matériel IT (33).
+41.03;Moyens généraux;Mobilier;Mobilier (bureau, hébergement, médical, technique) et électroménager (achat/location/maintenance). Pas le matériel de chantier (36.05).
+41.04;Moyens généraux;Restauration et alimentation;Restauration collective et alimentation de site : prestations, denrées, traiteur, matériel resto, distributeurs. Pas les frais resto de déplacement (35.03).
+41.05;Moyens généraux;Vêtements et habillement;Textiles, vêtements, EPI, chaussures, blanchisserie, effets de cérémonie. Pas l'équipement de combattant militaire spécifique (42.01).
+41.06;Moyens généraux;Collecte et traitement déchets;Collecte et traitement des déchets (dangereux ou non), contenants, destruction classifiée.
+41.07;Moyens généraux;Analyses labo mesures, essais;Laboratoire de mesures/essais hors soin médical : conso, équipements, prestations d'analyse/contrôle, réactifs. Analyses de soin humain/animal → 43.
+42.01;Défense et sécurité;Matériel défense et sécurité;Matériel de défense et sécurité : armes, munitions, maintien de l'ordre, protection balistique/NRBC, rations, projection. Pas le gardiennage civil (37.01).
+42.02;Défense et sécurité;MCO;Maintien en condition opérationnelle (MCO) des équipements de forces (aéro, naval, terrestre).
+42.03;Défense et sécurité;Programmes darmement;Programmes d'armement et études exploratoires technico-opérationnelles.
+42.04;Défense et sécurité;Sécurité;Sécurité (libellé générique du segment) — prestations/matériel de sécurité défense non ventilés ailleurs.
+42.05;Défense et sécurité;Presta spécifiques défense sécurité;Prestations spécifiques défense et sécurité non classées dans 42.01–42.04.
+43.01;Santé et médecine;Prestations soins médicaux;Soins et analyses médicales : honoraires, labos humains/alimentaires/animaux, prescriptions. Pas les DM hospitaliers (43.03).
+43.02;Santé et médecine;Prestations spécifiques MAAF;Prestations sanitaires MAAF : analyses végétales, mandats vétérinaires.
+43.03;Santé et médecine;Dispo médicaux stériles et non stériles hosp;Dispositifs médicaux hospitaliers stériles/non stériles (abord chirurgical, dialyse, pansements, orthèses, prothèses…).
+43.04;Santé et médecine;Éqpts biomédic maintenance conso hosp;Équipements biomédicaux hospitaliers, leur maintenance et consommables associés (imagerie, endoscopie, perfusion…).
+43.05;Santé et médecine;Médicaments hospitaliers;Médicaments hospitaliers (SPH et préparations). Pas les médicaments hors hosp / vétérinaires (43.07).
+43.06;Santé et médecine;Autres produits de santé hospitaliers;Autres produits de santé hospitaliers : dentaire, instruction, matériel opérationnel santé, hygiène/désinfection DM.
+43.07;Santé et médecine;Autres matériels et produits de santé;Matériel et médicaments hors cadre hospitalier strict, yc usage vétérinaire et insecticides prophylactiques.
+44.01;Fournitures et matériel divers;Fourniture et matériel nettoyage;Quincaillerie/droguerie et équipements de nettoyage (hors travaux). Pas la prestation de nettoyage (37.01).
+44.02;Fournitures et matériel divers;Fourniture et équipement industriel;Intrants et machines industrielles (hors matériel d'impression 39).
+44.03;Fournitures et matériel divers;Autres fournitures;Autres fournitures : horticole, animaux, monnaies/médailles, funéraire, piles, œuvres d'art, outillage, sport, emballage, etc. Dernier recours hors familles dédiées.
+45.01;Prestations et services divers;Assurances, services financiers;Assurances et services financiers (patrimoine, transport, conseils assurance, frais bancaires, intermédiation).
+45.02;Prestations et services divers;Flux financiers et titres;Flux financiers/monétaires et émission de titres ou monnaie fiduciaire.
+45.03;Prestations et services divers;Frais de justice;Frais de justice MINJU (art. R92/R93 CPP).
+45.04;Prestations et services divers;Prestations liées aux uvres dart;Conservation-restauration de biens culturels et d'archives, études associées.
+45.05;Prestations et services divers;Autres prestations;Autres prestations : intérim, social, accès données, centre d'appel générique, examens, entretien outillage, agence immo de réservation. Hotline SI métier → 33.04.
+46.01;Intérêts morat, indemnité, péna;Intérêts morat, indemnité, péna;Intérêts moratoires, indemnités, dommages et intérêts, pénalités et condamnations — pas une prestation livrée.

@@ -1,0 +1,449 @@
+Code;Domaine;Segment;Libelle;Description
+32.01.01;Énergie, fluides, carburants;Énergie et fluides de réseaux;Eau;Service de fourniture d’eau courante potable et non-potable, service de traitement industriel de l’eau, service d’acheminement de l’eau, service de livraison d’eau (par citerne)
+32.01.02;Énergie, fluides, carburants;Énergie et fluides de réseaux;Électricité;Électricité
+32.01.03;Énergie, fluides, carburants;Énergie et fluides de réseaux;Gaz naturel;Service de fourniture de gaz naturel (tous types et tous tarifs), services de raccordement au réseau, services de dépannage, interventions de mise en sécurité
+32.01.04;Énergie, fluides, carburants;Énergie et fluides de réseaux;Chauffage urbain et réseaux de clim;Service de fourniture de chauffage et/ou de climatisation (courant chaud et froid), service de raccordement au réseau, service de réparation et d’entretien lourd
+32.02.01;Énergie, fluides, carburants;Énergie et fluides hors réseaux;Fioul de chauffage;Service de fourniture de fioul de chauffage, service de livraison de citerne de fioul, service de dépannage et d’entretien de chaudière au fioul
+32.02.02;Énergie, fluides, carburants;Énergie et fluides hors réseaux;Gaz conditionné (gaz naturel, propane);Acquisition de gaz et autres fluides industriels et médicaux, service de livraison de gaz industriels et médicaux conditionnés, service de dépannage et réparation
+32.02.03;Énergie, fluides, carburants;Énergie et fluides hors réseaux;Charbon, bois, biomasse et autres énergies;Acquisition de gaz conditionné (gaz naturel, propane), service de livraison de gaz conditionné (bouteille et citerne), service de dépannage et réparation
+32.02.04;Énergie, fluides, carburants;Énergie et fluides hors réseaux;Fluides industriels et médicaux;Acquisition de charbon, de bois, de biomasse (déchets végétaux…) et autres types d’énergies, service de livraison de charbon, bois, biomasse, services de dépannage et d’entretien des équipements
+32.03.05;Énergie, fluides, carburants;Carbu, huiles, pdts pétroliers;Carburant tout type ministère des Armées - OPEX;Carburant tout type pour les opérations extérieures ministère des Armées
+32.03.06;Énergie, fluides, carburants;Carbu, huiles, pdts pétroliers;Huiles, lubrifiants, ingrédients pétroliers divers;"Huiles et lubrifiants, ingrédients pétroliers divers achetés en contenants de toutes tailles : bouteilles, bidons, futs; destinés à l'entretien des matériels ou machines de tous types"
+32.03.07;Énergie, fluides, carburants;Carbu, huiles, pdts pétroliers;Carburant aérien, Kérosène, Jet ts types achetés en aéroport;Carburants aériens, Kérosène, Jet tous types achetés en aéroports pour alimenter un aéronef (avion, hélicoptère…)
+32.03.08;Énergie, fluides, carburants;Carbu, huiles, pdts pétroliers;Carburant maritime, gazole navigation, essence achetés en port;Carburants maritimes, gazole de navigation, essence tous types achetés en ports pour alimenter un navire (tous formats)
+32.03.09;Énergie, fluides, carburants;Carbu, huiles, pdts pétroliers;Carburant livré en vrac pr cuve interne site Admin ou Milit;Carburants livrés en vrac pour cuve interne sur site administratif ou militaire : terrestre, aérien, maritime. Livraison massives en vrac y/compris par train et pipe-line pour cuves internes
+32.03.10;Énergie, fluides, carburants;Carbu, huiles, pdts pétroliers;Carburant terrestre station service marché carte accréditive;"Carburant terrestre enlevé en station-service privée pour un véhicule automobile terrestre; par un marché de carte accréditive"
+32.04.01;Énergie, fluides, carburants;Stocks immatériels;Quotas d'émissions de gaz à effets de serre;Achats de quotas d’émission de gaz à effet de serre
+33.01.01;Informatique et télécoms;Télécommunications;Équipement téléphonie mobile;Acquisition d’appareil de téléphonie mobile (smartphone), d’équipement de réseau, d’antenne et de terminaux pour téléphonie mobile, y compris équipement radio 
+33.01.02;Informatique et télécoms;Télécommunications;Services téléphonie mobile;Service de téléphonie mobile, dont services abonnements voix et données, services de dépannage d’accès au réseau ou d’équipement de téléphonie mobile
+33.01.03;Informatique et télécoms;Télécommunications;Équipement de téléphonie fixe, yc autocommutateur (PABX);Acquisition d’appareil de télécommunication fixe, postes téléphoniques, standards, autocommutateur (PABX) et autres matériels réseaux privés, y compris logiciels de téléphonie 
+33.01.04;Informatique et télécoms;Télécommunications;Services téléphonie fixe;Service de téléphonie fixe, dont services abonnements voix et données (internet), services de dépannage d’accès au réseau ou d’équipement de téléphonie fixe.
+33.01.06;Informatique et télécoms;Télécommunications;Prestations de sécurité télécommunications;Service de mise à disposition de solution de sécurité pour les télécommunications et équipement nécessaire à la mise à disposition du service : pare-feu, cryptage …
+33.01.07;Informatique et télécoms;Télécommunications;Equipement satellitaire ;Acquisition de matériel et d’équipement nécessaires à la mise à disposition du service de communication satellitaire
+33.01.08;Informatique et télécoms;Télécommunications;Service de communication satellitaire;Service de communication par satellite 
+33.01.09;Informatique et télécoms;Télécommunications;Equipements de visioconférence;Acquisition et location de matériel et équipement nécessaires à la mise à disposition de solution de visioconférence et prestations d'installation et de maintenance associées
+33.02.05;Informatique et télécoms;Logiciels;Logiciel Métier;Logiciels métiers
+33.02.11;Informatique et télécoms;Logiciels;LOGICIELS POUR L'ENVIRONNEMENT DE TRAVAIL DE L'AGENT;Logiciels Bureautique, collaboratif, gestion électronique de document, visio, terrain … et services associés
+33.02.12;Informatique et télécoms;Logiciels;LOGICIELS POUR LES RH;Logiciels de paie, gestion des ressources humaines, frais, … et services associés
+33.02.13;Informatique et télécoms;Logiciels;LOG FINANCE,GESTION, LOGISTIQUE, SUPERVISION, MATH AVANCÉES;Logiciels de rapprochement comptable, d’ERP/PGI (Entreprise Ressource Planning/Progiciel de gestion intégré), WMS (Warehouse management system, logiciel de gestion de stock), de gestion de flottes, de gestion des bâtiments, de Business Intelligence, de statistiques, de SIG (Système d’information géographique).
+33.02.14;Informatique et télécoms;Logiciels;LOGICIELS POUR DSI ET NÉCESSAIRES AUX SYSTÈMES INFORMATIONS;Logiciels de type bases de données, OS (système d’exploitation), de virtualisation,… utilisés par la direction numérique et nécessaires aux systèmes d’informations 
+33.02.15;Informatique et télécoms;Logiciels;LOGICIELS POUR LES AUTRES FONCTIONS SUPPORTS;Marketing, Communication, Juridique, Qualité et performance, … et services associés.
+33.02.16;Informatique et télécoms;Logiciels;LOGICIELS POUR L'OUTILLAGE TRANSVERSE;Gestion de projet, support et centre d'appels, ticketing, … et services associés
+33.02.17;Informatique et télécoms;Logiciels;LOGICIELS POUR L'ÉDUCATION ET LA FORMATION;"Logiciels pour la formation, la simulation, la gestion et la capitalisation de la connaissance, les concours, … et services associés
+"
+33.02.18;Informatique et télécoms;Logiciels;Logiciel généraliste d’Intelligence Artificielle;Logiciels généralistes d’Intelligence Artificielle
+33.02.19;Informatique et télécoms;Logiciels;Logiciel de cybersécurité;Logiciels pour la cybersécurité ( antivirus, pare-feu, cryptage, VPN , …)
+33.02.21;Informatique et télécoms;Logiciels;Support Maintenance Logiciels pour l'environnement de travail;Support et maintenance complémentaires à l’acquisition des logiciels Bureautique, collaboratif, gestion électronique de document, visio, terrain … et services associés
+33.02.22;Informatique et télécoms;Logiciels;support maintenance logiciels pour les RH;Support et maintenance complémentaires à l’acquisition des logiciels de paie, gestion des ressources humaines, frais, … et services associés
+33.02.23;Informatique et télécoms;Logiciels;Support Maintenance Log Finance, Gestion, logistique, Supervision, math avancées;Support et Maintenance complémentaires à l’acquisition des logiciels de PtoP, Rapprochement comptable, ERP, WMS, Gestion de flottes, Gestion des bâtiments, Business Intelligence, statistiques, SIG ... et services associés
+33.02.24;Informatique et télécoms;Logiciels;Support Maintenance Logiciels pour la DSI et nécessaires aux SI;Support et Maintenance complémentaires à l’acquisition pour les Antivirus, Bases de données, OS, Virtualisation, … et services associés Antivirus, Bases de données, OS, Virtualisation, … et services associés
+33.02.25;Informatique et télécoms;Logiciels;Support Maintenance des Logiciels pour les autres fonctions supports;Services de support et de maintenance complémentaires à l’acquisition des logiciels de Marketing, Communication, Juridique, Qualité et performance, … et services associés
+33.02.26;Informatique et télécoms;Logiciels;Support et Maintenance logiciels pour l'outillage transverse;Services de support et de maintenance complémentaires à l’acquisition des logiciels de gestion de projet, support et centre d'appels, ticketing, … et services associés
+33.02.27;Informatique et télécoms;Logiciels;Support et Maintenance des Logiciels pour l'éducation et la formation;Services de support et de maintenance complémentaires à l’acquisition des logiciels pour la formation, la simulation, la gestion et la capitalisation de la connaissance, les concours, … et services associés 
+33.02.28;Informatique et télécoms;Logiciels;Support et maintenance logiciel généraliste d’IA;Support et maintenance des logiciels généralistes d’Intelligence Artificielle, … et services associés.
+33.02.29;Informatique et télécoms;Logiciels;Support et maintenance Logiciel de cybersécurité;Support et maintenance pour les logiciels pour la cybersécurité ( antivirus, pare-feu, cryptage, VPN , …)... et services associés
+33.02.30;Informatique et télécoms;Logiciels;Logiciel achat;Logiciel pour les achats, P to P (Procure to Pay, gestion de l’achat au paiement)
+33.02.40;Informatique et télécoms;Logiciels;Support et maintenance de logiciel achat;Support et maintenance pour les logiciels achats...et services associés à ce logiciel
+33.02.45;Informatique et télécoms;Logiciels;Support et maintenance de logiciel métier;Support et maintenance pour les logiciel couvrant les besoins métiers.... et services associés
+33.03.03;Informatique et télécoms;Matériel informatique;Grand système (mainframe);Acquisition d’un ordinateur central complexe, - y compris dans le cadre de grands projets
+33.03.04;Informatique et télécoms;Matériel informatique;Serveurs informatique (tout type);Acquisition de serveurs informatiques de tous types – y compris de type X86
+33.03.06;Informatique et télécoms;Matériel informatique;Location de matériel informatique tout type;Location de tous types de matériel informatique (serveur, périphériques…), y compris location de solution de stockage et archivage de données numériques
+33.03.07;Informatique et télécoms;Matériel informatique;Support et maintenance matériel IT;Services de support et de maintenance matériels IT, serveurs et stockage.
+33.03.08;Informatique et télécoms;Matériel informatique;Acquisition de solutions de stockage et archivage de données;Acquisition de solutions de stockage et archivage de données numériques
+33.03.09;Informatique et télécoms;Matériel informatique;Support maintenance et droit d'usage grands systèmes;
+33.04.01;Informatique et télécoms;Prestations informatiques;Audit et conseil stratégie SI;Prestations de conseil pour la définition de stratégie de Système d’Information (feuille de route, stratégie de développement fonctionnel et technique)
+33.04.02;Informatique et télécoms;Prestations informatiques;Conseil urbanisation;Prestations de conseil / étude urbanisation des SI
+33.04.03;Informatique et télécoms;Prestations informatiques;Expertises techniques;Prestations de conseil et d’expertise technique informatique 
+33.04.04;Informatique et télécoms;Prestations informatiques;Conseil qualité et méthode;Prestations de conseil qualité et méthode sur projet informatique, audit pour certification qualité informatique (ex. sécurité, accessibilité)
+33.04.05;Informatique et télécoms;Prestations informatiques;Étude projet applicatif;Prestations de conseil et d’étude amont pour un projet applicatif
+33.04.06;Informatique et télécoms;Prestations informatiques;Forfait de développement;Prestations de développement sur un projet applicatif informatique, y compris prestation d’intégrateur en SI
+33.04.07;Informatique et télécoms;Prestations informatiques;Hébergement informatique dont en nuage sauf SecNumCloud;Prestations d'hébergement informatique dont celles en nuage, à l’exception de celles en SecNumCloud
+33.04.08;Informatique et télécoms;Prestations informatiques;Prestation de numérisation (tout type);Prestations de numérisation de document (tout type)
+33.04.09;Informatique et télécoms;Prestations informatiques;Tierce Maintenance Applicative (TMA);Prestations de maintenance d’applications ou de logiciels 
+33.04.10;Informatique et télécoms;Prestations informatiques;Tierce Recette Applicative (TRA);Prestations de tierce recette applicative, y compris pour site internet
+33.04.11;Informatique et télécoms;Prestations informatiques;Forfait services projet applicatif (ingénierie de projet);Prestations au forfait de services informatiques sur projet applicatif
+33.04.12;Informatique et télécoms;Prestations informatiques;Autre maintenance informatique (hors TMA);Prestations de maintenance IT de tout type
+33.04.13;Informatique et télécoms;Prestations informatiques;Prestation d'installation matériel;Prestations d’installation de matériel informatique IT (serveur, ordinateur)
+33.04.14;Informatique et télécoms;Prestations informatiques;Supervision exploitation serveurs;Prestations informatique de supervision et d’exploitation de serveurs 
+33.04.15;Informatique et télécoms;Prestations informatiques;Support utilisateurs (hotline, helpdesk);Prestations d’assistance ou de support aux utilisateurs de logiciel ou matériel IT, par tout type de canaux (internet, téléphone) 
+33.04.17;Informatique et télécoms;Prestations informatiques;Prestations en mode software as a service (SAAS);Prestations d’accès aux logiciels en mode SAAS 
+33.04.18;Informatique et télécoms;Prestations informatiques;Sous-traitance hébergement informatique DILA;Sous-traitance d'hébergement informatique pour la DILA
+33.04.19;Informatique et télécoms;Prestations informatiques;Sous-traitance divers services informatiques de la DILA;Recours à la sous-traitance informatiques par la DILA pour divers services (hors hébergement et production des produits DILA)
+33.04.20;Informatique et télécoms;Prestations informatiques;Hébergement informatique en nuage labellisé SecNumCloud;Prestations d'hébergement informatique en nuage labellisé SecNumCloud
+33.05.01;Informatique et télécoms;Réseaux informatiques et télécom;Matériel réseaux informatiques;Acquisition de matériel pour réseaux informatiques
+33.05.02;Informatique et télécoms;Réseaux informatiques et télécom;Câblage courant faible;Acquisition de matériel de câblage pour courant faible (informatique, téléphonie, domotique) 
+33.05.03;Informatique et télécoms;Réseaux informatiques et télécom;Équipement réseaux de données;Acquisition d’équipement d’infrastructure pour réseaux de données 
+33.05.04;Informatique et télécoms;Réseaux informatiques et télécom;Support maintenance et autres services réseaux données;Prestations de services liés à l’exploitation de réseaux de données, y compris maintenance de matériel et d’équipement de réseaux de données
+33.06.01;Informatique et télécoms;Poste de travail;Poste de travail (PC, portables, écrans);Acquisition de poste de travail informatique fixe, ordinateur portable et écrans, tablette
+33.06.02;Informatique et télécoms;Poste de travail;Périphériques et petits matériels divers;Acquisition de périphériques informatiques et de petits matériels divers : clavier, souris, disque d’entreposage de données 
+33.06.03;Informatique et télécoms;Poste de travail;Support et maintenance poste de travail;Service de support et de maintenance des postes de travail complémentaires à l'acquisition
+34.01.01;Véhicules et services connexes;Véhicules terrestres;Véhicule particulier (VP);Acquisition de véhicules particuliers de la gamme commerciale 
+34.01.02;Véhicules et services connexes;Véhicules terrestres;Véhicule utilitaire (PTAC < 3,5T) ;Acquisition de véhicules uilitaires d’un PTAC inférieur à 3,5 tonnes 
+34.01.03;Véhicules et services connexes;Véhicules terrestres;Véhicule poids lourd (PTAC > 3,5T) ;Acquisition de véhicules poids lourds d’un PTAC supérieur à 3,5 tonnes 
+34.01.04;Véhicules et services connexes;Véhicules terrestres;Véhicule tout terrain;Acquisition de véhicules tout terrain tout type
+34.01.05;Véhicules et services connexes;Véhicules terrestres;Autocar et autobus et autres véhi de transport > 9 places;Acquisition d’autocar et autobus et autres véhicules de transport > 9 places
+34.01.06;Véhicules et services connexes;Véhicules terrestres;Véhicule sanitaire, ambulance (tout type);Acquisition de véhicules sanitaires, ambulances tout type
+34.01.07;Véhicules et services connexes;Véhicules terrestres;Véhicule de lutte contre incendie (tout type);Acquisition de véhicules et engins de lutte contre les incendies
+34.01.08;Véhicules et services connexes;Véhicules terrestres;Véhicule et engin de voierie;Acquisition de véhicules et engins voierie
+34.01.09;Véhicules et services connexes;Véhicules terrestres;Véhicule et engin pétrolier;Acquisition de véhicules et engins pétrolier
+34.01.10;Véhicules et services connexes;Véhicules terrestres;Motocycle, quad, vélos et autres véhicules à 2 roues ;Acquisition de motocycle, quad, vélos et autres véhicules à 2 roues
+34.01.11;Véhicules et services connexes;Véhicules terrestres;Véhicule et engins écoles (IEC);Acquisition de véhicules et engins d’instruction élémentaire à la conduite
+34.01.13;Véhicules et services connexes;Véhicules terrestres;Chariot élévateur et autres engins de manutention;Acquisition de chariot élévateur et autres engins de manutention à moteur 
+34.01.14;Véhicules et services connexes;Véhicules terrestres;Autres véhicules et engins (dont véhicules non immatriculés);Acquisition d’autres véhicules et engins, y compris  les véhicules non immatriculés
+34.01.15;Véhicules et services connexes;Véhicules terrestres;Remorque, porte-voiture, porte-moto, conteneur et caravane;Acquisition de remorque, porte-voiture, porte moto, conteneur et caravane pour véhicules
+34.02.01;Véhicules et services connexes;Autres modes de transports;Avion, hélicoptère et autres aéronefs civils yc pièces déta;Acquisition d’avion, d’hélicoptère et d’autres aéronefs civils y compris pièces détachées
+34.02.02;Véhicules et services connexes;Autres modes de transports;Navire, bateau et autres embarcations civils yc pièces déta;Acquisition de navires, bateaux et autres embarcations civils y compris pièces détachées
+34.02.03;Véhicules et services connexes;Autres modes de transports;Train, tramway, métro, funiculaires yc pièces détachées;Acquisition de trains, tramways et autres matériels roulants sur rail y compris pièces détachées
+34.03.01;Véhicules et services connexes;Entretien, réparation véhicules;Pièces détachées et accessoires véhicules terrestres;Acquisition de pièces détachées et d’accessoires véhicules terrestres
+34.03.04;Véhicules et services connexes;Entretien, réparation véhicules;Pièces détachées et accessoires véhicules non terrestres;Acquisition de pièces détachées et d’accessoires de véhicules non terrestres
+34.03.05;Véhicules et services connexes;Entretien, réparation véhicules;Entretien préventif, répar, nettoyage véhic non terrestres;Prestations d’entretien préventif, de réparation ou de nettoyage de véhicules non terrestres
+34.03.07;Véhicules et services connexes;Entretien, réparation véhicules;Aménagement de véhicules et engins (tout type);Prestations d’aménagement de véhicules et engins de tout type, y compris carrosserie
+34.03.08;Véhicules et services connexes;Entretien, réparation véhicules;Achats pneumatiques véhicules terrestres;Acquisitions de pneumatiques pour véhicules terrestres
+34.03.09;Véhicules et services connexes;Entretien, réparation véhicules;Entretien prév, réparation, nettoy véhicule ter léger(<3,5T);Prestations d’entretien préventif, de réparation terrestre, de contrôle technique ou de nettoyage de véhicule léger (PTAC inférieur à 3,5 tonnes) et de leur matériels associés (remorque, conteneur, caravane…) 
+34.03.10;Véhicules et services connexes;Entretien, réparation véhicules;Entretien prév, réparation, nettoy véhicule ter lourd(>3,5T);Prestations d’entretien préventif, de réparation terrestre, de contrôle technique ou de nettoyage de véhicule lourd (PTAC supérieur à 3,5 tonnes) et de leur matériels associés (remorque, conteneur, caravane…) 
+34.04.01;Véhicules et services connexes;Location, financement véhicules;Loc long durée véhicule gamme commerciale yc batterie électr;Loc long durée véhicule gamme commerciale yc batterie électr
+34.04.02;Véhicules et services connexes;Location, financement véhicules;Location véhicules gamme commerciale courte, moyenne durée;Prestations de location de véhicules de gamme commerciale pour une courte ou moyenne durée ou LMD et LCD (< 12 mois)
+34.04.03;Véhicules et services connexes;Location, financement véhicules;Location autres véhicules et engins spéciaux (toute durée);Prestations de location de véhicules et engins spéciaux toute durée
+34.04.04;Véhicules et services connexes;Location, financement véhicules;Redevance de financement matériel de transport;Redevance pour le financement de matériel de transport (leasing)
+34.04.05;Véhicules et services connexes;Location, financement véhicules;Location longue durée motocycle, quad, vélo, EDPM;Prestations de location de motocycle, quad, vélos, vélos électriques et autres engins de déplacement personnel motorisés (EDPM) et véhicules à 2/3 roues pour longue durée ou LLD (> 12 mois), y compris batterie pour véhicule électrique
+34.04.06;Véhicules et services connexes;Location, financement véhicules;Location courte, moyenne durée motocycle, quad, vélo, EDPM;Prestations de location de motocycle, quad, vélos, vélos électriques et autres engins de déplacement personnel motorisés (EDPM) véhicules à 2/3 roues pour une courte ou moyenne durée ou LMD et LCD (< 12 mois), y compris batterie pour véhicule électrique
+35.01.02;Transport de pers. et de biens;Affranchissement et expédition ;Matériel traitement du courrier;Acquisition de matériel de traitement du courrier
+35.01.03;Transport de pers. et de biens;Affranchissement et expédition ; Location et/ou maintenance  matériel traitement du courrier;Location ou prestation de maintenance de l’équipement et du matériel de traitement du courrier
+35.01.04;Transport de pers. et de biens;Affranchissement et expédition ;Frais expédition courrier standard;Frais d’affranchissement de courrier standard – frais postaux
+35.01.05;Transport de pers. et de biens;Affranchissement et expédition ;Frais expédition colis (< 30 kg);Frais d’affranchissement pour le transport de colis < 30 kg – non express
+35.01.06;Transport de pers. et de biens;Affranchissement et expédition ;Frais expédition express (< 30 kg);Frais d’affranchissement pour le transport de courrier ou de colis < 30 kg en express 
+35.01.07;Transport de pers. et de biens;Affranchissement et expédition ;Prestation courses et tournées collecte courrier;Prestations de coursiers ou de tournées pour la collecte de courrier 
+35.01.08;Transport de pers. et de biens;Affranchissement et expédition ;Prestation de mise sous plis et routage;Prestations de mise sous plis et routage de courrier 
+35.01.09;Transport de pers. et de biens;Affranchissement et expédition ;Prestations postales externalisées;Prestations d'affranchissement réalisées de manière externalisée
+35.01.10;Transport de pers. et de biens;Affranchissement et expédition ;Location maintenance de machine à affranchir;Location et maintenance de machine à affranchir, y compris équipement industriel
+35.02.01;Transport de pers. et de biens;Transport de biens et logistique;Transport de biens par voie aérienne;Prestations de transport de biens par voie aérienne, colis > 30 kg
+35.02.02;Transport de pers. et de biens;Transport de biens et logistique;Transport de biens par voie maritime;Prestations de transport de biens par voie maritime, colis > 30 kg
+35.02.03;Transport de pers. et de biens;Transport de biens et logistique;Transport routier de biens;Prestations de transport de biens par voie routière, colis > 30kg
+35.02.04;Transport de pers. et de biens;Transport de biens et logistique;Transport multimodal de biens yc transport transitaire;Prestations de transport multimodal (air, mer, route et fer), y compris transport transitaire
+35.02.05;Transport de pers. et de biens;Transport de biens et logistique;Affrètement aéronef, navire pour le transport;Prestations d’affrètement d’aéronef ou de navire pour le transport 
+35.02.06;Transport de pers. et de biens;Transport de biens et logistique;Prestations de logistique (manutention et gestion stock);Prestations logistiques et autres services associés, de type manutention et gestion de stock 
+35.02.07;Transport de pers. et de biens;Transport de biens et logistique;Transport de fonds et d'objets d'art;Prestations de transport sécurisé de fonds ou d’objet d’art, de type convoyeur 
+35.02.08;Transport de pers. et de biens;Transport de biens et logistique;Déménagement (transf admin et de service) et de garde meuble;prestations de transfert de services (inter site, interne et externe) pour déménagement de bureaux, et garde-meubles ou self-stockage
+35.02.09;Transport de pers. et de biens;Transport de biens et logistique;Prestation et matériel d'archivage (yc œuvre d'art);Prestations de conditionnement pour transport – y compris œuvre d’art et matériel d’archivage 
+35.02.10;Transport de pers. et de biens;Transport de biens et logistique;Transport de biens par voie ferroviaire;Prestations de transport de biens par voie ferrée, colis > 30 kg
+35.03.01;Transport de pers. et de biens;Voyages et déplacements;Transport de personnes spé handicapés et médicalisé;Prestations de transport de personnes handicapées ou médicalisées
+35.03.02;Transport de pers. et de biens;Voyages et déplacements;Prestations de services/déplacements;Prestations d’agence de voyage, tout type de service (inclus les visas, les frais de parking et de péages payés par l'Etat (prise en charge directe par l'administration) à un prestataire au vu d'un marché)
+35.03.03;Transport de pers. et de biens;Voyages et déplacements;professionnels;Prestations de transport ferroviaire de personnes, billets de train (France et international) 
+35.03.04;Transport de pers. et de biens;Voyages et déplacements;Transport aérien de personnes (yc taxes aéroport);Prestations de transport aérien de personnes, y compris taxes d’aéroport 
+35.03.05;Transport de pers. et de biens;Voyages et déplacements;Transport maritime de personnes ;Prestations de transport maritime de personnes, y compris taxes diverses
+35.03.06;Transport de pers. et de biens;Voyages et déplacements;Transport routier de personnes;Prestations de transport de personnes par taxis, véhicules avec chauffeur, bus ou car, achats de billets transports en commun
+35.03.07;Transport de pers. et de biens;Voyages et déplacements;Frais hôtels et hébergement;Prestations d’hébergement en chambre d’hôtel ou hébergement en résidence hôtelière
+35.03.08;Transport de pers. et de biens;Voyages et déplacements;Frais de restaurant (hors restauration collective admin);Frais de restaurant, y compris à l’étranger
+35.03.09;Transport de pers. et de biens;Voyages et déplacements;Autres frais de déplacement remboursés à l'agent;Autres frais de voyage et déplacement, y compris visa, vaccination ainsi que frais de péage et parking payés par l'agent et remboursés par l'administration
+35.04.01;Transport de pers. et de biens;Prestations assistance en escale;Prestation d'assistance en escale;Prestations d’assistance en escale 
+36.01.01;Biens immo. et tvx. construction;Loyers, charges loca et copro;Loyers privés logement;Frais de loyers privés pour logement, y compris bureaux 
+36.01.02;Biens immo. et tvx. construction;Loyers, charges loca et copro;Loyers privés hors logement;Frais de loyers privés hors logement 
+36.01.03;Biens immo. et tvx. construction;Loyers, charges loca et copro;Loyers budgétaires;Loyers budgétaires 
+36.01.04;Biens immo. et tvx. construction;Loyers, charges loca et copro;Charges de copropriété;Charges diverses de copropriété 
+36.01.05;Biens immo. et tvx. construction;Loyers, charges loca et copro;Charges locatives;Charges diverses locatives 
+36.01.06;Biens immo. et tvx. construction;Loyers, charges loca et copro;Location d'espace nu pour une activité professionnelle;Prestation de location d’espace nu pour un évènement (salon, séminaire, cérémonie, sommet, colloque, formation,….) 
+36.02.01;Biens immo. et tvx. construction;Opération de travaux indivi. bâtiments;Travaux construction bâtiment neuf;Travaux de construction de bâtiments neufs, tout type
+36.02.02;Biens immo. et tvx. construction;Opération de travaux indivi. bâtiments;Travaux de rénovation bâtiment (yc bâtiments historiques);Travaux de rénovation de bâtiments, y compris restauration de bâtiments historiques ou classés
+36.02.03;Biens immo. et tvx. construction;Opération de travaux indivi. bâtiments;Travaux de réhabilitation bâtiment;Travaux de réhabilitation de bâtiments, y compris travaux d’amélioration de l’efficience énergétique (BBC)
+36.02.04;Biens immo. et tvx. construction;Opération de travaux indivi. bâtiments;Travaux de mise aux normes bâtiment;Travaux de mise aux normes pour bâtiment, y compris normes de sécurité 
+36.02.05;Biens immo. et tvx. construction;Opération de travaux indivi. bâtiments;Travaux de démolition et de déconstruction de bâtiment;Travaux de démolition et de déconstruction de bâtiments et infrastructures diverses
+36.02.06;Biens immo. et tvx. construction;Opération de travaux indivi. bâtiments;Travaux de dépollution, décontamination;Travaux de dépollution et de décontamination de bâtiments, y compris désamiantage
+36.03.01;Biens immo. et tvx. construction;Opération de travaux indivi. infra transports et routes;Tvx constr infra transp, terrass, routes (yc tvx préalables);Travaux de construction d’infrastructures de transport de routes, y compris travaux préalables de type terrassement
+36.03.02;Biens immo. et tvx. construction;Opération de travaux indivi. infra transports et routes;Tvx réhabilitation infra transports, routes (yc revêtement);Attention catégorie EC-RTES réservée aux routes nationales (programme 0203) 
+36.03.03;Biens immo. et tvx. construction;Opération de travaux indivi. infra transports et routes;Travaux de construction d'ouvrage d'art;Travaux de construction d’ouvrage d’art (ex. pont, tunnel)
+36.03.04;Biens immo. et tvx. construction;Opération de travaux indivi. infra transports et routes;Travaux de construction de VRD, ouvrages annexes;Travaux de construction de voirie et réseaux divers, y compris ouvrages annexes
+36.03.05;Biens immo. et tvx. construction;Opération de travaux indivi. infra transports et routes;Aménagement paysager;Travaux d'aménagement paysager dans le cas de travaux d'infrastructure routière.
+36.04.01;Biens immo. et tvx. construction;Prestations intellectuelles travaux;Prestation d'assistance à maîtrise d'ouvrage (AMOA);Prestations d’assistance à maîtrise d’ouvrage dans le cadre d’opération de travaux (AMOA)
+36.04.02;Biens immo. et tvx. construction;Prestations intellectuelles travaux;Prestation  de maîtrise d'œuvre (MOE);Prestations de maîtrise d’œuvre dans le cadre d’opération de travaux 
+36.04.03;Biens immo. et tvx. construction;Prestations intellectuelles travaux;Étude préalable, audit, expertise liés aux travaux;Prestations d’étude, d’audit et d’expertise liés aux travaux
+36.04.04;Biens immo. et tvx. construction;Prestations intellectuelles travaux;Mandat de maîtrise d’ouvrage travaux ;Prestation de mandat de maîtrise d’ouvrage dans le cadre d’opérations de travaux, avec notamment le pouvoir de signature pour le titulaire du mandat de maîtrise d’ouvrage des différents marchés (maîtrise d’œuvre, prestations intellectuelles liées aux travaux, travaux proprement dits).
+36.05.01;Biens immo. et tvx. construction;Fourniture et matériel tvx bât;Matériaux constr (ciment,plâtre,carrelage,bois,revêtements);Acquisition de matériaux de construction : ciment, plâtre, carrelage, bois revêtements
+36.05.02;Biens immo. et tvx. construction;Fourniture et matériel tvx bât;Matériel et équipement de chantier;Acquisition de matériel et d’équipement de chantier et services associés, y compris constructions modulaires 
+36.05.03;Biens immo. et tvx. construction;Fourniture et matériel tvx bât;Matériel de serrurerie;Acquisition de matériel de serrurerie et métallerie et services associés
+36.05.04;Biens immo. et tvx. construction;Fourniture et matériel tvx bât;Matériel de menuiserie (porte, fenêtre);Acquisition de matériel de menuiserie et services associés, y compris portes et fenêtres 
+36.05.05;Biens immo. et tvx. construction;Fourniture et matériel tvx bât;Matériel chauffage et plomberie;Acquisition de matériel de chauffage et de plomberie et services associés 
+36.05.06;Biens immo. et tvx. construction;Fourniture et matériel tvx bât;Matériel et petit équipement électrique;Acquisition de matériel électrique et autre équipement électrique, et services associés 
+36.05.07;Biens immo. et tvx. construction;Fourniture et matériel tvx bât;Equipement de lutte contre incendie (ELI);Acquisition de matériel et équipement de lutte contres incendies (ELI), services associés 
+36.05.08;Biens immo. et tvx. construction;Fourniture et matériel tvx bât;Remplacement matériel de sécurité;Renouvellement de matériel de sécurité pour bâtiment hors acquisition initiale, mise aux normes et maintenance
+36.05.09;Biens immo. et tvx. construction;Fourniture et matériel tvx bât;Borne et solution de recharge pour véhicule électrique;Acquisition de matériel électrique et d’autre équipement électrique, et services associés 
+36.06.01;Biens immo. et tvx. construction;Fourniture tvx infra transport et routes;Mat, équip signalisat infra transports routes (vertic horiz);Acquisition de matériel et équipement de signalisation verticale et horizontale 
+36.06.02;Biens immo. et tvx. construction;Fourniture tvx infra transport et routes;Mat éclairage mobilier infra transports routes (yc sign dyn);Acquisition de matériel d’éclairage (y compris équipement dynamique), de mobilier pour infrastructures et routes
+36.06.03;Biens immo. et tvx. construction;Fourniture tvx infra transport et routes;Mat surveillance alerte infra transports routes (vidéo, tél);Acquisition de matériel de surveillance et d’alertes pour routes, système de téléphonie et de vidéosurveillance
+36.06.04;Biens immo. et tvx. construction;Fourniture tvx infra transport et routes;Matériaux entretien infra transports (béton, peinture, sel);Acquisition de matériaux d’entretien pour infrastructures de transport : béton, peinture et sel
+36.06.04;Biens immo. et tvx. construction;Fourniture tvx infra transport et routes;Matériaux entretien infra transports (béton, peinture, sel);Acquisition de matériaux d’entretien pour infrastructures de transport : béton, peinture et sel
+36.07.01;Biens immo. et tvx. construction;Partenariat Public Privé;Redevances Investissement PPP immobilier;Redevances Investissement PPP immobilier
+36.07.02;Biens immo. et tvx. construction;Partenariat Public Privé;Redevance Financement PPP;Redevance pour financement d’opération PPP
+36.07.03;Biens immo. et tvx. construction;Partenariat Public Privé;Redevance investissement PPP mobilier;Redevance pour investissement PPP mobilier
+36.07.04;Biens immo. et tvx. construction;Partenariat Public Privé;Redevances Fonctionnement PPP;Redevance de fonctionnement dans le cadre d’un partenariat public privé (PPP)
+36.08.01;Biens immo. et tvx. construction;Acquisition immo foncière;Achat de bâtiment (hors vente en état futur d’achèvement);Acquisition de bâtiment de tout type, hors vente en état futur d’achèvement
+36.08.02;Biens immo. et tvx. construction;Acquisition immo foncière;Achat de bâtiment (vente en état futur d’achèvement);Acquisition de bâtiment de tout type, vente en état futur d’achèvement
+36.08.03;Biens immo. et tvx. construction;Acquisition immo foncière;Achat de terrain;Acquisition de terrain et de foncier divers
+36.08.04;Biens immo. et tvx. construction;Acquisition immo foncière;Redevance de financement parc immobilier;Redevance de financement pour parc immobilier
+37.01.01;Maintenance exploit bât et infra;Prestation de services bâtiments;Nettoyage courant (bureau, hôtellerie, plonge);Prestations de nettoyage courant de bureau, y compris services d’hôtellerie et plonge et consommables associés
+37.01.02;Maintenance exploit bât et infra;Prestation de services bâtiments;Nettoyage spécifique (biomédical, industriel);Prestations de nettoyage spécifique, de type biomédical ou industriel par exemple
+37.01.03;Maintenance exploit bât et infra;Prestation de services bâtiments;Entretien espaces verts et extérieurs;Prestations d’entretien d’espaces verts et d’extérieurs, y compris nettoyage des extérieurs et abords
+37.01.04;Maintenance exploit bât et infra;Prestation de services bâtiments;Services de gardiennage et de sécurité;Prestations de service de gardiennage et de sécurité, y compris service de sécurité incendie et d’assistance aux personne (SSIAP)
+37.01.05;Maintenance exploit bât et infra;Prestation de services bâtiments;Accueil, conciergerie, réservation;Prestations d’accueil (y compris accueil téléphonique), de conciergerie et de réservation
+37.01.06;Maintenance exploit bât et infra;Prestation de services bâtiments;Dératisation, désinfection, désinsectisation;Prestations de dératisation, désinfection et de désinsectisation
+37.02.01;Maintenance exploit bât et infra;Presta maintenance et répa tech;Maintenance instal électr (courant faible et fort, HT-BT);Prestations de maintenance d’installations électriques (courant faible, courant fort – HT,BT)
+37.02.02;Maintenance exploit bât et infra;Presta maintenance et répa tech;Maintenance chauffage, ventilation, climatisation (CVC);Prestations de maintenance de chauffage, de ventilation et de climatisation (CVC)
+37.02.03;Maintenance exploit bât et infra;Presta maintenance et répa tech;Maintenance plomberie;Prestations de maintenance des installations de plomberie et d’assainissement intérieur
+37.02.04;Maintenance exploit bât et infra;Presta maintenance et répa tech;Maintenance ascenseur, monte-charge, escalier mécanique;Prestations de maintenance d’ascenseur, de monte-charge et d’escalier mécanique, y/ c plateforme élévatrice et trottoirs roulants
+37.02.05;Maintenance exploit bât et infra;Presta maintenance et répa tech;Maintenance appareil de levage lourd (élévateur, plateforme);Prestations de maintenance d’appareil de levage lourd, y compris élévateur et plateforme
+37.02.06;Maintenance exploit bât et infra;Presta maintenance et répa tech;Maintenance portes et portail auto, semi-auto, motorisés;Prestations de maintenance de portes et portails automatiques / semi-automatiques et motorisés
+37.02.08;Maintenance exploit bât et infra;Presta maintenance et répa tech;Maintenance instal système de sécurité incendie (SSI);Prestations de maintenance de système de sécurité incendie (SSI)
+37.02.09;Maintenance exploit bât et infra;Presta maintenance et répa tech;Maintenance de voierie et réseaux divers (VRD), hors route;Prestations de maintenance de voirie et de réseaux divers, y compris pipeline(hors route)
+37.02.10;Maintenance exploit bât et infra;Presta maintenance et répa tech;Maintenance équipements industriels;Prestations de maintenance d’équipements industriels et de machines
+37.02.11;Maintenance exploit bât et infra;Presta maintenance et répa tech;Contrôles réglementaires et diagnostics;Contrôles réglementaires et diagnostics sur bâtiments et infrastructures
+37.02.12;Maintenance exploit bât et infra;Presta maintenance et répa tech;Maintenance instal matériel de sécurité (accès, alarme);Prestations de maintenance et d’installation de matériel de sécurité, y compris vidéosurveillance
+37.02.13;Maintenance exploit bât et infra;Presta maintenance et répa tech;Maintenance groupes électrogènes;Prestations de maintenance des groupes électrogènes (hors acquisitions)
+37.02.14;Maintenance exploit bât et infra;Presta maintenance et répa tech;Maintenance des équipements portuaires;Prestations de maintenance d’équipements portuaires, type travaux de carénage de bateaux, raz débordoirs, de grues et toutes les autres opérations spéciales propres aux entités portuaires
+37.03.01;Maintenance exploit bât et infra;Presta tvx récurrent bât;Petits travaux de métallerie et serrurerie;Travaux de second œuvre de métallerie et de serrurerie
+37.03.02;Maintenance exploit bât et infra;Presta tvx récurrent bât;Petit travaux de menuiserie (bois, aluminium, PVC);Travaux de second œuvre de menuiserie (bois, aluminium et PVC)
+37.03.03;Maintenance exploit bât et infra;Presta tvx récurrent bât;Petits travaux de peinture et revêtements (sols et murs);Petits travaux de peinture, cloisons amovibles, plafonds, revêtements de sols souples et muraux
+37.03.04;Maintenance exploit bât et infra;Presta tvx récurrent bât;Petits travaux de maçonnerie, cloisons, plâtrerie, carrelage;Travaux de second œuvre de maçonnerie et de cloisons, plâtrerie, carrelage
+37.03.05;Maintenance exploit bât et infra;Presta tvx récurrent bât;Petits travaux et maintenance de couverture étanchéité;Travaux de second œuvre et maintenance de couverture et d’étanchéité, y compris prestation d’alpiniste urbain
+37.03.06;Maintenance exploit bât et infra;Presta tvx récurrent bât;Petits travaux d'entretien électrique;
+37.03.07;Maintenance exploit bât et infra;Presta tvx récurrent bât;Petits travaux de CVC;Petits travaux de chauffage ventilation climatisation.
+37.03.08;Maintenance exploit bât et infra;Presta tvx récurrent bât;Petits travaux de plomberie;Petits travaux de plomberie.
+37.04.01;Maintenance exploit bât et infra;Presta tvx maintenance infra et routes;Services et travaux d'entretien des routes (yc déneigement);Prestations de services et travaux d'entretien des routes, y compris déneigement 
+37.04.02;Maintenance exploit bât et infra;Presta tvx maintenance infra et routes;Services et travaux entretien équipement et matériel routier;Prestations de services et travaux entretien équipement et matériel routier
+37.05.01;Maintenance exploit bât et infra;Presta multiservices et multitechniques;Contrat de prestations multiservices;Contrat de prestations multiservices, tout périmètre (nettoyage, blanchisserie, gardiennage, accueil, restauration…)
+37.05.02;Maintenance exploit bât et infra;Presta multiservices et multitechniques;Contrat de maintenance multitechniques;Contrat de maintenances multi techniques, tout périmètre (électricité, climatique, sécurité, automatismes, communication…)
+37.05.03;Maintenance exploit bât et infra;Presta multiservices et multitechniques;Contrat multiservices-multitechniques;Contrat mixte de prestations multiservices et multi techniques 
+38.01.01;Moyens de communication;Matériel communication;Objets promotionnels ou protocolaires;Acquisition d’objets promotionnels ou protocolaires, y compris les frais de personnalisation de ces objets
+38.01.02;Moyens de communication;Matériel communication;Fournitures et équipement événementiel;Acquisition de tout type de fournitures et équipements évènementiels dont l’objectif n’est pas la mise à disposition dans la cadre d’une campagne promotionnelle
+38.01.03;Moyens de communication;Matériel communication;Achat de contenu (photo et vidéo);Acquisition de tout type de contenus photos ou vidéos
+38.01.04;Moyens de communication;Matériel communication;Matériel audiovisuel ;Acquisition et maintenance de tout type de matériel audiovisuel : appareil photo, caméra vidéo, appareil d'enregistrement audio, tous matériels d'équipement de studio photo ou vidéo, de prise de son, écran de télévision, accessoires, etc.
+38.02.01;Moyens de communication;Prestation communication;Création conception supports de communication;Prestation de conception et de création de supports de communication, y compris sous format numérique.
+38.02.02;Moyens de communication;Prestation communication;Prestations événementiel;Prestation d’organisation d’évènements dans le cadre d’actions de communication
+38.02.03;Moyens de communication;Prestation communication;Prestation de montage d'exposition (scénographie);Prestation de montage d’expositions, incluant notamment la location du matériel nécessaire à l’exposition
+38.02.04;Moyens de communication;Prestation communication;Conseil en communication;Prestation de conseil en communication
+38.02.05;Moyens de communication;Prestation communication;Agence de communication et publicité;Prestation auprès d’une agence de communication et de publicité, incluant l’ensemble du matériel et des actions nécessaires aux actions de communication
+38.02.06;Moyens de communication;Prestation communication;Agence de presse et veille media;Prestation auprès d’une agence de presse (tout type de presses et médias) et veille média
+38.02.07;Moyens de communication;Prestation communication;Achat et gestion d'espace publicitaire;Acquisition et gestion d’espaces publicitaires sur tout type de médias : télévision, internet, presse, etc.
+38.02.08;Moyens de communication;Prestation communication;Affichage et publicité légale (avis, publication);Affichage et publicité légale (avis, publications), soumis à une réglementation particulière
+38.02.09;Moyens de communication;Prestation communication;Frais représentation;Frais en marge des actions de communication
+38.02.10;Moyens de communication;Prestation communication;Inscription à des évènements professionnels;Achats d’inscriptions à des conférences, à des forums, à des débats, à des séminaires, association
+39.01.01;Moyens d'impression;Solutions d'impression;Achat imprimante;Acquisition d’une ou plusieurs imprimante(s)
+39.01.02;Moyens d'impression;Solutions d'impression;Achat copieur;Acquisition d’un ou plusieurs copieur(s)
+39.01.03;Moyens d'impression;Solutions d'impression;Location copieur (hors consommable et maintenance);Location d’un copieur
+39.01.04;Moyens d'impression;Solutions d'impression;Maint copieur, mat multifnc, scan, fax (répar. cons encrage);Prestation de maintenance de copieurs, de matériels multifonctions, de scanners et de fax. Cette maintenance inclue également la maintenance des consommables d’encrage.
+39.01.05;Moyens d'impression;Solutions d'impression;Fournitures, conso encrage yc cartouche et toner imprimantes;Acquisitions de consommables pour copieurs et imprimantes, y compris de cartouches et de toner d’imprimantes
+39.01.06;Moyens d'impression;Solutions d'impression;Sous-traitance édition, promotion, diffusion du BOAMP DILA;Recours à la sous-traitance en vue de la production et de la diffusion du Bulletin Officiel des Annonces de Marchés Publics
+39.01.07;Moyens d'impression;Solutions d'impression;Sous-traitance collecte, composition, impression BODACC;Sous-traitance collecte, composition, impression BODACC
+39.01.08;Moyens d'impression;Solutions d'impression;Sous-traitance  edition, promotion, difusion DILA;Recours à la sous-traitance par la DILA en vue de ses publications (édition - promotion - diffusion)
+39.01.09;Moyens d'impression;Solutions d'impression;Sous-traitance SACI-JO DILA;Recours à la sous-traitance auprès de la Société Anonyme de Composition et d'Impression des Journaux Officiels
+39.01.10;Moyens d'impression;Solutions d'impression;Autres sous-traitance d'impression DILA;Autres recours par la DILA à la sous-traitance pour impression
+39.02.01;Moyens d'impression;Impression, reprographie;Matériel et équipement centre repro, éditique et impression;Acquisition de matériel et d’équipement de reprographie, d’éditique et d’impression
+39.02.02;Moyens d'impression;Impression, reprographie; Maintenance équipement centre repro, éditique et impression;Acquisition de prestations de maintenance des équipements de centres de reprographie, d’éditique et d’impression
+39.02.03;Moyens d'impression;Impression, reprographie;Consommable industriel impression – encrage;Acquisition de tout type de consommables industriels, pour centres d’impression
+39.02.04;Moyens d'impression;Impression, reprographie;Services externalisés de repro;Acquisition de services externalisés de reprographie
+40.01.01;Presta intellectuelles et forma;Prestations intellectuelles;Audit comptable et financier;Prestation d’audit des processus comptables et financiers
+40.01.02;Presta intellectuelles et forma;Prestations intellectuelles;Conseil en stratégie et organisation;Prestation de conseil en stratégie et organisation, y compris l’analyse de l’existant
+40.01.03;Presta intellectuelles et forma;Prestations intellectuelles;Conseil en recrutement;Acquisition de prestations de conseil en recrutement RH
+40.01.04;Presta intellectuelles et forma;Prestations intellectuelles;Prestation de reconversion, retour à l'emploi;Prestation de conseil et d’assistance RH (conseil en recrutement, conseil en reconversion et assistance au retour à l’emploi, conseil en GPEC)
+40.01.05;Presta intellectuelles et forma;Prestations intellectuelles;Certification, label qualité;Dépenses associées aux démarches de certification et de labélisation, incluant les audits donnant lieu à un label ou à une certification
+40.01.06;Presta intellectuelles et forma;Prestations intellectuelles;Prestation de conseil métier;Prestation de conseil sur des problématiques métiers (log, RH, achat, finance international, sécurité,…)
+40.01.07;Presta intellectuelles et forma;Prestations intellectuelles;Enquête et analyse d'opinon;Prestation d’organisation d’enquêtes et sondages, enquêtes comportementales, consultations citoyennes 
+40.01.08;Presta intellectuelles et forma;Prestations intellectuelles;Étude à caractère général;Prestation d’étude à caractère général, comprenant notamment les études de marché, les études avec une part de mesures et d’observations du terrain ou inscrite dans un protocole de recherche, les enquêtes statistiques et les enquêtes de satisfaction.
+40.01.09;Presta intellectuelles et forma;Prestations intellectuelles;Enquête et étude d'utilité publique;Prestation d’étude et d’enquête d’utilité publique (enquête préalable à des décisions ou autorisations administratives, notamment en matière environnementale, immobilière, etc.)
+40.01.10;Presta intellectuelles et forma;Prestations intellectuelles;Secrétariat sténotype;Secrétariat sténotype
+40.01.11;Presta intellectuelles et forma;Prestations intellectuelles;Services de traduction, interprète;Services de traduction, interprète
+40.01.12;Presta intellectuelles et forma;Prestations intellectuelles;Droits d'auteurs;Droits d'auteurs (publications, ouvrages, articles...)
+40.01.13;Presta intellectuelles et forma;Prestations intellectuelles;Etude technique métier yc recherche et développement;Réalisation d’études technique et services d’expertise métier y compris recherche et développement (R&D)
+40.02.01;Presta intellectuelles et forma;Formation;Formation informatique;Acquisition de tout type de formations aux outils informatiques, y compris aux outils bureautiques
+40.02.02;Presta intellectuelles et forma;Formation;Formation management, communication et RH;Acquisition de tout type de formations métier dédiées au management, à la communication et aux ressources humaines
+40.02.03;Presta intellectuelles et forma;Formation;Formation linguistique;Acquisition de tout type de formations linguistiques
+40.02.04;Presta intellectuelles et forma;Formation;Formation HSCT ;"Acquisition de toutes formations liées à la prévention des risques (hygiène, sécurité, sociaux) ; dont les premiers secours sont une composante importante"
+40.02.05;Presta intellectuelles et forma;Formation;Formation permis (tous véhicules);Acquisition de tout type de formations permis, incluant les formations aux permis de conduire (automobiles, poids-lourds et engins), la certification pilotage aéronefs et la formation aux permis navires
+40.02.06;Presta intellectuelles et forma;Formation;Autres formations technique / métier;Acquisition de formations métier et techniques
+40.02.07;Presta intellectuelles et forma;Formation;Formation ressources humaines et valeurs de la république;Acquisition de tout type de formations métier dédiées aux ressources humaines, dont celle liées aux valeurs de la république
+40.02.08;Presta intellectuelles et forma;Formation;Formation au management;Acquisition de tout type de formation dédié au management
+40.02.09;Presta intellectuelles et forma;Formation;Formation à la communication;Acquisition de tout type de formation métier dédiée à la communication
+40.02.10;Presta intellectuelles et forma;Formation;Formation dans le domaine de la Finance;Acquisition de toute formation liée au domaine de la finance
+40.02.11;Presta intellectuelles et forma;Formation;Formation achat et commande publique;Acquisition de formations lié au domaine de l’achat et de la commande publiquees
+40.02.12;Presta intellectuelles et forma;Formation;Form prépa concours examens professionnels jurys de concours;Acquisition de formations de préparation aux épreuves de concours, examens professionnels et jurys de concours
+40.02.13;Presta intellectuelles et forma;Formation;Accompagnement par le coaching;Acquisition de toute prestation d’accompagnement individuel ou collectif par le coaching 
+40.02.14;Presta intellectuelles et forma;Formation;Formation dans le domaine industriel et technique;Acquisition de toute formation dans le domaine industriel et technique
+40.02.15;Presta intellectuelles et forma;Formation;Formation d'enseignement supérieur;Acquisition de toute formation d’enseignement supérieur, formation diplômante
+40.03.01;Presta intellectuelles et forma;Services juridiques;Conseil et expertise juridique;Prestations de conseil et d’expertise juridique effectuées par des avocats et autres experts juridiques
+40.03.02;Presta intellectuelles et forma;Services juridiques;Services de représentation juridique;Prestations de services d’assistance et de représentation en justice effectuées par des avocats
+40.04.01;Presta intellectuelles et forma;#N/A;Conseil, expert juri et poursuites juridict (CJ ou presta) ;Prestation de conseil et expertise juridiques et poursuites juridiques par un commissaire de justice ou un prestataire
+40.04.02;Presta intellectuelles et forma;#N/A;Serv de représentation juridique (CJ ou autres prestataires);Prestations de services d’assistance et de représentation en justice effectuées par un commissaire de justice ou un prestataire
+40.04.03;Presta intellectuelles et forma;#N/A;Services commissaires de justice-Hors poursuites juridiction;Prestation de service de commissaire de justice - hors poursuites juridictionnelles
+40.04.04;Presta intellectuelles et forma;#N/A;Débours CJ et frais acces à presta ext-hors pours juridictio;Débours commissaires de justice et frais accessoires à des prestataires extérieures, en dehors des poursuites juridictionnelles
+40.04.05;Presta intellectuelles et forma;#N/A; Frais access HFP versés à presta exté-hors pours juridictio;Frais accessoires des huissiers des finances publiques versés à des prestataires extérieures, hors poursuites juridictionnelles
+40.04.06;Presta intellectuelles et forma;#N/A;Indemnités commissaires justice-Phase comminatoire amiable;Indemnités des commissaires de justice dans la phase comminatoire amiable
+41.01.01;Moyens généraux;Abonnement et documentation;Presse d'information générale;Acquisition et abonnement à des revues et périodiques d‘information générale, tous fournisseurs et circuits de distribution compris
+41.01.02;Moyens généraux;Abonnement et documentation;Presse d'information spécialisée et technique;Acquisition et abonnement à des revues et périodiques spécialisés ou techniques, tous fournisseurs et circuits de distribution compris
+41.01.03;Moyens généraux;Abonnement et documentation;Ouvrages divers (livres, imprimés, cartes, publication);Acquisition de tout type de livres, d’imprimés, de cartes et de publications
+41.01.04;Moyens généraux;Abonnement et documentation;Base de données documentaires;Acquisition de base de données ou d’annuaires, y compris informatiques
+41.01.05;Moyens généraux;Abonnement et documentation;Achats et reventes de livres pour la DILA;Achat de livres destinés à la revente
+41.02.01;Moyens généraux;Fournitures de bureau;Papiers et dérivés (yc bobines papier);Acquisition de ramettes et bobines de papier
+41.02.02;Moyens généraux;Fournitures de bureau;Fournitures de bureau et accessoires;Acquisition de fournitures et petits matériels de bureau (stylos, crayons, cahiers, etc.)
+41.03.01;Moyens généraux;Mobilier;Achat mobilier de bureau;Acquisition de mobilier de bureau, y compris les machines de bureau (destructeur, plieuse)
+41.03.02;Moyens généraux;Mobilier;Achat mobilier d’hébergement, de restauration;Acquisition de mobilier d’hébergement et de restauration
+41.03.03;Moyens généraux;Mobilier;Achat mobilier médical et hospitalier;Acquisition de mobilier médical et hospitalier
+41.03.04;Moyens généraux;Mobilier;Achat mobilier technique et de sécurité;Acquisition de mobilier technique et de sécurité
+41.03.05;Moyens généraux;Mobilier;Location mobilier;Location de mobiliers de tout type : de bureau, d’hébergement, de restauration, technique et de sécurité ainsi que médical et hospitalier
+41.03.06;Moyens généraux;Mobilier;Petit et gros matériel électroménager;Acquisition de petits et gros matériels électroménagers
+41.03.07;Moyens généraux;Mobilier;Location maintenance d'équipements éléctroménagers;Prestation de location/maintenance d'équipements électroménagers type machines à laver,  sèches linge, lave-vaisselles,…
+41.04.01;Moyens généraux;Restauration et alimentation;Prestations de restauration collective;Prestation de restauration collective
+41.04.02;Moyens généraux;Restauration et alimentation;Produits frais alim (viande, poisson, lait, fruit, légume);Acquisition de tout type de produits frais alimentaires : viande, poisson, lait, fruit, légume, etc.
+41.04.03;Moyens généraux;Restauration et alimentation;Épicerie et produits surgelés;Acquisition de tout type de produits d’épicerie (dont boitage), surgelés et sous vide
+41.04.04;Moyens généraux;Restauration et alimentation;Boissons et produits relatifs au tabac ;Acquisition de boissons alcoolisées et non alcoolisées et de produits relatifs au tabac
+41.04.05;Moyens généraux;Restauration et alimentation;Prestations de traiteur;Prestation de traiteur, y compris dans le cadre d’actions de communication
+41.04.06;Moyens généraux;Restauration et alimentation;Matériel de restauration collective;Acquisition d’équipements dédiés à la restauration collective
+41.04.07;Moyens généraux;Restauration et alimentation;Maintenance matériel de restauration;Maintenance du matériel de restauration collective
+41.04.08;Moyens généraux;Restauration et alimentation;Location de petit matériel (vaissellerie, coutellerie);Location de petit matériel de restauration : vaissellerie, coutellerie
+41.04.10;Moyens généraux;Restauration et alimentation;Distributeurs boissons et confiseries;Location et maintenance de distributeurs de boissons et/ou de confiseries
+41.05.01;Moyens généraux;Vêtements et habillement;Produits textiles (tissus);Acquisition de tout type de tissus 
+41.05.02;Moyens généraux;Vêtements et habillement;Equipement protection indiv militaire et de sécurité civile;Acquisition d’équipements de protection individuelle tête-mains-pieds, y compris achat d’articles chaussants de sécurité, bouchons d'oreilles, ...
+41.05.03;Moyens généraux;Vêtements et habillement;Prestation fabrication et distribution vêtements;Acquisition de vêtements par correspondance
+41.05.04;Moyens généraux;Vêtements et habillement;Article chaussant ;Acquisition de chaussures et de tout type d’articles chaussants
+41.05.05;Moyens généraux;Vêtements et habillement;Effets cérémonie, coiffe, access. (passementerie, drapeaux);Acquisition d’uniformes de cérémonie et de vêtements sur mesure et demi-mesure, de coiffes, d’accessoires d’uniformes, de passementeries et de drapeaux
+41.05.06;Moyens généraux;Vêtements et habillement;Vêtements de travail divers (prêt à porter);Acquisition de tout type de vêtements de travail non spécifiques et dits « prêt à porter »
+41.05.07;Moyens généraux;Vêtements et habillement;Location maintenance vêtements et EPI;Prestation de location de maintenance de vêtements et EPI
+41.05.08;Moyens généraux;Vêtements et habillement;Services de blanchisserie (traditionnelle et industrielle);Achat de services de blanchisserie traditionnelle et industrielle pour tout type de vêtements
+41.05.09;Moyens généraux;Vêtements et habillement;Equipement de protection indiv hors militaire et sécu civile;Acquisition d’équipements de protection individuelle tête-mains-pieds, y compris achat d’articles chaussants de sécurité, bouchons d'oreilles, 
+41.06.01;Moyens généraux;Collecte et traitement déchets;Collect, traitement déchet non dang, yc déchets indus banals;Collecte et traitement de tout type de déchets non dangereux, y compris les déchets industriels banals (ordures ménagères, ordures alimentaires, papiers, cartons, déchets inertes, etc.)
+41.06.02;Moyens généraux;Collecte et traitement déchets;Collecte et traitement déchets dangereux;Collecte et traitement de tout type de déchets dangereux (industriels, médicaux, toxiques, etc.)
+41.06.03;Moyens généraux;Collecte et traitement déchets;Contenant et compacteur déchets;Location et acquisition de conteneurs et bennes pour le stockage et l’entreposage de tout type de déchets avant traitement
+41.06.04;Moyens généraux;Collecte et traitement déchets;Destruction des déchets classifiés (ISC);Collecte et traitement destruction des déchets classifié et/ ou des informations ou supports classifiés (ISC) de tout type (papier, disque dur, DVD ROM, support USB, mémoire ,...)
+41.07.01;Moyens généraux;Analyses labo mesures, essais;Consommables de laboratoire;Acquisition de tout type de consommables de laboratoire à usage non médical
+41.07.02;Moyens généraux;Analyses labo mesures, essais;Équipement, matériel de laboratoire et de mesure;Acquisition de tout type de matériel de laboratoire et de mesure
+41.07.04;Moyens généraux;Analyses labo mesures, essais;Prestations labo, mesure, analyse, essai, contrôle;Prestation de laboratoires (mesures, analyses, essais, contrôles)
+41.07.05;Moyens généraux;Analyses labo mesures, essais;Maintenance équipement et matériel de laboratoire;Prestation de maintenance de tout type d’équipements et de matériels de laboratoire
+41.07.06;Moyens généraux;Analyses labo mesures, essais;Réactif de laboratoire;Acquisition de réactif de laboratoire à usage non médical
+42.01.01;Défense et sécurité;Matériel défense et sécurité;Armes y compris armes à usage non militaire;Acquisition de tout type d’armes, y compris d’armes à usage non militaire
+42.01.02;Défense et sécurité;Matériel défense et sécurité;Munitions, bombes, missiles, mines petit calibre ;Acquisition de tout type de munitions, bombes, missiles et mines de petit calibre
+42.01.03;Défense et sécurité;Matériel défense et sécurité;Artifices équipement pyro yc usage militaires;Acquisition de tout type d’artifices et d’équipements pyrotechniques à usage militaire et non militaire
+42.01.04;Défense et sécurité;Matériel défense et sécurité;Matériel maintien ordre y compris véhicule;Acquisition de tout type de matériel de maintien d’ordre, y compris l’acquisition de véhicules
+42.01.05;Défense et sécurité;Matériel défense et sécurité;Signalisation maritime militaire ;Acquisition de tout type de signalisation maritime militaire
+42.01.06;Défense et sécurité;Matériel défense et sécurité;Moyens nautiques, entretien et exploitation;Acquisition, entretien et exploitation de tout type de moyens nautiques
+42.01.07;Défense et sécurité;Matériel défense et sécurité;Matériel spécifique défense et sécurité;Acquisition de tout type de matériel spécifique défense et sécurité
+42.01.08;Défense et sécurité;Matériel défense et sécurité;Redevance de financement matériel militaire;Redevance de financement de matériel militaire
+42.01.09;Défense et sécurité;Matériel défense et sécurité;Frais IRPI;FRAIS INVESTIGAT, RENSEIGNEMENT, PROTECT,INTERVENT (FIRPI)
+42.01.10;Défense et sécurité;Matériel défense et sécurité;Rations de combat;Acquisition de rations individuelles et collectives de combat
+42.01.11;Défense et sécurité;Matériel défense et sécurité;Protection ballistique (gilet pare-balles);Acquisition de tout type de protections balistiques, et notamment de gilets par balle
+42.01.12;Défense et sécurité;Matériel défense et sécurité;Protection tactique (casque, jambière, bouclier);Acquisition de tout type de protections tactiques, et notamment de casques, jambières et boucliers
+42.01.13;Défense et sécurité;Matériel défense et sécurité;Protection NRBC;Acquisition de tout type de protections NRBC (combinaisons, masques respiratoires, etc.)
+42.01.14;Défense et sécurité;Matériel défense et sécurité;Matériel de projection militaire;Acquisition de tout type de matériel dédié à la projection militaire
+42.01.15;Défense et sécurité;Matériel défense et sécurité;Équipement spécifique du combattant;Acquisition de tout type d’équipement spécifique du combattant
+42.02.01;Défense et sécurité;MCO;MCO aéronautique rechanges mat servitude équip environnement;Prestation de tout type de maintien en condition opérationnelle aéronautique, y compris les rechanges de matériel, servitude et équipements environnementaux
+42.02.02;Défense et sécurité;MCO;MCO naval rechanges mat servitude équip environnement;Prestation de maintien en condition opérationnelle naval, y compris les rechanges de matériel, servitude et équipements environnementaux
+42.02.03;Défense et sécurité;MCO;MCO terrestre rechanges mat servitude équip environnement;Prestation de tout type de maintien en condition opérationnelle terrestre, y compris les rechanges de matériel, servitude et équipements environnementaux
+42.02.04;Défense et sécurité;MCO;Acquisition entretien exploitation équipt;Prestation de tout type de maintien en condition opérationnelle autres que MCO naval, terrestre et aéronautique
+42.03.01;Défense et sécurité;Programmes d’armement;Programme armement militaire yc MCO;Acquisition et maintien en condition opérationnelle de tout type de programmes d’armement militaire
+42.03.02;Défense et sécurité;Programmes d’armement;Exploratoire techniquo-ops prospective;Prestation d’études exploratoires, technique opérationnelle et prospective
+42.04.01;Défense et sécurité;Sécurité;Sécurité;Acquisition de tout type de matériel de sécurité et prestation de sécurité
+42.05.01;Défense et sécurité;Presta spécifiques défense sécurité;Prestations spécifiques défense sécurité;Prestations spécifiques défense et sécurité
+43.01.01;Santé et médecine;Prestations soins médicaux;Honoraire soins médicaux;Honoraires de tout type de soins médicaux (pour humains et animaux)
+43.01.02;Santé et médecine;Prestations soins médicaux;Analyses de laboratoire humaines;Acquisition de tout type d’analyses de laboratoire humaines
+43.01.03;Santé et médecine;Prestations soins médicaux;Analyses de laboratoire alimentaires;Acquisition de tout type d’analyses de laboratoire alimentaires
+43.01.04;Santé et médecine;Prestations soins médicaux;Analyses de laboratoire animales;Acquisition de tout type d’analyses de laboratoire animales
+43.01.05;Santé et médecine;Prestations soins médicaux;Prescription médicale hors marchés titulaire;Dépenses médicales relatives aux accidents du service hors marchés pour les titulaires
+43.01.06;Santé et médecine;Prestations soins médicaux;Prescription médicale hors marchés non titulaire;Dépenses médicales relatives aux accidents du travail hors marchés pour les non titulaires
+43.02.01;Santé et médecine;Prestations spécifiques MAAF;Analyses de laboratoire végétales;Acquisition de tout type d’analyses de laboratoire végétales
+43.02.02;Santé et médecine;Prestations spécifiques MAAF;Mandats sanitaires (vétérinaires);Tout type de frais relatifs à l’application d’un mandat sanitaire
+43.03.18;Santé et médecine;Dispo médicaux stériles et non stériles hosp;Consommables de stérilisation;Acquisition de tous types de consommables de stérilisation
+43.03.19;Santé et médecine;Dispo médicaux stériles et non stériles hosp;DM abord anesthésie réanimation;Acquisition de dispositifs médicaux abord anesthésie réanimation
+43.03.20;Santé et médecine;Dispo médicaux stériles et non stériles hosp;DM abord cardiologique et vasculaire;Acquisition de dispositifs médicaux abord cardiologique et vasculaire
+43.03.21;Santé et médecine;Dispo médicaux stériles et non stériles hosp;DM abord chirurgicale, viscérale et digestif;Acquisition de dispositifs médicaux abord chirurgicale, viscérale et digestif
+43.03.22;Santé et médecine;Dispo médicaux stériles et non stériles hosp;DM abord génito urinaire;Acquisition de dispositifs médicaux abord génito urinaire
+43.03.23;Santé et médecine;Dispo médicaux stériles et non stériles hosp;DM abord neurologique;Acquisition de dispositifs médicaux abord neurologie
+43.03.24;Santé et médecine;Dispo médicaux stériles et non stériles hosp;DM abord ophtalmologie;Acquisition de dispositifs médicaux abord ophtalmologie
+43.03.25;Santé et médecine;Dispo médicaux stériles et non stériles hosp;DM abord ORL;Acquisition de dispositifs médicaux abord oto-rhino-laryngologie
+43.03.26;Santé et médecine;Dispo médicaux stériles et non stériles hosp;DM abord parentéral et perfusion;Acquisition de dispositifs médicaux abord parentéral et perfusion
+43.03.27;Santé et médecine;Dispo médicaux stériles et non stériles hosp;DM abord radiologie interventionnelle;Acquisition de dispositifs médicaux abord respiratoire, biopsie et drainage
+43.03.28;Santé et médecine;Dispo médicaux stériles et non stériles hosp;DM abord respiratoire, biopsie et drainage;Acquisition de dispositifs médicaux abord respiratoire, biopsie et drainage
+43.03.29;Santé et médecine;Dispo médicaux stériles et non stériles hosp;DM pour dialyse , circulation extracorporelle et filtration;Acquisition de dispositifs médicaux pour dialyse, circulation extracorporelle et filtration
+43.03.30;Santé et médecine;Dispo médicaux stériles et non stériles hosp;DM pour traitement des plaies et réalisation des soins;Acquisition de dispositifs médicaux pour le traitement des plaies et la réalisation des soins
+43.03.31;Santé et médecine;Dispo médicaux stériles et non stériles hosp;Drapage et habillage;Acquisition de drapage et d’habillage
+43.03.32;Santé et médecine;Dispo médicaux stériles et non stériles hosp;Optique et lunetterie;Optique et lunetterie
+43.03.33;Santé et médecine;Dispo médicaux stériles et non stériles hosp;Orthèse et immobilisation externe;Acquisition d’orthèse et immobilisation externe
+43.03.34;Santé et médecine;Dispo médicaux stériles et non stériles hosp;Ostéosynthèse et prothèse;Ostéosynthèse et prothèse
+43.04.01;Santé et médecine;Éqpts biomédic maintenance conso hosp;Matériel mesures biométriques ;Acquisition d’appareils de mesures biométriques
+43.04.02;Santé et médecine;Éqpts biomédic maintenance conso hosp;Matériel d'assistance fonctionnelle et thérapie;Acquisition d’équipements d’assistance fonctionnelle et thérapie
+43.04.03;Santé et médecine;Éqpts biomédic maintenance conso hosp;Matériel de techniques opératoires;Acquisition d’équipements de techniques opératoires
+43.04.04;Santé et médecine;Éqpts biomédic maintenance conso hosp;Matériel de contrôle de mesure et d'essais biomédicaux;Acquisition d’équipements de contrôle de mesure et d'essais biomédicaux
+43.04.05;Santé et médecine;Éqpts biomédic maintenance conso hosp;Matériel de perfusion et réchauffement patients;Acquisition d’équipements de perfusion et réchauffement patients
+43.04.06;Santé et médecine;Éqpts biomédic maintenance conso hosp;Matériels dentaires;Acquisition d’équipements dentaires
+43.04.07;Santé et médecine;Éqpts biomédic maintenance conso hosp;Matériel de thérapie sang, assist fonct rénale ;Acquisition d’équipements de thérapie sang, assistance fonctionnelle rénale
+43.04.08;Santé et médecine;Éqpts biomédic maintenance conso hosp;Matériel d'endoscopie;Acquisition d’équipements d’endoscopie
+43.04.09;Santé et médecine;Éqpts biomédic maintenance conso hosp;Matériel d'explo fonctionnelle médicale;Acquisition d’équipements exploration fonctionnelle médicale
+43.04.10;Santé et médecine;Éqpts biomédic maintenance conso hosp;Matériel d'imagerie médicale radiothérapie;Acquisition d’équipements imagerie médicale radiothérapie
+43.04.11;Santé et médecine;Éqpts biomédic maintenance conso hosp;Matériel d'ophtalmologie et ORL;Acquisition d’équipements ophtalmologie et oto-rhino-laryngologie
+43.04.12;Santé et médecine;Éqpts biomédic maintenance conso hosp;Matériel d'explo fonc, surv thérapie cardiaque;Acquisition d’équipements exploration fonctionnelle, surveillance de thérapies cardiaques
+43.04.13;Santé et médecine;Éqpts biomédic maintenance conso hosp;Matériel de stérilisation, désinfection;Acquisition d’équipements médicaux stérilisation, désinfection
+43.04.14;Santé et médecine;Éqpts biomédic maintenance conso hosp;Autres matériels biomédicaux;Acquisition d’équipements biomédicaux autres
+43.04.15;Santé et médecine;Éqpts biomédic maintenance conso hosp;Prestation de maintenance des matériels biomédicaux;Prestation de maintenance des matériels biomédicaux
+43.04.16;Santé et médecine;Éqpts biomédic maintenance conso hosp;Pièces détachées et consommables pour matériels biomédicaux;Pièces détachées et consommables pour matériels biomédicaux
+43.05.01;Santé et médecine;Médicaments hospitaliers;Préparations hosp, prép magistrales, prod officinaux divisés;Acquisition de préparations hospitaliers, de préparations magistrales et de produits officinaux divisés
+43.05.02;Santé et médecine;Médicaments hospitaliers;SPH anti infectieux generaux a usage systemique;Acquisition de SPH anti infectieux généraux à usage systémique
+43.05.03;Santé et médecine;Médicaments hospitaliers;SPH antinéoplasiques et immunomodulateurs;Acquisition de SPH antinéoplasiques et immunomodulateurs
+43.05.04;Santé et médecine;Médicaments hospitaliers;SPH anti-parasitaires, insecticides et acaricides;Acquisition de SPH anti-parasitaires, insecticides et acaricides
+43.05.05;Santé et médecine;Médicaments hospitaliers;SPH dermatologie;Acquisition de SPH dermatologie
+43.05.06;Santé et médecine;Médicaments hospitaliers;SPH hormones systemiques;Acquisition de SPH hormones systémiques
+43.05.07;Santé et médecine;Médicaments hospitaliers;SPH muscle et squelette ;Acquisition de SPH muscle et squelette
+43.05.08;Santé et médecine;Médicaments hospitaliers;SPH organes sensoriels;Acquisition de SPH organes sensoriels
+43.05.09;Santé et médecine;Médicaments hospitaliers;SPH Produits du corps humain et therapeutiques annexes;Acquisition de SPH Produits du corps humain et thérapeutiques annexes
+43.05.10;Santé et médecine;Médicaments hospitaliers;SPH radio pharmaceutiques;Acquisition de SPH radio pharmaceutiques
+43.05.11;Santé et médecine;Médicaments hospitaliers;SPH sang et organes hematopoïetiques;Acquisition de SPH sang et organes hématopoïétiques
+43.05.12;Santé et médecine;Médicaments hospitaliers;SPH système cardiovasculaire;Acquisition de SPH système cardiovasculaire
+43.05.13;Santé et médecine;Médicaments hospitaliers;SPH système genito-urinaire et hormones sexuelles;Acquisition de SPH système genito-urinaire et hormones sexuelles
+43.05.14;Santé et médecine;Médicaments hospitaliers;SPH système nerveux;Acquisition de SPH système nerveux
+43.05.15;Santé et médecine;Médicaments hospitaliers;SPH système respiratoire;Acquisition de SPH système respiratoire
+43.05.16;Santé et médecine;Médicaments hospitaliers;SPH voies digestives et metabolisme;Acquisition de SPH voies digestives et métabolisme
+43.05.17;Santé et médecine;Médicaments hospitaliers;SPH autres;Acquisition de tout type d’autres SPH
+43.06.01;Santé et médecine;Autres produits de santé hospitaliers;Médicaments et consommables à usage dentaire ;Acquisition de médicaments et consommables à usage dentaire
+43.06.02;Santé et médecine;Autres produits de santé hospitaliers;Equipements d'instruction santé;Acquisition d’équipements d’instruction santé
+43.06.03;Santé et médecine;Autres produits de santé hospitaliers;Equipements et matériels opérationnels santé;Acquisition d’équipements et de matériels opérationnels de santé
+43.06.04;Santé et médecine;Autres produits de santé hospitaliers;Produits d'hygiène hospitalière et désinfection des DM;Acquisition de produits d’hygiène hospitalière et désinfection des dispositifs médicaux
+43.07.01;Santé et médecine;Autres matériels et produits de santé;Matériel médical (hors hospitalier);Acquisition de matériel médical non hospitalier
+43.07.02;Santé et médecine;Autres matériels et produits de santé;Médicaments et consommables à usage non vétérinaire;Acquisition de tout type de médicaments et consommables à usage non vétérinaire
+43.07.03;Santé et médecine;Autres matériels et produits de santé;Médicaments et consommables à usage vétérinaire;Acquisition de tout type de médicaments et consommables à usage vétérinaire
+43.07.04;Santé et médecine;Autres matériels et produits de santé;Insecticides à visée prophylactique;Acquisition d’insecticides à visée prophylactique
+44.01.01;Fournitures et matériel divers;Fourniture et matériel nettoyage;Quincaillerie, droguerie, consommables (hors trav.);Acquisition de tout type de fournitures de nettoyage : quincaillerie, droguerie et consommables
+44.01.02;Fournitures et matériel divers;Fourniture et matériel nettoyage;Équipement de nettoyage;Acquisition de tout type d’équipements de nettoyage
+44.02.01;Fournitures et matériel divers;Fourniture et équipement industriel;Intrant, matière première utilisée ds processus industriel;Acquisition de tout type d’intrants (produits apportés aux terres et cultures) et de matières premières utilisées dans les processus industriels
+44.02.02;Fournitures et matériel divers;Fourniture et équipement industriel;Machine et équipement industriel (hors mat impression);Acquisition de tout type de machines et d’équipements industriels
+44.03.01;Fournitures et matériel divers;Autres fournitures;Fournitures horticoles, matériel, plantes et fleurs;Acquisition de tout type de fournitures horticoles : matériel, plantes, fleurs, etc.
+44.03.02;Fournitures et matériel divers;Autres fournitures;Acquisition d’animaux, fourniture, matériel, alim associés;Acquisition de tout type d’animaux, de fournitures, matériels et alimentations associés
+44.03.03;Fournitures et matériel divers;Autres fournitures;Services pour animaux (hors soins médicaux);Acquisition de services pour animaux
+44.03.04;Fournitures et matériel divers;Autres fournitures;Monnaies, médailles, insigne, trophée, objets commémoratifs;Acquisition de tout type de monnaies, médailles, insignes, trophées et objets commémoratifs
+44.03.05;Fournitures et matériel divers;Autres fournitures;Services et fournitures funéraires;Acquisition de services et de fournitures funéraires
+44.03.06;Fournitures et matériel divers;Autres fournitures;Piles et batteries;Acquisition de tout type de piles et batteries
+44.03.07;Fournitures et matériel divers;Autres fournitures;Biens culturels et œuvre d'art ;Acquisition de tout type de biens culturels et d’œuvre d’art
+44.03.08;Fournitures et matériel divers;Autres fournitures;Petit outillage à main et coupant;Acquisition de petit outillage à main et coupant
+44.03.09;Fournitures et matériel divers;Autres fournitures;Outillage électroportatif (perceuse, meuleuse, scie élec …);Acquisition d’outillage électroportatif (perceuse, meuleuse, scie électrique, etc.)
+44.03.10;Fournitures et matériel divers;Autres fournitures;Équipement et matériel de sport, de musique et de loisirs;Acquisition d’équipement et de matériel de sport, de musique et de loisirs
+44.03.11;Fournitures et matériel divers;Autres fournitures;Bagagerie;Acquisition de tout type de matériel de bagagerie (valises, sacs de voyage)
+44.03.12;Fournitures et matériel divers;Autres fournitures;Emballage (caisse, palette, carton, film);Acquisition de tout type d’emballage (caisse, palette, carton, film)
+44.03.13;Fournitures et matériel divers;Autres fournitures;Redevance de financement matériels techniques;Redevance de financement de matériels techniques
+44.03.14;Fournitures et matériel divers;Autres fournitures;Autres fournitures et petit équipement;Acquisition d’autres fournitures et petits équipements
+45.01.01;Prestations et services divers;Assurances, services financiers;Assurance du patrimoine, dommages ouvrages construction;Acquisition d’assurance du patrimoine, dommages ouvrages et construction inclus
+45.01.02;Prestations et services divers;Assurances, services financiers;Assurance transports;Acquisition d’assurance transport
+45.01.03;Prestations et services divers;Assurances, services financiers;Autres assurances;Acquisition d’autres assurances
+45.01.04;Prestations et services divers;Assurances, services financiers;Conseil et expertise en assurance;Prestation de conseil et d’expertise en assurance
+45.01.05;Prestations et services divers;Assurances, services financiers;Frais bancaires et de transaction;Frais financiers notamment liés à l’utilisation de cartes de paiement et de cartes achat 
+45.01.06;Prestations et services divers;Assurances, services financiers;Intermédiation et autres services financiers;Prestation d’intermédiation et autres services financiers
+45.02.01;Prestations et services divers;Flux financiers et titres;Flux financiers et monétaires;Flux financiers et monétaires
+45.02.02;Prestations et services divers;Flux financiers et titres;Émission de titre et de monnaie fiduciaire;Prestation d’émission de titre et de monnaie fiduciaire
+45.03.01;Prestations et services divers;Frais de justice;Frais de justice MINJU art. R 92 et R93 du CPP;Frais de justice prévus par les articles R.92 et R.93 du CPP (notamment les frais d'interprétariat et autres frais d'intermédiaires)
+45.04.02;Prestations et services divers;Prestations liées aux œuvres d’art;Conservation-restauration de biens culturels;Prestations de service de conservation préventive (gestion du climat, sécurisation de l'œuvre, vitrine, traitement des infestations, etc.), la conservation curative (luttes contre les moisissures, etc.) et la restauration de biens culturels (tout objet mobilier présentant un intérêt historique, artistique, archéologique, esthétique, scientifique et/ou technique).
+45.04.03;Prestations et services divers;Prestations liées aux œuvres d’art;Conservation-restauration d'archives;Prestations de service de conservation préventive (gestion du climat, traitement des infestations, etc.), la conservation curative (luttes contre les moisissures, etc.) et la restauration d'archives.
+45.04.04;Prestations et services divers;Prestations liées aux œuvres d’art;Etudes et conseil en conservation-restauration;Prestations d'études et de conseil en conservation-restauration de biens culturels et d'archives
+45.05.01;Prestations et services divers;Autres prestations;Prestations d'intérim;Prestations d'intérim
+45.05.02;Prestations et services divers;Autres prestations;Services sociaux et d'assistance;Prestation de services sociaux et d’assistance, notamment de protection de l’enfance auprès d’associations et d’organismes publics
+45.05.03;Prestations et services divers;Autres prestations;Services accès données (hors documentaires);Acquisition de services d’accès aux données
+45.05.04;Prestations et services divers;Autres prestations;Prestations centre d'appel, hotline, standard téléphonique;Prestation de centre d’appel, hotline et standard téléphonique
+45.05.05;Prestations et services divers;Autres prestations;Mise en œuvre des examens techniques et professionnels;Mise en œuvre d‘examens techniques professionnels
+45.05.06;Prestations et services divers;Autres prestations;Entretien petit et gros outillage;Prestation d’entretien de petits et gros outillages
+45.05.07;Prestations et services divers;Autres prestations;Autres prestations et services;Autres prestations et services
+45.05.08;Prestations et services divers;Autres prestations;Prestation agence immo, yc réservation logement et salle;Prestation d’agence immobilière, y compris la réservation de logement et de salle
+45.05.09;Prestations et services divers;Autres prestations;Frais d'intermédiation;Frais d’intermédiation de tout type
+46.01.01;Intérêts morat, indemnité, péna;Intérêts morat, indemnité, péna;Intérêts moratoires;Intérêts moratoires : intérêts dus à compter du jour suivant l'expiration du délai global de paiement.
+46.01.02;Intérêts morat, indemnité, péna;Intérêts morat, indemnité, péna;Indemnités, dommages et intérêts;Indemnités, dommages et intérêts
+46.01.03;Intérêts morat, indemnité, péna;Intérêts morat, indemnité, péna;Autres pénalités et condamnations;Autres pénalités et condamnations

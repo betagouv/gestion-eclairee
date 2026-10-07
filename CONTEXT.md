@@ -133,6 +133,12 @@ Troisième niveau de la nomenclature des groupes de marchandises (ex.
 et d'un groupe.
 _Dans les sources_ : « Groupe de marchandises (P) - Clé » (ODA)
 
+**Groupe de marchandises prédit (gm_pred)** :
+Groupe de marchandises estimé pour une facture par le LLM, faute de GM porté
+par la source ; prédiction stockée dans `gesec_facture_gm_pred` (domaine,
+segment et code feuille), distincte du GM de vérité terrain.
+_Dans les sources_ : « Gm » (ODA), « GM » (BUDAT)
+
 ### Organisations
 
 **Destinataire** :

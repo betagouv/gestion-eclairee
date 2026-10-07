@@ -12,6 +12,8 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - Vérification (lecture seule) : `uv run ruff format --check; uv run ruff check; uv run ty check`
 - Django : `uv run ./manage.py <commande>` (migrate, shell, launch_pipeline...)
 - Pipeline complet : `uv run ./manage.py launch_pipeline [--ministere <code>]`
+- Classification GM : `uv run ./manage.py classify_gm [--ministere <code>] [--date-min <iso>] [--date-max <iso>]`
+  (étape indépendante du launcher : appelle le LLM Albert, écrit `gesec_facture_gm_pred`)
 - Extraction XML : `uv run python -m gesec.data.processors.cpro.pivots_xml -i <in> -o <out>`
 - Recette de bout en bout : `./test_recette.sh` (ENV_FILE=../gesec-recette.env)
 
@@ -20,6 +22,8 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - `gesec/data/pipeline/layer_1_bronze/` : ingestion brute CSV/XML vers la base
 - `gesec/data/pipeline/layer_2_silver/` : normalisation, mapping services → ministères
 - `gesec/data/pipeline/layer_3_gold/` : tables métier `Facture` / `FactureLigne`
+- `gesec/data/classify_gm/` : classification GM (LLM) hors launcher ; référentiel,
+  prompts, client Albert, orchestration `gold.py` (`gesec_facture_gm_pred`)
 - `gesec/data/pipeline/launcher.py` : orchestration des 3 couches
 - `gesec/data/processors/cpro/` : lecture Factur-X / pivots XML
 - `gesec/data/sync/` : listes et téléchargement des exports CPRO
