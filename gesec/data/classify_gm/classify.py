@@ -6,8 +6,10 @@ La source est le gold Django : gesec_facture (en-têtes) et gesec_facture_ligne
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass
 from datetime import date
+from pathlib import Path
 from typing import Any, Literal, LiteralString, cast
 
 import psycopg
@@ -16,6 +18,7 @@ from psycopg.types.json import Jsonb
 
 ClassifyMode = Literal["new", "reprocess", "all"]
 DEFAULT_MAX_WORKERS = 5
+_IDENTIFIANT_COLUMN = "identifiant_chorus_pro"
 
 _ENTETE_TABLE = "gesec_facture"
 _LIGNE_TABLE = "gesec_facture_ligne"
@@ -72,6 +75,19 @@ def _build_filters(
         clauses.append(sql.SQL("AND LOWER(COALESCE(e.fournisseur_designation, '')) NOT IN ({})").format(placeholders))
         params.extend(f.strip().lower() for f in exclude_fournisseurs)
     return sql.SQL(" ").join(clauses), params
+
+
+def read_identifiants_csv(path: str | Path) -> list[str]:
+    """Lit les identifiants Chorus Pro d'un CSV (colonne `identifiant_chorus_pro`, sinon première)."""
+    with Path(path).open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        if reader.fieldnames is None:
+            raise ValueError(f"CSV vide ou sans en-tête : {path}")
+        column = _IDENTIFIANT_COLUMN if _IDENTIFIANT_COLUMN in reader.fieldnames else reader.fieldnames[0]
+        identifiants = [row[column].strip() for row in reader if row.get(column, "").strip()]
+    if not identifiants:
+        raise ValueError(f"Aucun identifiant lisible dans : {path}")
+    return list(dict.fromkeys(identifiants))
 
 
 def sample_factures(

@@ -1,11 +1,13 @@
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from typing import Any, Iterator
 
 import psycopg
 import pytest
 from psycopg import sql
 
+from gesec.data.classify_gm.classify import read_identifiants_csv
 from gesec.data.classify_gm.classify_hierarchy import run_classify_hierarchical
 from gesec.data.classify_gm.db import get_database_url
 from gesec.data.classify_gm.gold import TABLE_NAME
@@ -198,3 +200,40 @@ def test_reprocess_ecrase_la_prediction(conn: psycopg.Connection) -> None:
 
     assert len(results) == 1
     assert len(fetch_predictions(conn)) == 1
+
+
+def test_read_identifiants_csv(tmp_path: Path) -> None:
+    path = tmp_path / "ids.csv"
+    path.write_text(
+        "rank,identifiant_chorus_pro,gm_original,gm\n1,cpro-1,33.04,33.04\n2,cpro-2,33.06,\n3,cpro-1,33.04,33.04\n",
+        encoding="utf-8",
+    )
+
+    assert read_identifiants_csv(path) == ["cpro-1", "cpro-2"]
+
+
+def test_read_identifiants_csv_sans_colonne_nommee(tmp_path: Path) -> None:
+    path = tmp_path / "ids.csv"
+    path.write_text("id,autre\ncpro-9,x\n", encoding="utf-8")
+
+    assert read_identifiants_csv(path) == ["cpro-9"]
+
+
+def test_read_identifiants_csv_vide(tmp_path: Path) -> None:
+    path = tmp_path / "ids.csv"
+    path.write_text("identifiant_chorus_pro\n", encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        read_identifiants_csv(path)
+
+
+def test_identifiants_cible_le_classement(conn: psycopg.Connection) -> None:
+    create_facture("cpro-a")
+    add_ligne(conn, "cpro-a")
+    create_facture("cpro-b")
+    add_ligne(conn, "cpro-b")
+
+    results = run_classify_hierarchical(conn, FakeLLM(), n=10, model="test", identifiants=["cpro-b"])
+
+    assert [r["identifiant_chorus_pro"] for r in results] == ["cpro-b"]
+    assert [r["identifiant_chorus_pro"] for r in fetch_predictions(conn)] == ["cpro-b"]
