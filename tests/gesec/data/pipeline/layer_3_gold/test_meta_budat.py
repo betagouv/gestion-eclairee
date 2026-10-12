@@ -13,6 +13,7 @@ from sqlalchemy.engine import URL
 
 import pandas as pd
 
+from gesec.data.classify_gm.paths import load_ddl
 from gesec.data.pipeline.db import pydantic_model_to_dtype
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeBudatExportAugdt
 from gesec.data.pipeline.layer_2_silver.schemas import SilverService
@@ -23,7 +24,13 @@ from gesec.models import Facture
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
-RAW_TABLES = ["bronze_budat_export_augdt", "silver_services", "gesec_facture_ligne", TABLE_NAME]
+RAW_TABLES = [
+    "bronze_budat_export_augdt",
+    "silver_services",
+    "gesec_facture_ligne",
+    "gesec_facture_gm_pred",
+    TABLE_NAME,
+]
 
 
 def build_engine() -> Engine:
@@ -50,6 +57,8 @@ def engine() -> Iterator[Engine]:
     test_engine = build_engine()
     drop_raw_tables(test_engine)
     create_empty_table(test_engine, "gesec_facture_ligne", GoldCproExportFactureLigne)
+    with test_engine.begin() as conn:
+        conn.execute(text(load_ddl()))
     yield test_engine
     drop_raw_tables(test_engine)
     test_engine.dispose()
@@ -164,7 +173,10 @@ def fetch_meta(engine: Engine) -> list[dict[str, Any]]:
     with engine.connect() as conn:
         result = conn.execute(
             text(f"""
-                SELECT source_idx, cas, montant, montant_ligne_ttc, segment, ministere, service,
+                SELECT source_idx, cas, montant, montant_ligne_ttc, segment, domaine, gm, ministere, service,
+                       budat_gm, budat_segment, budat_domaine,
+                       cpro_gm, cpro_segment, cpro_domaine,
+                       pred_gm, pred_segment, pred_domaine,
                        facture_date_str, facture_date, date_payment_str, date_payment,
                        fournisseur_in_fine_designation, fournisseur_in_fine_siren
                 FROM {TABLE_NAME}
@@ -172,6 +184,25 @@ def fetch_meta(engine: Engine) -> list[dict[str, Any]]:
             """)
         )
         return [dict(row._mapping) for row in result]
+
+
+def save_prediction(
+    engine: Engine,
+    id_cpro: str,
+    gm: str | None,
+    domaine: str | None,
+    segment: str | None,
+) -> None:
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                INSERT INTO gesec_facture_gm_pred (identifiant_chorus_pro, gm_pred, gm_pred_domaine, gm_pred_segment)
+                VALUES (:id_cpro, :gm, :domaine, :segment)
+                """
+            ),
+            {"id_cpro": id_cpro, "gm": gm, "domaine": domaine, "segment": segment},
+        )
 
 
 def test_repli_budat_sur_les_lignes_non_rapprochees(engine: Engine) -> None:
@@ -195,7 +226,14 @@ def test_repli_budat_sur_les_lignes_non_rapprochees(engine: Engine) -> None:
     assert facture_absente["cas"] == "facture_absente"
     assert facture_absente["montant"] == Decimal("100.00")
     assert facture_absente["montant_ligne_ttc"] is None
+    assert facture_absente["budat_gm"] == "33.01.04"
+    assert facture_absente["budat_segment"] == "33.01"
+    assert facture_absente["budat_domaine"] == "33"
+    assert facture_absente["cpro_gm"] == ""
+    assert facture_absente["pred_gm"] == ""
     assert facture_absente["segment"] == "33.01"
+    assert facture_absente["domaine"] == "33"
+    assert facture_absente["gm"] == ""
     assert facture_absente["ministere"] == "INTERIEUR"
     assert facture_absente["service"] == "SEDP1"
     assert facture_absente["facture_date_str"] == "20250312"
@@ -206,7 +244,13 @@ def test_repli_budat_sur_les_lignes_non_rapprochees(engine: Engine) -> None:
     facture_sans_lignes = rows[1]
     assert facture_sans_lignes["cas"] == "facture_sans_lignes"
     assert facture_sans_lignes["montant"] == Decimal("50.00")
-    assert facture_sans_lignes["segment"] == "33.02.01"
+    assert facture_sans_lignes["budat_gm"] == "33.99.99"
+    assert facture_sans_lignes["cpro_gm"] == "33.02.01"
+    assert facture_sans_lignes["cpro_segment"] == "33.02"
+    assert facture_sans_lignes["cpro_domaine"] == "33"
+    assert facture_sans_lignes["pred_gm"] == ""
+    assert facture_sans_lignes["segment"] == "33.02"
+    assert facture_sans_lignes["gm"] == "33.02.01"
     assert facture_sans_lignes["ministere"] == "FINANCES"
     assert facture_sans_lignes["service"] == "SERVICE"
 
@@ -260,6 +304,51 @@ def test_eclatement_prorata_et_fournisseur_in_fine(engine: Engine) -> None:
     total_nul = [row for row in rows if row["source_idx"] == 3]
     assert [row["cas"] for row in total_nul] == ["lignes_non_ugap", "lignes_non_ugap"]
     assert [row["montant"] for row in total_nul] == [Decimal("5.00"), Decimal("5.00")]
+
+
+def test_arbitrage_triplets_gm(engine: Engine) -> None:
+    save_rows(engine, "silver_services", [SilverService(code="SEDP1", name="Service 1", ministere="INTERIEUR")])
+    create_facture(numero="100", id_cpro="cpro-pred", gm="33.02.01", ministere="FINANCES")
+    create_facture(numero="200", id_cpro="cpro-seul", gm="41.10.03", ministere="FINANCES")
+    create_facture(numero="300", id_cpro="cpro-sans-gm")
+    save_prediction(engine, "cpro-pred", gm="33.04.09", domaine="33", segment="33.04")
+    save_rows(
+        engine,
+        "bronze_budat_export_augdt",
+        [
+            budat_row(1, "100", montant="10,00", gm="99.99.99"),
+            budat_row(2, "200", montant="10,00", gm="99.99.99"),
+            budat_row(3, "300", montant="10,00", gm="41.10.03"),
+        ],
+    )
+
+    process_to_gold(engine=engine)
+
+    rows = fetch_meta(engine)
+    assert len(rows) == 3
+
+    avec_pred = rows[0]
+    assert avec_pred["budat_gm"] == "99.99.99"
+    assert avec_pred["cpro_gm"] == "33.02.01"
+    assert avec_pred["pred_gm"] == "33.04.09"
+    assert avec_pred["pred_segment"] == "33.04"
+    assert avec_pred["pred_domaine"] == "33"
+    assert avec_pred["gm"] == "33.04.09"
+    assert avec_pred["segment"] == "33.04"
+    assert avec_pred["domaine"] == "33"
+
+    sans_pred = rows[1]
+    assert sans_pred["pred_gm"] == ""
+    assert sans_pred["gm"] == "41.10.03"
+    assert sans_pred["segment"] == "41.10"
+    assert sans_pred["domaine"] == "41"
+
+    sans_cpro = rows[2]
+    assert sans_cpro["cpro_gm"] == ""
+    assert sans_cpro["pred_gm"] == ""
+    assert sans_cpro["gm"] == ""
+    assert sans_cpro["segment"] == "41.10"
+    assert sans_cpro["domaine"] == "41"
 
 
 def test_dates_parsee_et_non_parsee(engine: Engine, caplog: pytest.LogCaptureFixture) -> None:

@@ -139,6 +139,12 @@ par la source ; prédiction stockée dans `gesec_facture_gm_pred` (domaine,
 segment et code feuille), distincte du GM de vérité terrain.
 _Dans les sources_ : « Gm » (ODA), « GM » (BUDAT)
 
+**Triplets GM de meta_budat** :
+`gesec_meta_budat` expose quatre triplets `(domaine, segment, gm)` : `budat_*`
+(GM de la ligne BUDAT), `cpro_*` (GM de la facture CPRO), `pred_*` (prédiction
+LLM) et le triplet sans préfixe `domaine`/`segment`/`gm`, arbitré par cascade
+prédiction > CPRO > BUDAT. Voir ADR 0004.
+
 ### Organisations
 
 **Destinataire** :

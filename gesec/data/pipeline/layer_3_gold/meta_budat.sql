@@ -8,12 +8,24 @@
 -- BUDAT est peu fiable (113 920 réfs non numériques), la facture retenue en cas de
 -- `numero` dupliqué (224 cas) est celle au plus grand id.
 -- Repli sur BUDAT quand la facture est absente : service = SEDP, ministère via
--- silver_services, segment = gm_budat tronqué à 2 niveaux (ex. 33.01.04 -> 33.01).
+-- silver_services, segment = budat_gm tronqué à 2 niveaux (ex. 33.01.04 -> 33.01).
 -- Montants TTC : `montant` = prorata du montant BUDAT sur les lignes de la facture
 -- (ou montant BUDAT si non éclatée) ; `montant_ligne_ttc` = TTC réel de la ligne.
 -- Dates : `*_str` porte la valeur brute (AAAAMMJJ), la colonne sans suffixe la
 -- valeur parsée, NULL quand la valeur brute est vide ou non parsable (le
 -- pipeline logge alors un WARNING agrégé).
+--
+-- Groupes de marchandises : trois triplets (domaine, segment, gm) préfixés par
+-- leur source, plus un triplet arbitré sans préfixe.
+--   budat_* : GM porté par la ligne BUDAT (feuille, parfois partielle ou vide).
+--   cpro_*  : GM de vérité terrain de la facture CPRO (ODA), vide si facture absente.
+--   pred_*  : prédiction LLM de gesec_facture_gm_pred, vide si absente ; jointe
+--             par id_cpro = identifiant_chorus_pro de la facture.
+--   domaine/segment/gm : arbitrage par triplet entier, prédiction > CPRO > BUDAT.
+-- Le vide est représenté par une chaîne vide (pas de NULL) pour tous les GM : la
+-- cascade se lit donc en `<> ''`. Les niveaux domaine et segment sont dérivés par
+-- troncature du code : les deux premiers caractères (domaine), les cinq premiers
+-- (segment). Les prédictions fournissent déjà leurs niveaux, recopiés tels quels.
 --
 -- Cas :
 --   facture_absente                       facture BUDAT introuvable dans CPRO
@@ -34,7 +46,7 @@ budat as (
     select
         source, source_idx, annee, facture, facture_ref, facture_date, date_payment,
         replace(facture_montant, ',', '.')::numeric as montant_budat,
-        ej, marche, seej, gm as gm_budat, libelle, fournisseur as fournisseur_budat,
+        ej, marche, seej, coalesce(gm, '') as budat_gm, libelle, fournisseur as fournisseur_budat,
         fournisseur_siren as fournisseur_siren_budat, facture_fi, societe,
         service as service_budat, cc, pce, txt50, activite, description,
         ltrim(facture_ref, '0') as facture_ref_norm
@@ -43,13 +55,19 @@ budat as (
 facture as (
     select distinct on (ltrim(numero, '0'))
         ltrim(numero, '0') as numero_norm, numero, identifiant_chorus_pro as id_cpro,
-        mt_ttc as facture_ttc, gm as segment, gm_list, gm_multi, ministere,
+        mt_ttc as facture_ttc, coalesce(gm, '') as cpro_gm, gm_list, gm_multi, ministere,
         destinataire_code_service as service_facture, destinataire_service,
         fournisseur_designation as fournisseur_facture, fournisseur_identifiant,
         left(fournisseur_identifiant, 9) = :ugap_siren as est_ugap
     from gesec_facture
     where numero <> ''
     order by ltrim(numero, '0'), id desc
+),
+prediction as (
+    select
+        identifiant_chorus_pro, gm_pred as pred_gm,
+        gm_pred_domaine as pred_domaine, gm_pred_segment as pred_segment
+    from gesec_facture_gm_pred
 ),
 ligne_facture as (
     select id_cpro, count(*) as nb_lignes, sum(line_amount_incl_tax) as total_ttc
@@ -64,10 +82,13 @@ services as (
 ),
 base as (
     select
-        b.*, f.id_cpro, f.numero, f.facture_ttc, f.segment, f.gm_list, f.gm_multi,
+        b.*, f.id_cpro, f.numero, f.facture_ttc, coalesce(f.cpro_gm, '') as cpro_gm, f.gm_list, f.gm_multi,
         f.ministere, f.service_facture, f.destinataire_service, f.fournisseur_facture,
         f.fournisseur_identifiant, f.est_ugap, lf.nb_lignes, lf.total_ttc,
         s.ministere as ministere_service_budat,
+        coalesce(p.pred_gm, '') as pred_gm,
+        coalesce(p.pred_domaine, '') as pred_domaine,
+        coalesce(p.pred_segment, '') as pred_segment,
         case
             when f.id_cpro is null then 'facture_absente'
             when lf.nb_lignes is null then 'facture_sans_lignes'
@@ -77,6 +98,7 @@ base as (
     left join facture f on f.numero_norm = b.facture_ref_norm
     left join ligne_facture lf on lf.id_cpro = f.id_cpro
     left join services s on s.code = b.service_budat
+    left join prediction p on p.identifiant_chorus_pro = f.id_cpro
 ),
 meta_budat_facture as (
     select
@@ -90,7 +112,7 @@ meta_budat_facture as (
             when btrim(b.date_payment) ~ '^[0-9]{8}$' then to_date(btrim(b.date_payment), 'YYYYMMDD')
         end as date_payment,
         b.ej, b.marche, b.seej, b.facture_fi, b.societe, b.cc, b.pce, b.txt50, b.activite, b.description,
-        b.gm_budat, b.libelle as libelle_budat, b.fournisseur_budat, b.fournisseur_siren_budat, b.service_budat,
+        b.libelle as libelle_budat, b.fournisseur_budat, b.fournisseur_siren_budat, b.service_budat,
         case
             when b.cas_facture = 'facture_avec_lignes' and b.total_ttc > 0
                 then round(b.montant_budat * gl.line_amount_incl_tax / b.total_ttc, 2)
@@ -100,7 +122,27 @@ meta_budat_facture as (
         end as montant,
         gl.line_amount_incl_tax as montant_ligne_ttc,
         b.id_cpro, b.numero, b.facture_ttc, b.gm_list, b.gm_multi,
-        coalesce(b.segment, nullif(substring(b.gm_budat from 1 for 5), '')) as segment,
+        b.budat_gm,
+        substring(b.budat_gm from 1 for 5) as budat_segment,
+        substring(b.budat_gm from 1 for 2) as budat_domaine,
+        b.cpro_gm,
+        substring(b.cpro_gm from 1 for 5) as cpro_segment,
+        substring(b.cpro_gm from 1 for 2) as cpro_domaine,
+        b.pred_gm, b.pred_segment, b.pred_domaine,
+        case
+            when b.pred_gm <> '' then b.pred_gm
+            else b.cpro_gm
+        end as gm,
+        case
+            when b.pred_gm <> '' then b.pred_segment
+            when b.cpro_gm <> '' then substring(b.cpro_gm from 1 for 5)
+            else substring(b.budat_gm from 1 for 5)
+        end as segment,
+        case
+            when b.pred_gm <> '' then b.pred_domaine
+            when b.cpro_gm <> '' then substring(b.cpro_gm from 1 for 2)
+            else substring(b.budat_gm from 1 for 2)
+        end as domaine,
         coalesce(b.ministere, b.ministere_service_budat, 'INCONNU') as ministere,
         coalesce(nullif(b.service_facture, ''), b.service_budat) as service,
         b.destinataire_service, b.fournisseur_facture, b.est_ugap,
