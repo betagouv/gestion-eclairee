@@ -30,6 +30,9 @@ dependencies = [
     "xmltodict>=1.0.4",
 ]
 
+[tool.uv.workspace]
+members = ["mcpserver"]
+
 [dependency-groups]
 dev = [
     "django-stubs>=6.0.5",
