@@ -16,6 +16,7 @@ from gesec.data.classify_gm.classify import (
     DEFAULT_MAX_WORKERS,
     ClassifyMode,
     FactureSample,
+    count_samples,
     iter_samples,
     upsert_prediction,
 )
@@ -240,8 +241,24 @@ def run_classify_hierarchical(
         raise RuntimeError("Référentiel GM vide")
     enrichment = load_domain_enrichment()
 
+    total = (
+        n
+        if n is not None
+        else count_samples(
+            conn,
+            mode=mode,
+            identifiants=identifiants,
+            exclude_fournisseurs=exclude_fournisseurs,
+            require_gm=require_gm,
+            ministere=ministere,
+            date_min=date_min,
+            date_max=date_max,
+        )
+    )
+
     logger.info(
-        "Classification hiérarchique (model=%s, mode=%s, ministere=%s, workers=%s, n=%s, batch_size=%s)",
+        "Classification hiérarchique de %s factures (model=%s, mode=%s, ministere=%s, workers=%s, n=%s, batch_size=%s)",
+        total,
         model,
         mode,
         ministere,
@@ -283,7 +300,7 @@ def run_classify_hierarchical(
         with tqdm(
             desc=f"Classification GM hier [{mode}]",
             unit="facture",
-            total=n,
+            total=total,
         ) as progress:
             futures = []
             for sample in samples:

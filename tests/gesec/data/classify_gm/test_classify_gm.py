@@ -7,7 +7,7 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from gesec.data.classify_gm.classify import read_identifiants_csv
+from gesec.data.classify_gm.classify import count_samples, iter_samples, read_identifiants_csv
 from gesec.data.classify_gm.classify_hierarchy import run_classify_hierarchical
 from gesec.data.classify_gm.db import get_database_url
 from gesec.data.classify_gm.gold import TABLE_NAME
@@ -271,3 +271,42 @@ def test_n_plafonne_le_nombre_de_factures(conn: psycopg.Connection) -> None:
 
     assert [r["identifiant_chorus_pro"] for r in results] == ["cpro-0", "cpro-1"]
     assert len(fetch_predictions(conn)) == 2
+
+
+def test_count_samples_mode_new(conn: psycopg.Connection) -> None:
+    create_facture("cpro-1")
+    add_ligne(conn, "cpro-1")
+    create_facture("cpro-2")
+    add_ligne(conn, "cpro-2")
+
+    assert count_samples(conn, mode="new") == 2
+
+    run_classify_hierarchical(conn, FakeLLM(), model="test", mode="new")
+
+    assert count_samples(conn, mode="new") == 0
+    assert count_samples(conn, mode="reprocess") == 2
+    assert count_samples(conn, mode="all") == 2
+
+
+def test_count_samples_ignore_factures_sans_ligne(conn: psycopg.Connection) -> None:
+    create_facture("cpro-avec-ligne")
+    add_ligne(conn, "cpro-avec-ligne")
+    create_facture("cpro-sans-ligne")
+
+    assert count_samples(conn, mode="new") == 1
+
+
+def test_count_samples_coherent_avec_iter_samples(conn: psycopg.Connection) -> None:
+    for i in range(5):
+        create_facture(f"cpro-{i}")
+        add_ligne(conn, f"cpro-{i}")
+
+    assert count_samples(conn, mode="new") == len(list(iter_samples(conn, mode="new", batch_size=2)))
+
+
+def test_count_samples_identifiants(conn: psycopg.Connection) -> None:
+    for i in range(3):
+        create_facture(f"cpro-{i}")
+        add_ligne(conn, f"cpro-{i}")
+
+    assert count_samples(conn, mode="new", identifiants=["cpro-0", "cpro-2", "cpro-absent"]) == 2

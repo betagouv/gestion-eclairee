@@ -236,6 +236,56 @@ def iter_samples(
         after = headers[-1][0]
 
 
+def count_samples(
+    conn: psycopg.Connection,
+    *,
+    mode: ClassifyMode = "new",
+    identifiants: list[str] | None = None,
+    exclude_fournisseurs: list[str] | None = None,
+    require_gm: bool = False,
+    ministere: str | None = None,
+    date_min: date | None = None,
+    date_max: date | None = None,
+) -> int:
+    """Compte les factures éligibles du périmètre, avec les mêmes filtres que `iter_samples`."""
+    if mode not in _MODE_FILTER_SQL:
+        raise ValueError(f"mode invalide : {mode!r} (attendu : new|reprocess|all)")
+
+    entete = sql.Identifier(_ENTETE_TABLE)
+    ligne = sql.Identifier(_LIGNE_TABLE)
+    effective_filters = sql.SQL("")
+    params: list[Any] = []
+    if identifiants is not None:
+        effective_filters = sql.SQL("AND e.identifiant_chorus_pro = ANY(%s)")
+        params.append(identifiants)
+    else:
+        effective_filters, filter_params = _build_filters(
+            mode=mode,
+            require_gm=require_gm,
+            exclude_fournisseurs=exclude_fournisseurs,
+            ministere=ministere,
+            date_min=date_min,
+            date_max=date_max,
+        )
+        params.extend(filter_params)
+    with conn.cursor() as cur:
+        cur.execute(
+            sql.SQL(
+                """
+                SELECT count(*)
+                FROM {} e
+                WHERE EXISTS (
+                    SELECT 1 FROM {} l WHERE l.id_cpro = e.identifiant_chorus_pro
+                )
+                  {}
+                """
+            ).format(entete, ligne, effective_filters),
+            params,
+        )
+        row = cur.fetchone()
+        return int(row[0]) if row is not None else 0
+
+
 def upsert_prediction(
     conn: psycopg.Connection,
     *,
