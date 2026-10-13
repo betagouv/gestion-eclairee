@@ -139,7 +139,7 @@ def test_classifie_et_ecrit_la_prediction(conn: psycopg.Connection) -> None:
     create_facture("cpro-1")
     add_ligne(conn, "cpro-1")
 
-    results = run_classify_hierarchical(conn, FakeLLM(), n=10, model="test", mode="new")
+    results = run_classify_hierarchical(conn, FakeLLM(), model="test", mode="new")
 
     assert len(results) == 1
     assert results[0]["gm_pred"] == "33.02.05"
@@ -162,7 +162,7 @@ def test_filtre_ministere(conn: psycopg.Connection) -> None:
     create_facture("cpro-int", ministere="INTERIEUR")
     add_ligne(conn, "cpro-int")
 
-    results = run_classify_hierarchical(conn, FakeLLM(), n=10, model="test", ministere="INTERIEUR")
+    results = run_classify_hierarchical(conn, FakeLLM(), model="test", ministere="INTERIEUR")
 
     assert [r["identifiant_chorus_pro"] for r in results] == ["cpro-int"]
 
@@ -174,7 +174,7 @@ def test_filtre_date(conn: psycopg.Connection) -> None:
     add_ligne(conn, "cpro-new")
 
     results = run_classify_hierarchical(
-        conn, FakeLLM(), n=10, model="test", date_min=date(2025, 1, 1), date_max=date(2025, 12, 31)
+        conn, FakeLLM(), model="test", date_min=date(2025, 1, 1), date_max=date(2025, 12, 31)
     )
 
     assert [r["identifiant_chorus_pro"] for r in results] == ["cpro-new"]
@@ -183,9 +183,9 @@ def test_filtre_date(conn: psycopg.Connection) -> None:
 def test_mode_new_ignore_deja_classifiees(conn: psycopg.Connection) -> None:
     create_facture("cpro-1")
     add_ligne(conn, "cpro-1")
-    run_classify_hierarchical(conn, FakeLLM(), n=10, model="test", mode="new")
+    run_classify_hierarchical(conn, FakeLLM(), model="test", mode="new")
 
-    results = run_classify_hierarchical(conn, FakeLLM(), n=10, model="test", mode="new")
+    results = run_classify_hierarchical(conn, FakeLLM(), model="test", mode="new")
 
     assert results == []
     assert len(fetch_predictions(conn)) == 1
@@ -194,9 +194,9 @@ def test_mode_new_ignore_deja_classifiees(conn: psycopg.Connection) -> None:
 def test_reprocess_ecrase_la_prediction(conn: psycopg.Connection) -> None:
     create_facture("cpro-1")
     add_ligne(conn, "cpro-1")
-    run_classify_hierarchical(conn, FakeLLM(), n=10, model="test", mode="new")
+    run_classify_hierarchical(conn, FakeLLM(), model="test", mode="new")
 
-    results = run_classify_hierarchical(conn, FakeLLM(), n=10, model="test", mode="reprocess")
+    results = run_classify_hierarchical(conn, FakeLLM(), model="test", mode="reprocess")
 
     assert len(results) == 1
     assert len(fetch_predictions(conn)) == 1
@@ -233,7 +233,41 @@ def test_identifiants_cible_le_classement(conn: psycopg.Connection) -> None:
     create_facture("cpro-b")
     add_ligne(conn, "cpro-b")
 
-    results = run_classify_hierarchical(conn, FakeLLM(), n=10, model="test", identifiants=["cpro-b"])
+    results = run_classify_hierarchical(conn, FakeLLM(), model="test", identifiants=["cpro-b"])
 
     assert [r["identifiant_chorus_pro"] for r in results] == ["cpro-b"]
     assert [r["identifiant_chorus_pro"] for r in fetch_predictions(conn)] == ["cpro-b"]
+
+
+def test_sans_n_classifie_tout_le_perimetre(conn: psycopg.Connection) -> None:
+    for i in range(5):
+        create_facture(f"cpro-{i}")
+        add_ligne(conn, f"cpro-{i}")
+
+    results = run_classify_hierarchical(conn, FakeLLM(), model="test", batch_size=2)
+
+    assert len(results) == 5
+    assert len(fetch_predictions(conn)) == 5
+
+
+def test_batch_size_pagine_par_cle_sans_doublon(conn: psycopg.Connection) -> None:
+    for i in range(3):
+        create_facture(f"cpro-{i}")
+        add_ligne(conn, f"cpro-{i}")
+
+    results = run_classify_hierarchical(conn, FakeLLM(), model="test", batch_size=1)
+
+    identifiants = [r["identifiant_chorus_pro"] for r in results]
+    assert identifiants == ["cpro-0", "cpro-1", "cpro-2"]
+    assert len(fetch_predictions(conn)) == 3
+
+
+def test_n_plafonne_le_nombre_de_factures(conn: psycopg.Connection) -> None:
+    for i in range(4):
+        create_facture(f"cpro-{i}")
+        add_ligne(conn, f"cpro-{i}")
+
+    results = run_classify_hierarchical(conn, FakeLLM(), model="test", n=2, batch_size=1)
+
+    assert [r["identifiant_chorus_pro"] for r in results] == ["cpro-0", "cpro-1"]
+    assert len(fetch_predictions(conn)) == 2

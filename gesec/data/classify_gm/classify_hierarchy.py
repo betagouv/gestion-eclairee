@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -12,10 +12,11 @@ from typing import Any
 from tqdm import tqdm
 
 from gesec.data.classify_gm.classify import (
+    DEFAULT_BATCH_SIZE,
     DEFAULT_MAX_WORKERS,
     ClassifyMode,
     FactureSample,
-    sample_factures,
+    iter_samples,
     upsert_prediction,
 )
 from gesec.data.classify_gm.prompt import parse_llm_content
@@ -221,8 +222,7 @@ def run_classify_hierarchical(
     conn,
     llm_client,
     *,
-    n: int = 100,
-    seed: int | None = 42,
+    n: int | None = None,
     model: str,
     mode: ClassifyMode = "new",
     identifiants: list[str] | None = None,
@@ -232,6 +232,7 @@ def run_classify_hierarchical(
     date_min: date | None = None,
     date_max: date | None = None,
     max_workers: int = DEFAULT_MAX_WORKERS,
+    batch_size: int = DEFAULT_BATCH_SIZE,
     referential_path: Path | None = None,
 ) -> list[dict[str, Any]]:
     entries = load_referential(referential_path)
@@ -239,28 +240,15 @@ def run_classify_hierarchical(
         raise RuntimeError("Référentiel GM vide")
     enrichment = load_domain_enrichment()
 
-    samples = sample_factures(
-        conn,
-        n=n,
-        seed=seed,
-        mode=mode,
-        identifiants=identifiants,
-        exclude_fournisseurs=exclude_fournisseurs,
-        require_gm=require_gm,
-        ministere=ministere,
-        date_min=date_min,
-        date_max=date_max,
-    )
     logger.info(
-        "Classification hiérarchique de %s factures (model=%s, mode=%s, ministere=%s, workers=%s)",
-        len(samples),
+        "Classification hiérarchique (model=%s, mode=%s, ministere=%s, workers=%s, n=%s, batch_size=%s)",
         model,
         mode,
         ministere,
         max_workers,
+        n,
+        batch_size,
     )
-    if not samples:
-        return []
 
     results: list[dict[str, Any]] = []
 
@@ -280,46 +268,68 @@ def run_classify_hierarchical(
 
     workers = max(1, max_workers)
     with ThreadPoolExecutor(max_workers=workers) as executor:
-        futures = [executor.submit(classify_one, sample) for sample in samples]
-        for future in tqdm(
-            as_completed(futures),
-            total=len(futures),
+        samples = iter_samples(
+            conn,
+            n=n,
+            mode=mode,
+            identifiants=identifiants,
+            exclude_fournisseurs=exclude_fournisseurs,
+            require_gm=require_gm,
+            ministere=ministere,
+            date_min=date_min,
+            date_max=date_max,
+            batch_size=batch_size,
+        )
+        with tqdm(
             desc=f"Classification GM hier [{mode}]",
             unit="facture",
-        ):
-            sample, prediction, error = future.result()
-            if error is not None:
-                results.append(
-                    {
-                        "identifiant_chorus_pro": sample.identifiant_chorus_pro,
-                        "gm": sample.gm,
-                        "gm_pred": None,
-                        "error": error,
-                        "latency_s": None,
-                    }
-                )
-                continue
-            assert prediction is not None
-            upsert_prediction(
-                conn,
-                identifiant_chorus_pro=sample.identifiant_chorus_pro,
-                gm_pred=prediction["gm_pred"],
-                domaine=prediction.get("domaine"),
-                segment=prediction.get("segment"),
-                raison=prediction["raison"],
-                raw=prediction["raw"],
-                model=model,
-                latency_s=prediction.get("latency_s"),
-            )
-            results.append(
-                {
-                    "identifiant_chorus_pro": sample.identifiant_chorus_pro,
-                    "gm": sample.gm,
-                    "gm_pred": prediction["gm_pred"],
-                    "domaine": prediction.get("domaine"),
-                    "segment": prediction.get("segment"),
-                    "latency_s": prediction.get("latency_s"),
-                    "error": None,
-                }
-            )
+            total=n,
+        ) as progress:
+            futures = []
+            for sample in samples:
+                futures.append(executor.submit(classify_one, sample))
+                while len(futures) >= batch_size:
+                    _consume(conn, futures.pop(0), results, model)
+                    progress.update(1)
+            for future in futures:
+                _consume(conn, future, results, model)
+                progress.update(1)
     return results
+
+
+def _consume(conn, future, results: list[dict[str, Any]], model: str) -> None:
+    sample, prediction, error = future.result()
+    if error is not None:
+        results.append(
+            {
+                "identifiant_chorus_pro": sample.identifiant_chorus_pro,
+                "gm": sample.gm,
+                "gm_pred": None,
+                "error": error,
+                "latency_s": None,
+            }
+        )
+        return
+    assert prediction is not None
+    upsert_prediction(
+        conn,
+        identifiant_chorus_pro=sample.identifiant_chorus_pro,
+        gm_pred=prediction["gm_pred"],
+        domaine=prediction.get("domaine"),
+        segment=prediction.get("segment"),
+        raison=prediction["raison"],
+        raw=prediction["raw"],
+        model=model,
+        latency_s=prediction.get("latency_s"),
+    )
+    results.append(
+        {
+            "identifiant_chorus_pro": sample.identifiant_chorus_pro,
+            "gm": sample.gm,
+            "gm_pred": prediction["gm_pred"],
+            "domaine": prediction.get("domaine"),
+            "segment": prediction.get("segment"),
+            "latency_s": prediction.get("latency_s"),
+            "error": None,
+        }
+    )

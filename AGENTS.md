@@ -13,7 +13,8 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - Django : `uv run ./manage.py <commande>` (migrate, shell, launch_pipeline...)
 - Pipeline complet : `uv run ./manage.py launch_pipeline [--ministere <code>]`
 - Classification GM : `uv run ./manage.py classify_gm [--ministere <code>] [--date-min <iso>] [--date-max <iso>]`
-  (étape indépendante du launcher : appelle le LLM Albert, écrit `gesec_facture_gm_pred`)
+  (étape indépendante du launcher : appelle le LLM Albert, écrit `gesec_facture_gm_pred`).
+  Sans `--n`, classe tout le périmètre éligible ; `--batch-size` borne les lots lus/écrits.
 - Extraction XML : `uv run python -m gesec.data.processors.cpro.pivots_xml -i <in> -o <out>`
 - Recette de bout en bout : `./test_recette.sh` (ENV_FILE=../gesec-recette.env)
 

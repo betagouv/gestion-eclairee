@@ -12,14 +12,23 @@ class Command(BaseCommand):
         parser.add_argument("--ministere", type=str, help="Filtre ministère")
         parser.add_argument("--date-min", type=date.fromisoformat, help="Date de début (date_etat_courant)")
         parser.add_argument("--date-max", type=date.fromisoformat, help="Date de fin (date_etat_courant)")
-        parser.add_argument("--n", type=int, default=100, help="Nombre de factures à classifier")
+        parser.add_argument(
+            "--n",
+            type=int,
+            default=None,
+            help="Plafond de factures à classifier ; par défaut tout le périmètre",
+        )
         parser.add_argument(
             "--identifiants-csv",
             type=str,
-            help="CSV d'identifiants Chorus Pro à classifier (prioritaire sur --n et les filtres)",
+            help=(
+                "CSV d'identifiants Chorus Pro à classifier. Prioritaire sur --n, les filtres "
+                "de périmètre et --mode : les identifiants listés sont (re)classifiés même en --mode new."
+            ),
         )
         parser.add_argument("--mode", choices=("new", "reprocess", "all"), default="new")
         parser.add_argument("--workers", type=int, default=None, help="Nombre de workers LLM")
+        parser.add_argument("--batch-size", type=int, default=500, help="Taille des lots lus/écrits")
 
     def handle(self, *args, **options):
         kwargs = {
@@ -29,6 +38,7 @@ class Command(BaseCommand):
             "n": options["n"],
             "mode": options["mode"],
             "identifiants_csv": options["identifiants_csv"],
+            "batch_size": options["batch_size"],
         }
         if options["workers"] is not None:
             kwargs["max_workers"] = options["workers"]

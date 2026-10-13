@@ -7,6 +7,7 @@ La source est le gold Django : gesec_facture (en-têtes) et gesec_facture_ligne
 from __future__ import annotations
 
 import csv
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -18,6 +19,7 @@ from psycopg.types.json import Jsonb
 
 ClassifyMode = Literal["new", "reprocess", "all"]
 DEFAULT_MAX_WORKERS = 5
+DEFAULT_BATCH_SIZE = 500
 _IDENTIFIANT_COLUMN = "identifiant_chorus_pro"
 
 _ENTETE_TABLE = "gesec_facture"
@@ -90,10 +92,95 @@ def read_identifiants_csv(path: str | Path) -> list[str]:
     return list(dict.fromkeys(identifiants))
 
 
-def sample_factures(
+def _fetch_headers(
     conn: psycopg.Connection,
-    n: int = 100,
-    seed: int | None = 42,
+    *,
+    batch_size: int,
+    after: str | None,
+    mode: ClassifyMode,
+    identifiants: list[str] | None,
+    exclude_fournisseurs: list[str] | None,
+    require_gm: bool,
+    ministere: str | None,
+    date_min: date | None,
+    date_max: date | None,
+) -> list[tuple]:
+    entete = sql.Identifier(_ENTETE_TABLE)
+    ligne = sql.Identifier(_LIGNE_TABLE)
+    limit = sql.SQL("LIMIT %s")
+    identifiants_filter = sql.SQL("")
+    params: list[Any] = []
+    if identifiants is not None:
+        identifiants_filter = sql.SQL("AND e.identifiant_chorus_pro = ANY(%s)")
+        params.append(identifiants)
+    else:
+        filters, filter_params = _build_filters(
+            mode=mode,
+            require_gm=require_gm,
+            exclude_fournisseurs=exclude_fournisseurs,
+            ministere=ministere,
+            date_min=date_min,
+            date_max=date_max,
+        )
+        identifiants_filter = filters
+        params.extend(filter_params)
+    keyset = sql.SQL("")
+    if after is not None:
+        keyset = sql.SQL("AND e.identifiant_chorus_pro > %s")
+        params.append(after)
+    params.append(batch_size)
+    with conn.cursor() as cur:
+        cur.execute(
+            sql.SQL(
+                """
+                SELECT e.identifiant_chorus_pro,
+                       e.fournisseur_designation,
+                       e.mt_ttc,
+                       e.gm
+                FROM {} e
+                WHERE EXISTS (
+                    SELECT 1 FROM {} l WHERE l.id_cpro = e.identifiant_chorus_pro
+                )
+                  {}
+                  {}
+                ORDER BY e.identifiant_chorus_pro
+                {}
+                """
+            ).format(entete, ligne, identifiants_filter, keyset, limit),
+            params,
+        )
+        return cur.fetchall()
+
+
+def _fetch_lignes(conn: psycopg.Connection, identifiant: str) -> list[dict[str, Any]]:
+    ligne = sql.Identifier(_LIGNE_TABLE)
+    with conn.cursor() as cur:
+        cur.execute(
+            sql.SQL(
+                """
+                SELECT line_id, item_name, item_description, line_amount_incl_tax
+                FROM {}
+                WHERE id_cpro = %s
+                ORDER BY line_id NULLS LAST
+                """
+            ).format(ligne),
+            (identifiant,),
+        )
+        return [
+            {
+                "line_id": r[0],
+                "item_name": r[1],
+                "item_description": r[2],
+                "line_amount_incl_tax": r[3],
+            }
+            for r in cur.fetchall()
+        ]
+
+
+def iter_samples(
+    conn: psycopg.Connection,
+    *,
+    n: int | None = None,
     mode: ClassifyMode = "new",
     identifiants: list[str] | None = None,
     exclude_fournisseurs: list[str] | None = None,
@@ -101,93 +188,52 @@ def sample_factures(
     ministere: str | None = None,
     date_min: date | None = None,
     date_max: date | None = None,
-) -> list[FactureSample]:
+    batch_size: int = DEFAULT_BATCH_SIZE,
+) -> Iterator[FactureSample]:
+    """Itère les factures du périmètre par lots (keyset), sans tout charger en mémoire.
+
+    `n` plafonne le nombre de factures parcourues ; `None` couvre tout le périmètre.
+    La pagination se fait par clé (`identifiant_chorus_pro`) pour rester déterministe
+    et compatible avec l'écriture sur la même connexion.
+    """
     if mode not in _MODE_FILTER_SQL:
         raise ValueError(f"mode invalide : {mode!r} (attendu : new|reprocess|all)")
+    if batch_size < 1:
+        raise ValueError(f"batch_size invalide : {batch_size!r} (attendu >= 1)")
 
-    entete = sql.Identifier(_ENTETE_TABLE)
-    ligne = sql.Identifier(_LIGNE_TABLE)
-    with conn.cursor() as cur:
-        if identifiants is not None:
-            cur.execute(
-                sql.SQL(
-                    """
-                    SELECT e.identifiant_chorus_pro,
-                           e.fournisseur_designation,
-                           e.mt_ttc,
-                           e.gm
-                    FROM {} e
-                    WHERE e.identifiant_chorus_pro = ANY(%s)
-                    ORDER BY e.identifiant_chorus_pro
-                    """
-                ).format(entete),
-                (identifiants,),
-            )
-        else:
-            filters, params = _build_filters(
-                mode=mode,
-                require_gm=require_gm,
-                exclude_fournisseurs=exclude_fournisseurs,
-                ministere=ministere,
-                date_min=date_min,
-                date_max=date_max,
-            )
-            params.append(n)
-            if seed is not None:
-                cur.execute("SELECT setseed(%s)", (float(seed % 1000) / 1000.0,))
-            cur.execute(
-                sql.SQL(
-                    """
-                    SELECT e.identifiant_chorus_pro,
-                           e.fournisseur_designation,
-                           e.mt_ttc,
-                           e.gm
-                    FROM {} e
-                    WHERE EXISTS (
-                        SELECT 1 FROM {} l WHERE l.id_cpro = e.identifiant_chorus_pro
-                    )
-                      {}
-                    ORDER BY random()
-                    LIMIT %s
-                    """
-                ).format(entete, ligne, filters),
-                params,
-            )
-        headers = cur.fetchall()
-
-    samples: list[FactureSample] = []
-    with conn.cursor() as cur:
+    remaining = n
+    after: str | None = None
+    while remaining is None or remaining > 0:
+        size = batch_size if remaining is None else min(batch_size, remaining)
+        headers = _fetch_headers(
+            conn,
+            batch_size=size,
+            after=after,
+            mode=mode,
+            identifiants=identifiants,
+            exclude_fournisseurs=exclude_fournisseurs,
+            require_gm=require_gm,
+            ministere=ministere,
+            date_min=date_min,
+            date_max=date_max,
+        )
+        if not headers:
+            return
         for identifiant, fournisseur, mt_ttc, gm in headers:
-            cur.execute(
-                sql.SQL(
-                    """
-                    SELECT line_id, item_name, item_description, line_amount_incl_tax
-                    FROM {}
-                    WHERE id_cpro = %s
-                    ORDER BY line_id NULLS LAST
-                    """
-                ).format(ligne),
-                (identifiant,),
+            yield FactureSample(
+                identifiant_chorus_pro=identifiant,
+                fournisseur_designation=fournisseur,
+                mt_ttc=mt_ttc,
+                gm=gm,
+                lignes=_fetch_lignes(conn, identifiant),
             )
-            lignes = [
-                {
-                    "line_id": r[0],
-                    "item_name": r[1],
-                    "item_description": r[2],
-                    "line_amount_incl_tax": r[3],
-                }
-                for r in cur.fetchall()
-            ]
-            samples.append(
-                FactureSample(
-                    identifiant_chorus_pro=identifiant,
-                    fournisseur_designation=fournisseur,
-                    mt_ttc=mt_ttc,
-                    gm=gm,
-                    lignes=lignes,
-                )
-            )
-    return samples
+        if remaining is not None:
+            remaining -= len(headers)
+            if remaining <= 0:
+                return
+        if len(headers) < size:
+            return
+        after = headers[-1][0]
 
 
 def upsert_prediction(
