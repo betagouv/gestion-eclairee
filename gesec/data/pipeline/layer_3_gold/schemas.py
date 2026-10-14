@@ -20,6 +20,11 @@ class GoldCproExportFactureLigne(BaseModel):
     line_amount_incl_tax: Decimal
     line_amount_vat: Decimal
     currency: str
+
+
+class GoldFournisseurInFine(BaseModel):
+    id_cpro: str
+    line_id: str
     fournisseur_in_fine_designation: Optional[str] = None
     fournisseur_in_fine_siren: Optional[str] = None
 

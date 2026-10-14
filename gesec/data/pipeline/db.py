@@ -98,6 +98,8 @@ def save_pages(
         written += len(page)
     if written == 0:
         logger.warning(f"No data to export, skipping database insertion in {table_name}")
+    else:
+        logger.info(f"Saved {written} rows in {table_name} (total)")
     return written
 
 

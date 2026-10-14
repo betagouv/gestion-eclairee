@@ -6,10 +6,12 @@ Une facture émise par une centrale d'achat (UGAP) porte la centrale comme
 fournisseur dans Chorus Pro ; le fournisseur ayant réellement exécuté la ligne
 (titulaire, constructeur) n'apparaît que dans les exports de factures de la
 centrale. Le concept de **fournisseur in fine** est transverse aux centrales
-d'achat, mais seule l'UGAP l'alimente aujourd'hui. Les champs sont ajoutés
-uniquement sur les lignes gold, préfixés `fournisseur_in_fine_`, sans renommer
-les champs `fournisseur_*` existants qui restent utiles en l'état. La centrale
-est identifiée par le SIREN `776056467`.
+d'achat, mais seule l'UGAP l'alimente aujourd'hui. L'enrichissement est porté par
+une table dédiée `gesec_facture_ligne_fournisseur_in_fine`
+(`(id_cpro, line_id)` → `fournisseur_in_fine_designation`, `fournisseur_in_fine_siren`),
+sans colonnes `fournisseur_in_fine_*` sur `gesec_facture_ligne` ; les champs
+`fournisseur_*` existants restent utiles en l'état. La centrale est identifiée par
+le SIREN `776056467`.
 
 Le rapprochement se fait en deux temps : les factures UGAP sont rattachées à
 leur commande par `cac:Delivery/cbc:ID` de la facture XML (partie avant `-`,
@@ -116,6 +118,13 @@ sert au gold, les autres restent pour l'analyse. Une table
 `silver_cpro_export_facture_xml_facture_status` trace par facture le statut
 `Ok`/`Error`. Les exports UGAP doivent être déposés dans `ugap/exports/` pour
 alimenter les champs, sinon ils restent NULL. L'enrichissement est recalculé à
-chaque run, la table gold étant reconstruite.
+chaque run, la table étant reconstruite.
+
+`gesec_facture_ligne` est construite en amont par un parcours paginé des lignes
+silver XML puis Factur-X (priorité XML par `id_cpro`) ; `match_ugap` ne réécrit
+plus ces lignes, il produit séparément le suivi (`gesec_facture_ugap_ligne`) et
+l'enrichissement dans le même parcours des lignes UGAP. Seules les lignes gold
+des factures UGAP sont conservées en mémoire pour l'appariement par article.
+`gesec_meta_budat` lit l'enrichissement par `LEFT JOIN` sur `(id_cpro, line_id)`.
 Quand une autre centrale d'achat sera intégrée, l'interface commune (format
 d'entrée, résolveur, statuts) sera extraite à ce moment-là.

@@ -1,8 +1,19 @@
+import itertools
 import logging
 import re
-from typing import Optional
+from collections.abc import Iterable, Iterator, Sequence
+from typing import Optional, TypeVar
 
-from gesec.data.pipeline.db import load_rows_from_table, save_list_pydantic
+from sqlalchemy import text
+
+from gesec.data.pipeline.db import (
+    DEFAULT_BATCH_SIZE,
+    create_empty_table,
+    execute_sql,
+    iter_rows_from_table,
+    load_rows_from_table,
+    save_pages,
+)
 from gesec.data.pipeline.layer_2_silver.cpro_export_factur_x_ligne import (
     DEFAULT_TABLE_NAME as SILVER_FACTUR_X_LIGNE_DEFAULT_TABLE_NAME,
 )
@@ -26,74 +37,61 @@ from gesec.data.pipeline.layer_2_silver.ugap_export_factures import (
     DEFAULT_TABLE_NAME as SILVER_UGAP_DEFAULT_TABLE_NAME,
 )
 from gesec.data.pipeline.layer_3_gold.constants import UGAP_SIREN
-from gesec.data.pipeline.layer_3_gold.schemas import GoldCproExportFactureLigne, GoldUgapLigne, UgapLigneStatus
+from gesec.data.pipeline.layer_3_gold.schemas import (
+    GoldCproExportFactureLigne,
+    GoldFournisseurInFine,
+    GoldUgapLigne,
+    UgapLigneStatus,
+)
 
 logger = logging.getLogger(__name__)
 
 TABLE_NAME = "gesec_facture_ligne"
 UGAP_LIGNE_TABLE_NAME = "gesec_facture_ugap_ligne"
+FOURNISSEUR_IN_FINE_TABLE_NAME = "gesec_facture_ligne_fournisseur_in_fine"
 
 RE_IDENTIFIANT_LIVRAISON = re.compile(r"^(\d+)-\d+$")
 
-
-def load_factur_x_rows(table_name: str) -> list[SilverCproExportFacturXLigne]:
-    return load_rows_from_table(table_name, SilverCproExportFacturXLigne)
+T = TypeVar("T")
 
 
-def load_facture_xml_rows(table_name: str) -> list[SilverCproExportFactureXmlLigne]:
-    return load_rows_from_table(table_name, SilverCproExportFactureXmlLigne)
+def chunked(items: Sequence[T], size: int = DEFAULT_BATCH_SIZE) -> Iterator[list[T]]:
+    for start in range(0, len(items), size):
+        yield list(items[start : start + size])
 
 
-def load_silver_factures(table_name: str) -> list[SilverCproExportFacture]:
-    return load_rows_from_table(table_name, SilverCproExportFacture)
-
-
-def load_silver_facture_xml_factures(table_name: str) -> list[SilverCproExportFactureXmlFacture]:
-    return load_rows_from_table(table_name, SilverCproExportFactureXmlFacture)
-
-
-def load_silver_ugap_rows(table_name: str) -> list[SilverUgapExportFacture]:
-    return load_rows_from_table(table_name, SilverUgapExportFacture)
+def load_xml_id_cpros(table_name: str) -> set[str]:
+    rows = execute_sql(text(f"SELECT DISTINCT id_cpro FROM {table_name}"))
+    return {row[0] for row in rows}
 
 
 def transform_to_gold(
-    factur_x_rows: list[SilverCproExportFacturXLigne], facture_xml_rows: list[SilverCproExportFactureXmlLigne]
-) -> list[GoldCproExportFactureLigne]:
-    """Prend en priorité les lignes de facture XML, puis celles de factur-x."""
+    factur_x_table_name: str = SILVER_FACTUR_X_LIGNE_DEFAULT_TABLE_NAME,
+    facture_xml_table_name: str = SILVER_FACTURE_XML_LIGNE_DEFAULT_TABLE_NAME,
+    batch_size: int = DEFAULT_BATCH_SIZE,
+) -> Iterator[list[GoldCproExportFactureLigne]]:
+    """Prend en priorité les lignes de facture XML, puis celles de factur-x.
 
-    # Groupe les lignes par id_cpro
-    factur_x_by_id_cpro = {}
-    for fac in factur_x_rows:
-        factur_x_by_id_cpro.setdefault(fac.id_cpro, []).append(fac)
-    facture_xml_by_id_cpro = {}
-    for fac in facture_xml_rows:
-        facture_xml_by_id_cpro.setdefault(fac.id_cpro, []).append(fac)
+    Itère les lignes silver par lots, sans charger les tables entières. Le set
+    des `id_cpro` couverts par le XML est conservé en mémoire pour exclure les
+    factures déjà traitées côté Factur-X.
+    """
 
-    # Merge les lignes
-    result = []
-    processed_ids = set()
-    for id_cpro, fac_lignes in facture_xml_by_id_cpro.items():
-        for fac_ligne in fac_lignes:
-            result.append(
-                GoldCproExportFactureLigne(
-                    **fac_ligne.model_dump(),
-                    source="facture-xml",
-                )
-            )
-        processed_ids.add(id_cpro)
-    for id_cpro, fac_lignes in factur_x_by_id_cpro.items():
-        if id_cpro in processed_ids:
-            continue
-        for fac_ligne in fac_lignes:
-            result.append(
-                GoldCproExportFactureLigne(
-                    **fac_ligne.model_dump(),
-                    source="factur-x",
-                )
-            )
-        processed_ids.add(id_cpro)
+    xml_id_cpros = load_xml_id_cpros(facture_xml_table_name)
 
-    return result
+    for page in iter_rows_from_table(facture_xml_table_name, SilverCproExportFactureXmlLigne, batch_size=batch_size):
+        lines = [GoldCproExportFactureLigne(**line.model_dump(), source="facture-xml") for line in page]
+        if lines:
+            yield lines
+
+    for page in iter_rows_from_table(factur_x_table_name, SilverCproExportFacturXLigne, batch_size=batch_size):
+        lines = [
+            GoldCproExportFactureLigne(**line.model_dump(), source="factur-x")
+            for line in page
+            if line.id_cpro not in xml_id_cpros
+        ]
+        if lines:
+            yield lines
 
 
 def is_ugap_facture(fournisseur_identifiant: Optional[str]) -> bool:
@@ -149,19 +147,21 @@ def build_ugap_ligne(
 
 
 def match_ugap(
-    factures: list[SilverCproExportFacture],
-    xml_factures: list[SilverCproExportFactureXmlFacture],
-    gold_lines: list[GoldCproExportFactureLigne],
-    ugap_lines: list[SilverUgapExportFacture],
-) -> tuple[list[GoldCproExportFactureLigne], list[GoldUgapLigne]]:
+    factures: Sequence[SilverCproExportFacture],
+    xml_factures: Sequence[SilverCproExportFactureXmlFacture],
+    ugap_lines: Sequence[SilverUgapExportFacture],
+    gold_lines: Iterable[GoldCproExportFactureLigne],
+) -> tuple[list[GoldUgapLigne], list[GoldFournisseurInFine]]:
     """Rapproche les lignes UGAP des lignes gold par commande puis par article.
 
     La commande est lue dans les métadonnées XML des factures UGAP
     (`cac:Delivery/cbc:ID`, préfixe avant `-`) et comparée à `numero_commande_ugap`
     normalisé ; l'article est comparé à `item_reference` normalisé. Toutes les
     factures d'une commande sont parcourues : chaque correspondance produit une
-    ligne de suivi `matched` et enrichit en une passe `fournisseur_in_fine_*`
-    des lignes gold, dont l'ordre d'origine est conservé.
+    ligne de suivi `matched` et une ligne d'enrichissement `fournisseur_in_fine`.
+
+    `gold_lines` est consommé une seule fois : seules les lignes des factures
+    UGAP sont conservées en mémoire, le reste est ignoré au fil du flux.
     """
     id_cpros_ugap = {
         facture.identifiant_chorus_pro for facture in factures if is_ugap_facture(facture.fournisseur_identifiant)
@@ -179,6 +179,8 @@ def match_ugap(
 
     gold_lines_by_id_cpro: dict[str, list[GoldCproExportFactureLigne]] = {}
     for gold_line in gold_lines:
+        if gold_line.id_cpro not in id_cpros_ugap:
+            continue
         gold_lines_by_id_cpro.setdefault(gold_line.id_cpro, []).append(gold_line)
 
     enrichment: dict[tuple[str, str], tuple[Optional[str], Optional[str]]] = {}
@@ -210,23 +212,18 @@ def match_ugap(
                 )
             )
 
-    result = []
-    for gold_line in gold_lines:
-        values = enrichment.get((gold_line.id_cpro, gold_line.line_id))
-        if values is None:
-            result.append(gold_line)
-            continue
-        designation, siren = values
-        result.append(
-            gold_line.model_copy(
-                update={
-                    "fournisseur_in_fine_designation": designation,
-                    "fournisseur_in_fine_siren": siren,
-                }
-            )
+    enrichment_rows = [
+        GoldFournisseurInFine(
+            id_cpro=id_cpro,
+            line_id=line_id,
+            fournisseur_in_fine_designation=designation,
+            fournisseur_in_fine_siren=siren,
         )
+        for (id_cpro, line_id), (designation, siren) in enrichment.items()
+        if designation is not None or siren is not None
+    ]
 
-    return result, suivi
+    return suivi, enrichment_rows
 
 
 def process_to_gold(
@@ -236,19 +233,30 @@ def process_to_gold(
     silver_ugap_table_name: str = SILVER_UGAP_DEFAULT_TABLE_NAME,
     silver_facture_xml_facture_table_name: str = SILVER_FACTURE_XML_FACTURE_DEFAULT_TABLE_NAME,
 ) -> None:
-    factur_x_rows = load_factur_x_rows(silver_factur_x_table_name)
-    facture_xml_rows = load_facture_xml_rows(silver_facture_xml_table_name)
-    factures = load_silver_factures(silver_facture_table_name)
-    xml_factures = load_silver_facture_xml_factures(silver_facture_xml_facture_table_name)
-    ugap_rows = load_silver_ugap_rows(silver_ugap_table_name)
+    written = save_pages(
+        transform_to_gold(
+            factur_x_table_name=silver_factur_x_table_name, facture_xml_table_name=silver_facture_xml_table_name
+        ),
+        TABLE_NAME,
+        if_exists="replace",
+    )
+    if written == 0:
+        create_empty_table(TABLE_NAME, GoldCproExportFactureLigne)
+    logger.info(f"Transformé en {written} lignes gold depuis les factures XML et Factur-X")
 
-    gold_lines = transform_to_gold(factur_x_rows=factur_x_rows, facture_xml_rows=facture_xml_rows)
-    logger.info(f"Transformé en {len(gold_lines)} lignes gold depuis les factures XML et Factur-X")
+    factures = load_rows_from_table(silver_facture_table_name, SilverCproExportFacture)
+    xml_factures = load_rows_from_table(silver_facture_xml_facture_table_name, SilverCproExportFactureXmlFacture)
+    ugap_rows = load_rows_from_table(silver_ugap_table_name, SilverUgapExportFacture)
 
-    gold_lines, ugap_lignes = match_ugap(factures, xml_factures, gold_lines, ugap_rows)
-    logger.info(f"Rapprochement UGAP: {len(gold_lines)} lignes gold, {len(ugap_lignes)} lignes de suivi")
+    suivi, enrichment = match_ugap(
+        factures,
+        xml_factures,
+        ugap_rows,
+        itertools.chain.from_iterable(iter_rows_from_table(TABLE_NAME, GoldCproExportFactureLigne)),
+    )
+    logger.info(f"Rapprochement UGAP: {len(suivi)} lignes de suivi, {len(enrichment)} lignes d'enrichissement")
 
-    if gold_lines:
-        save_list_pydantic(gold_lines, TABLE_NAME, if_exists="replace")
-    if ugap_lignes:
-        save_list_pydantic(ugap_lignes, UGAP_LIGNE_TABLE_NAME, if_exists="replace")
+    if save_pages(chunked(suivi), UGAP_LIGNE_TABLE_NAME, if_exists="replace") == 0:
+        create_empty_table(UGAP_LIGNE_TABLE_NAME, GoldUgapLigne)
+    if save_pages(chunked(enrichment), FOURNISSEUR_IN_FINE_TABLE_NAME, if_exists="replace") == 0:
+        create_empty_table(FOURNISSEUR_IN_FINE_TABLE_NAME, GoldFournisseurInFine)

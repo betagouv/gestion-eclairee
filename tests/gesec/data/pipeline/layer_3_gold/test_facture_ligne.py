@@ -197,10 +197,9 @@ def test_match_ugap_requires_xml_metadata():
     gold_lines = [gold_line(id_cpro="cpro-1", line_id="00010", item_reference="7000001")]
     ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
 
-    lines, suivi = match_ugap(factures, [], gold_lines, ugap_lines)
+    suivi, enrichment = match_ugap(factures, [], ugap_lines, gold_lines)
 
-    assert lines == gold_lines
-    assert lines[0].fournisseur_in_fine_siren is None
+    assert enrichment == []
     assert [(row.status, row.id_cpro) for row in suivi] == [("facture_inconnue", None)]
 
 
@@ -210,11 +209,13 @@ def test_match_ugap_enriches_matched_gold_line():
     gold_lines = [gold_line(id_cpro="cpro-1", line_id="00010", item_reference="7000001")]
     ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
 
-    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
+    suivi, enrichment = match_ugap(factures, xml_factures, ugap_lines, gold_lines)
 
-    assert len(lines) == 1
-    assert lines[0].fournisseur_in_fine_designation == "FOURNISSEUR"
-    assert lines[0].fournisseur_in_fine_siren == "343059564"
+    assert len(enrichment) == 1
+    assert enrichment[0].id_cpro == "cpro-1"
+    assert enrichment[0].line_id == "00010"
+    assert enrichment[0].fournisseur_in_fine_designation == "FOURNISSEUR"
+    assert enrichment[0].fournisseur_in_fine_siren == "343059564"
     assert len(suivi) == 1
     assert (suivi[0].numero_commande_ugap, suivi[0].status, suivi[0].id_cpro, suivi[0].line_id) == (
         "900000001",
@@ -230,9 +231,9 @@ def test_match_ugap_normalizes_references():
     gold_lines = [gold_line(id_cpro="cpro-1", line_id="00010", item_reference="000000000007000001")]
     ugap_lines = [silver_ugap_line(numero="00900000001", article="0007000001")]
 
-    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
+    suivi, enrichment = match_ugap(factures, xml_factures, ugap_lines, gold_lines)
 
-    assert lines[0].fournisseur_in_fine_siren == "343059564"
+    assert enrichment[0].fournisseur_in_fine_siren == "343059564"
     assert [row.status for row in suivi] == ["matched"]
 
 
@@ -248,9 +249,12 @@ def test_match_ugap_enriches_all_commande_factures():
     ]
     ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
 
-    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
+    suivi, enrichment = match_ugap(factures, xml_factures, ugap_lines, gold_lines)
 
-    assert [line.fournisseur_in_fine_siren for line in lines] == ["343059564", "343059564"]
+    assert {(row.id_cpro, row.fournisseur_in_fine_siren) for row in enrichment} == {
+        ("cpro-a", "343059564"),
+        ("cpro-b", "343059564"),
+    }
     assert [(row.status, row.id_cpro, row.line_id) for row in suivi] == [
         ("matched", "cpro-a", "00010"),
         ("matched", "cpro-b", "00010"),
@@ -269,9 +273,9 @@ def test_match_ugap_flags_ligne_absente():
     ]
     ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
 
-    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
+    suivi, enrichment = match_ugap(factures, xml_factures, ugap_lines, gold_lines)
 
-    assert lines == gold_lines
+    assert enrichment == []
     assert len(suivi) == 1
     assert (suivi[0].status, suivi[0].id_cpro, suivi[0].line_id, suivi[0].status_details) == (
         "ligne_absente",
@@ -286,9 +290,9 @@ def test_match_ugap_flags_facture_inconnue():
     xml_factures = [silver_facture_xml(id_cpro="cpro-1")]
     ugap_lines = [silver_ugap_line(numero="999999999", article="7000001")]
 
-    lines, suivi = match_ugap(factures, xml_factures, [], ugap_lines)
+    suivi, enrichment = match_ugap(factures, xml_factures, ugap_lines, [])
 
-    assert lines == []
+    assert enrichment == []
     assert len(suivi) == 1
     assert (suivi[0].numero_commande_ugap, suivi[0].status, suivi[0].id_cpro) == (
         "999999999",
@@ -303,10 +307,9 @@ def test_match_ugap_ignores_non_ugap_factures():
     gold_lines = [gold_line(id_cpro="cpro-1", line_id="00010", item_reference="7000001")]
     ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
 
-    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
+    suivi, enrichment = match_ugap(factures, xml_factures, ugap_lines, gold_lines)
 
-    assert lines == gold_lines
-    assert lines[0].fournisseur_in_fine_siren is None
+    assert enrichment == []
     assert [row.status for row in suivi] == ["facture_inconnue"]
 
 
@@ -319,15 +322,17 @@ def test_match_ugap_ignores_invalid_delivery_id():
     gold_lines = [gold_line(id_cpro="cpro-1", line_id="00010", item_reference="7000001")]
     ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
 
-    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
+    suivi, enrichment = match_ugap(factures, xml_factures, ugap_lines, gold_lines)
 
-    assert lines == gold_lines
-    assert lines[0].fournisseur_in_fine_siren is None
+    assert enrichment == []
     assert [row.status for row in suivi] == ["facture_inconnue"]
 
 
-def test_match_ugap_preserves_gold_line_order():
-    factures = [silver_facture(numero="900000002", id_cpro="cpro-1")]
+def test_match_ugap_matches_only_relevant_gold_lines():
+    factures = [
+        silver_facture(numero="900000002", id_cpro="cpro-1"),
+        silver_facture(numero="900000003", id_cpro="cpro-2"),
+    ]
     xml_factures = [silver_facture_xml(id_cpro="cpro-1")]
     gold_lines = [
         gold_line(id_cpro="cpro-1", line_id="00010", item_reference="1111111"),
@@ -336,10 +341,9 @@ def test_match_ugap_preserves_gold_line_order():
     ]
     ugap_lines = [silver_ugap_line(numero="900000001", article="7000001")]
 
-    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
+    suivi, enrichment = match_ugap(factures, xml_factures, ugap_lines, gold_lines)
 
-    assert [line.line_id for line in lines] == ["00010", "00020", "00030"]
-    assert [line.fournisseur_in_fine_siren for line in lines] == [None, "343059564", None]
+    assert [(row.line_id, row.fournisseur_in_fine_siren) for row in enrichment] == [("00020", "343059564")]
     assert [(row.status, row.line_id) for row in suivi] == [("matched", "00020")]
 
 
@@ -366,19 +370,19 @@ def test_match_ugap_conflicting_suppliers_last_sorted_wins():
         ),
     ]
 
-    lines, suivi = match_ugap(factures, xml_factures, gold_lines, ugap_lines)
+    suivi, enrichment = match_ugap(factures, xml_factures, ugap_lines, gold_lines)
 
-    assert lines[0].fournisseur_in_fine_designation == "B"
-    assert lines[0].fournisseur_in_fine_siren == "222222222"
+    assert enrichment[0].fournisseur_in_fine_designation == "B"
+    assert enrichment[0].fournisseur_in_fine_siren == "222222222"
     assert [(row.status, row.source) for row in suivi] == [("matched", "ugap/a.xlsx"), ("matched", "ugap/b.xlsx")]
 
 
-def test_match_ugap_without_export_lines_keeps_gold_lines():
+def test_match_ugap_without_export_lines_keeps_no_enrichment():
     factures = [silver_facture(numero="900000002", id_cpro="cpro-1")]
     xml_factures = [silver_facture_xml(id_cpro="cpro-1")]
     gold_lines = [gold_line(id_cpro="cpro-1"), gold_line(id_cpro="cpro-1", line_id="00020")]
 
-    lines, suivi = match_ugap(factures, xml_factures, gold_lines, [])
+    suivi, enrichment = match_ugap(factures, xml_factures, [], gold_lines)
 
-    assert lines == gold_lines
+    assert enrichment == []
     assert suivi == []

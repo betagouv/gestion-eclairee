@@ -148,15 +148,17 @@ meta_budat_facture as (
         b.destinataire_service, b.fournisseur_facture, b.est_ugap,
         gl.line_id, gl.item_name, gl.item_description, gl.item_reference, gl.quantity, gl.unit_price,
         gl.line_amount_excl_tax as montant_ligne_ht,
-        gl.fournisseur_in_fine_designation, gl.fournisseur_in_fine_siren,
+        fif.fournisseur_in_fine_designation, fif.fournisseur_in_fine_siren,
         case
             when b.cas_facture = 'facture_absente' then 'facture_absente'
             when b.cas_facture = 'facture_sans_lignes' then 'facture_sans_lignes'
             when not b.est_ugap then 'lignes_non_ugap'
-            when gl.fournisseur_in_fine_designation is not null then 'lignes_ugap_avec_fournisseur_in_fine'
+            when fif.fournisseur_in_fine_designation is not null then 'lignes_ugap_avec_fournisseur_in_fine'
             else 'lignes_ugap_sans_fournisseur_in_fine'
         end as cas
     from base b
     left join gesec_facture_ligne gl on gl.id_cpro = b.id_cpro
+    left join gesec_facture_ligne_fournisseur_in_fine fif
+        on fif.id_cpro = gl.id_cpro and fif.line_id = gl.line_id
 )
 select * from meta_budat_facture;

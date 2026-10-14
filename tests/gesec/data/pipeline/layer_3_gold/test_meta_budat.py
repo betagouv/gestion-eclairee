@@ -19,15 +19,18 @@ from gesec.data.pipeline.layer_1_bronze.schemas import BronzeBudatExportAugdt
 from gesec.data.pipeline.layer_2_silver.schemas import SilverService
 from gesec.data.pipeline.layer_3_gold.constants import UGAP_SIREN
 from gesec.data.pipeline.layer_3_gold.meta_budat import TABLE_NAME, process_to_gold
-from gesec.data.pipeline.layer_3_gold.schemas import GoldCproExportFactureLigne
+from gesec.data.pipeline.layer_3_gold.schemas import GoldCproExportFactureLigne, GoldFournisseurInFine
 from gesec.models import Facture
 
 pytestmark = pytest.mark.django_db(transaction=True)
+
+FOURNISSEUR_IN_FINE_TABLE = "gesec_facture_ligne_fournisseur_in_fine"
 
 RAW_TABLES = [
     "bronze_budat_export_augdt",
     "silver_services",
     "gesec_facture_ligne",
+    FOURNISSEUR_IN_FINE_TABLE,
     "gesec_facture_gm_pred",
     TABLE_NAME,
 ]
@@ -57,6 +60,7 @@ def engine() -> Iterator[Engine]:
     test_engine = build_engine()
     drop_raw_tables(test_engine)
     create_empty_table(test_engine, "gesec_facture_ligne", GoldCproExportFactureLigne)
+    create_empty_table(test_engine, FOURNISSEUR_IN_FINE_TABLE, GoldFournisseurInFine)
     with test_engine.begin() as conn:
         conn.execute(text(load_ddl()))
     yield test_engine
@@ -142,13 +146,7 @@ def create_facture(
     )
 
 
-def gold_line(
-    id_cpro: str,
-    line_id: str,
-    amount_incl_tax: str,
-    fournisseur_in_fine_designation: str | None = None,
-    fournisseur_in_fine_siren: str | None = None,
-) -> GoldCproExportFactureLigne:
+def gold_line(id_cpro: str, line_id: str, amount_incl_tax: str) -> GoldCproExportFactureLigne:
     return GoldCproExportFactureLigne(
         id_cpro=id_cpro,
         source="facture-xml",
@@ -164,9 +162,11 @@ def gold_line(
         line_amount_incl_tax=Decimal(amount_incl_tax),
         line_amount_vat=Decimal("0"),
         currency="EUR",
-        fournisseur_in_fine_designation=fournisseur_in_fine_designation,
-        fournisseur_in_fine_siren=fournisseur_in_fine_siren,
     )
+
+
+def save_enrichment(engine: Engine, rows: Sequence[GoldFournisseurInFine]) -> None:
+    save_rows(engine, FOURNISSEUR_IN_FINE_TABLE, rows)
 
 
 def fetch_meta(engine: Engine) -> list[dict[str, Any]]:
@@ -266,10 +266,21 @@ def test_eclatement_prorata_et_fournisseur_in_fine(engine: Engine) -> None:
         [
             gold_line("cpro-non-ugap", "00010", "30.00"),
             gold_line("cpro-non-ugap", "00020", "90.00"),
-            gold_line("cpro-ugap", "00010", "60.00", "EDITEUR", "222222222"),
+            gold_line("cpro-ugap", "00010", "60.00"),
             gold_line("cpro-ugap", "00020", "60.00"),
             gold_line("cpro-total-nul", "00010", "0.00"),
             gold_line("cpro-total-nul", "00020", "0.00"),
+        ],
+    )
+    save_enrichment(
+        engine,
+        [
+            GoldFournisseurInFine(
+                id_cpro="cpro-ugap",
+                line_id="00010",
+                fournisseur_in_fine_designation="EDITEUR",
+                fournisseur_in_fine_siren="222222222",
+            )
         ],
     )
     save_rows(
