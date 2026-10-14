@@ -28,10 +28,11 @@ dependencies = [
     "whitenoise>=6.12.0",
     "xmlschema>=4.3.1",
     "xmltodict>=1.0.4",
+    # mcpserver
+    "httpx>=0.28.1",
+    "mcp[cli]>=1.2.0",
+    "uvicorn>=0.54.0",
 ]
-
-[tool.uv.workspace]
-members = ["mcpserver"]
 
 [dependency-groups]
 dev = [
