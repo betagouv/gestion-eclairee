@@ -224,12 +224,12 @@ if STORAGE_BACKEND == "s3":
         "access_key": S3_ACCESS_KEY_ID,
         "secret_key": S3_SECRET_ACCESS_KEY,
         "bucket_name": S3_BUCKET_NAME,
-        "file_overwrite": False,
+        "file_overwrite": True,
     }
 elif STORAGE_BACKEND == "fs":
     STORAGES["default"]["OPTIONS"] = {
         "location": config.str("STORAGE_LOCAL_PATH", default=str(BASE_DIR / "media")),
-        "allow_overwrite": False,
+        "allow_overwrite": True,
     }
 
 
