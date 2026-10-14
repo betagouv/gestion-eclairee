@@ -16,6 +16,9 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
   (étape indépendante du launcher : appelle le LLM Albert, écrit `gesec_facture_gm_pred`).
   Sans `--n`, classe tout le périmètre éligible ; `--batch-size` borne les lots lus/écrits.
 - Extraction XML : `uv run python -m gesec.data.processors.cpro.pivots_xml -i <in> -o <out>`
+- Serveur MCP (HTTP local) : `MCP_BASE_API_URL=<url> MCP_PORT=9000 uv run --package mcpserver python -m mcpserver.server`
+  (`MCP_PORT` défaut `9000` ; en prod, process `mcp` du Procfile, port via `MCP_PORT`)
+- Inspection MCP : `npx @modelcontextprotocol/inspector --url http://127.0.0.1:9000/mcp`
 - Recette de bout en bout : `./test_recette.sh` (ENV_FILE=../gesec-recette.env)
 
 ## Architecture
@@ -30,6 +33,7 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - `gesec/data/sync/` : listes et téléchargement des exports CPRO
 - `gesec/front/` : vues, auth OIDC, rate limiting, templates DSFR
 - `gesec/common/models.py` : `BaseModel` ; `gesec/models.py` ré-exporte les modèles
+- `mcpserver/` : serveur MCP streamable-HTTP, membre du workspace uv
 - `tests/` : miroir de `gesec/` ; factories dans `tests/factories/`
 
 ## Vocabulaire
