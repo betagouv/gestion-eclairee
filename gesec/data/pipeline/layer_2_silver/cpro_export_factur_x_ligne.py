@@ -2,9 +2,16 @@ import json
 import logging
 from decimal import Decimal
 
+from sqlalchemy import text
 from tqdm import tqdm
 
-from gesec.data.pipeline.db import load_rows_from_table, save_list_pydantic
+from gesec.data.pipeline.db import (
+    DEFAULT_BATCH_SIZE,
+    create_empty_table,
+    create_engine,
+    iter_rows_from_table,
+    save_pages,
+)
 from gesec.data.pipeline.layer_1_bronze.cpro_export_factur_x import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeCproExportFacturX
 from gesec.data.pipeline.layer_2_silver.schemas import SilverCproExportFacturXLigne, SilverCproExportFacturXLigneStatus
@@ -15,8 +22,10 @@ logger = logging.getLogger(__name__)
 DEFAULT_TABLE_NAME = "silver_" + __name__.split(".")[-1]
 
 
-def load_bronze_rows(table_name: str) -> list[BronzeCproExportFacturX]:
-    return load_rows_from_table(table_name, BronzeCproExportFacturX)
+def count_bronze_rows(table_name: str) -> int:
+    engine = create_engine()
+    with engine.connect() as conn:
+        return conn.execute(text(f"SELECT count(*) FROM {table_name}")).scalar_one()
 
 
 def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> list[SilverCproExportFacturXLigne]:
@@ -187,7 +196,7 @@ def transform_to_silver(
 ) -> tuple[list[SilverCproExportFacturXLigne], list[SilverCproExportFacturXLigneStatus]]:
     result = []
     status_list = []
-    for fac in tqdm(bronze_factures_xml):
+    for fac in bronze_factures_xml:
         try:
             lines = transform_xml_to_silver(fac.content, fac.id_cpro, fac.xml_schema)
         except (ValueError, KeyError, TypeError) as e:
@@ -213,8 +222,33 @@ def transform_to_silver(
 def process_to_silver(
     bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
     silver_table_name: str = DEFAULT_TABLE_NAME,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> None:
-    bronze_factures = load_bronze_rows(bronze_table_name)
-    silver_lines, silver_lines_status = transform_to_silver(bronze_factures)
-    save_list_pydantic(silver_lines, silver_table_name, if_exists="replace")
-    save_list_pydantic(silver_lines_status, silver_table_name + "_status", if_exists="replace")
+    total = count_bronze_rows(bronze_table_name)
+    pages = iter_rows_from_table(bronze_table_name, BronzeCproExportFacturX, batch_size=batch_size)
+    lines_first = True
+    status_first = True
+    written = 0
+    with tqdm(total=total, desc="Transformation des factur-x en silver") as progress:
+        for bronze_factures in pages:
+            silver_lines, silver_lines_status = transform_to_silver(bronze_factures)
+            if save_pages(
+                [silver_lines] if silver_lines else [],
+                silver_table_name,
+                if_exists="replace" if lines_first else "append",
+            ):
+                lines_first = False
+                written += len(silver_lines)
+            if save_pages(
+                [silver_lines_status] if silver_lines_status else [],
+                silver_table_name + "_status",
+                if_exists="replace" if status_first else "append",
+            ):
+                status_first = False
+            progress.update(len(bronze_factures))
+    if lines_first:
+        create_empty_table(silver_table_name, SilverCproExportFacturXLigne)
+    if status_first:
+        create_empty_table(silver_table_name + "_status", SilverCproExportFacturXLigneStatus)
+    if written == 0:
+        logger.warning("No data to export, skipping database insertion")

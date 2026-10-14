@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+from collections.abc import Iterable, Iterator
 from decimal import Decimal
 from typing import Any, Literal, Optional, Sequence, Type, TypeVar, Union, get_args, get_origin
 from uuid import UUID
@@ -17,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 
 T = TypeVar("T")
+
+DEFAULT_BATCH_SIZE = 500
 
 
 def create_engine() -> Engine:
@@ -70,6 +73,47 @@ def save_df(
     engine = create_engine()
     df.to_sql(name=table_name, con=engine, if_exists=if_exists, index=False, dtype=dtype, chunksize=1000)
     logger.info(f"Saved {df.shape[0]} rows in {table_name}")
+
+
+def save_pages(
+    pages: Iterable[Sequence[BaseModel]],
+    table_name: str,
+    if_exists: Literal["fail", "replace", "append", "delete_rows"] = "replace",
+) -> int:
+    """Écrit une séquence de lots dans une table.
+
+    Le premier lot **non vide** suit `if_exists` (par défaut `replace`), les
+    suivants sont ajoutés en `append`. Le `dtype` est calculé une seule fois, à
+    partir du premier lot rencontré. Renvoie le nombre de lignes écrites.
+    """
+    dtype: dict | None = None
+    written = 0
+    for page in pages:
+        if not page:
+            continue
+        if dtype is None:
+            dtype = pydantic_model_to_dtype(page[0].__class__)
+        df = pd.DataFrame([obj.model_dump() for obj in page])
+        save_df(df, table_name, if_exists=if_exists if written == 0 else "append", dtype=dtype)
+        written += len(page)
+    if written == 0:
+        logger.warning(f"No data to export, skipping database insertion in {table_name}")
+    return written
+
+
+def create_empty_table(table_name: str, model: Type[BaseModel]) -> None:
+    """Crée (ou remplace) une table vide à partir des champs d'un modèle Pydantic."""
+    from sqlalchemy.dialects import postgresql
+
+    dtype = pydantic_model_to_dtype(model)
+    columns = ", ".join(
+        f"{name} {sql_type().compile(dialect=postgresql.dialect())}" for name, sql_type in dtype.items()
+    )
+    engine = create_engine()
+    with engine.begin() as conn:
+        conn.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
+        conn.execute(text(f"CREATE TABLE {table_name} ({columns})"))
+    logger.info(f"Created empty table {table_name}")
 
 
 def pydantic_model_to_dtype(model_class: Type[BaseModel]) -> dict:
@@ -139,3 +183,30 @@ def pydantic_model_to_dtype(model_class: Type[BaseModel]) -> dict:
 def load_rows_from_table(table_name: str, row_model: Type[T]) -> list[T]:
     rows = execute_sql(text(f"SELECT * FROM {table_name}"))
     return [row_model(**row._asdict()) for row in rows]
+
+
+def iter_rows_from_table(
+    table_name: str,
+    row_model: Type[T],
+    batch_size: int = DEFAULT_BATCH_SIZE,
+) -> Iterator[list[T]]:
+    """Itère les lignes d'une table par lots, via un cursor serveur psycopg.
+
+    Évite de charger toute la table en mémoire lorsque celle-ci est figée
+    (lecture en aval d'une écriture). Le cursor nommé laisse Postgres streamer
+    les résultats.
+    """
+    engine = create_engine()
+    raw_conn = engine.raw_connection()
+    cursor = raw_conn.cursor(name=f"iter_{table_name}")
+    try:
+        cursor.execute(f"SELECT * FROM {table_name}")
+        columns = [desc[0] for desc in cursor.description]
+        while True:
+            rows = cursor.fetchmany(batch_size)
+            if not rows:
+                break
+            yield [row_model(**dict(zip(columns, row, strict=True))) for row in rows]
+    finally:
+        cursor.close()
+        raw_conn.close()

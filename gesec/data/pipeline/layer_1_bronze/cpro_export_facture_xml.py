@@ -3,7 +3,8 @@
 import logging
 import os
 import re
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections.abc import Iterator
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from decimal import Decimal
 from time import perf_counter
 from typing import Any, cast
@@ -13,7 +14,7 @@ from django.conf import settings
 from tqdm import tqdm
 from xmlschema import XMLSchema, XMLSchemaValidationError
 
-from gesec.data.pipeline.db import save_list_pydantic
+from gesec.data.pipeline.db import DEFAULT_BATCH_SIZE, create_empty_table, save_pages
 from gesec.storage import find_files
 
 from ..utils import LoadTimings, read_xml_file, resolve_n_workers
@@ -128,60 +129,74 @@ def filter_files(directory: str, ids_cpro: list[str] | None = None) -> list[tupl
     return result
 
 
-def build_rows(
-    files, n_workers: int | None = None
-) -> tuple[list[BronzeCproExportFactureXml], list[BronzeCproExportFactureXmlStatus]]:
+def iter_row_pages(
+    files: list[tuple[str, str]],
+    n_workers: int | None = None,
+    batch_size: int = DEFAULT_BATCH_SIZE,
+) -> Iterator[tuple[list[BronzeCproExportFactureXml], list[BronzeCproExportFactureXmlStatus]]]:
+    """Charge les fichiers XML par lots bornés, sans tout garder en mémoire.
 
-    all_rows = []
-    all_status = []
-
+    Maintient au plus `n_workers` tâches en vol et émet une page dès que
+    `batch_size` lignes sont prêtes.
+    """
     n_workers = resolve_n_workers(n_workers)
     schema = get_xsd_schema("2.4")
     timings = LoadTimings()
-    with ThreadPoolExecutor(max_workers=n_workers) as executor:
-        futures = {
-            executor.submit(load_file, id_cpro, filepath, schema, timings): (id_cpro, filepath)
-            for id_cpro, filepath in files
-        }
+    rows: list[BronzeCproExportFactureXml] = []
+    status: list[BronzeCproExportFactureXmlStatus] = []
+    futures: dict[Future[BronzeCproExportFactureXml], tuple[str, str]] = {}
+    files_iter = iter(files)
 
-        for i, future in enumerate(
-            tqdm(as_completed(futures), total=len(files), desc="Chargement des factures XML"), start=1
-        ):
-            id_cpro, filepath = futures[future]
-            try:
-                result = future.result()
-                all_rows.append(result)
-                all_status.append(
-                    BronzeCproExportFactureXmlStatus(
-                        id_cpro=id_cpro,
-                        status="Ok",
+    def submit_next(executor: ThreadPoolExecutor) -> bool:
+        try:
+            id_cpro, filepath = next(files_iter)
+        except StopIteration:
+            return False
+        futures[executor.submit(load_file, id_cpro, filepath, schema, timings)] = (id_cpro, filepath)
+        return True
+
+    with (
+        ThreadPoolExecutor(max_workers=n_workers) as executor,
+        tqdm(total=len(files), desc="Chargement des factures XML") as progress,
+    ):
+        for _ in range(n_workers):
+            submit_next(executor)
+
+        while futures:
+            done, _ = wait(futures, return_when=FIRST_COMPLETED)
+            for future in done:
+                id_cpro, filepath = futures.pop(future)
+                progress.update(1)
+                try:
+                    rows.append(future.result())
+                    status.append(BronzeCproExportFactureXmlStatus(id_cpro=id_cpro, status="Ok"))
+                except XMLSchemaValidationError as e:
+                    logger.warning("Validation Error for %s %s: %s", id_cpro, filepath, (e.reason, e.path))
+                    status.append(
+                        BronzeCproExportFactureXmlStatus(
+                            id_cpro=id_cpro,
+                            status="Validation error",
+                            status_details=f"Path: {e.path}\nReason: {e.reason}\n{e}",
+                        )
                     )
-                )
-            except XMLSchemaValidationError as e:
-                id_cpro, filepath = futures[future]
-                logger.warning("Validation Error for %s %s: %s", id_cpro, filepath, (e.reason, e.path))
-                all_status.append(
-                    BronzeCproExportFactureXmlStatus(
-                        id_cpro=id_cpro,
-                        status="Validation error",
-                        status_details=f"Path: {e.path}\nReason: {e.reason}\n{e}",
+                except Exception as e:
+                    logger.exception(f"Failed to process {id_cpro} {filepath}: {e}")
+                    status.append(
+                        BronzeCproExportFactureXmlStatus(
+                            id_cpro=id_cpro,
+                            status="Unexpected error",
+                            status_details=f"{id_cpro} {filepath}\n{e!r}",
+                        )
                     )
-                )
-            except Exception as e:
-                logger.exception(f"Failed to process {id_cpro} {filepath}: {e}")
-                all_status.append(
-                    BronzeCproExportFactureXmlStatus(
-                        id_cpro=id_cpro,
-                        status="Unexpected error",
-                        status_details=f"{id_cpro} {filepath}\n{e!r}",
-                    )
-                )
-            if i % 1000 == 0:
-                timings.log(f"{i}/{len(files)}")
+                submit_next(executor)
+
+                if len(rows) >= batch_size:
+                    yield rows, status
+                    rows, status = [], []
 
     timings.log("terminé")
-    logger.info(f"Aggregated {len(files)} files with {len(all_rows)} total rows")
-    return all_rows, all_status
+    if rows or status:
+        yield rows, status
 
 
 def clean_decimals(obj: Any) -> Any:
@@ -195,22 +210,27 @@ def clean_decimals(obj: Any) -> Any:
 
 
 def export_to_database(
-    rows: list[BronzeCproExportFactureXml],
-    rows_status: list[BronzeCproExportFactureXmlStatus],
+    pages: Iterator[tuple[list[BronzeCproExportFactureXml], list[BronzeCproExportFactureXmlStatus]]],
     table_name: str = DEFAULT_TABLE_NAME,
 ) -> None:
-    if not rows:
+    """Écrit les pages bronze et leurs statuts au fil de l'eau."""
+    rows_first = True
+    status_first = True
+    written = 0
+    for rows, status in pages:
+        for row in rows:
+            row.content = clean_decimals(row.content)
+        if save_pages([rows], table_name, if_exists="replace" if rows_first else "append"):
+            rows_first = False
+            written += len(rows)
+        if save_pages([status], table_name + "_status", if_exists="replace" if status_first else "append"):
+            status_first = False
+    if rows_first:
+        create_empty_table(table_name, BronzeCproExportFactureXml)
+    if status_first:
+        create_empty_table(table_name + "_status", BronzeCproExportFactureXmlStatus)
+    if written == 0:
         logger.warning("No data to export, skipping database insertion")
-        return
-
-    logger.info(f"Exporting {len(rows)} rows to table '{table_name}' using SQLAlchemy")
-
-    for row in rows:
-        row.content = clean_decimals(row.content)
-    save_list_pydantic(rows, table_name, if_exists="replace")
-    save_list_pydantic(rows_status, table_name + "_status", if_exists="replace")
-
-    logger.info(f"Successfully exported {len(rows)} rows to '{table_name}'")
 
 
 def process_files_to_bronze(
@@ -219,6 +239,7 @@ def process_files_to_bronze(
     n_workers: int | None = None,
     ids_cpro: list[str] | None = None,
     ministere: str | None = None,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> None:
     """
     Args:
@@ -237,10 +258,6 @@ def process_files_to_bronze(
     for id_cpro, filepath in files:
         logger.debug(f"  - {id_cpro} {os.path.basename(filepath)}")
 
-    # Aggregate all CSV files
-    rows, rows_status = build_rows(files, n_workers=n_workers)
-
-    # Export to database
-    export_to_database(rows, rows_status, table_name=table_name)
+    export_to_database(iter_row_pages(files, n_workers=n_workers, batch_size=batch_size), table_name=table_name)
 
     logger.info("Operation completed successfully")

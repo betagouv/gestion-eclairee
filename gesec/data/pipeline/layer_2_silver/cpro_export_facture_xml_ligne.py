@@ -3,9 +3,16 @@ import logging
 from decimal import Decimal
 from typing import Optional
 
+from sqlalchemy import text
 from tqdm import tqdm
 
-from gesec.data.pipeline.db import load_rows_from_table, save_list_pydantic
+from gesec.data.pipeline.db import (
+    DEFAULT_BATCH_SIZE,
+    create_empty_table,
+    create_engine,
+    iter_rows_from_table,
+    save_pages,
+)
 from gesec.data.pipeline.layer_1_bronze.cpro_export_facture_xml import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeCproExportFactureXml
 from gesec.data.pipeline.utils import force_string, rget
@@ -18,8 +25,10 @@ logger = logging.getLogger(__name__)
 DEFAULT_TABLE_NAME = "silver_" + __name__.split(".")[-1]
 
 
-def load_bronze_rows(table_name: str) -> list[BronzeCproExportFactureXml]:
-    return load_rows_from_table(table_name, BronzeCproExportFactureXml)
+def count_bronze_rows(table_name: str) -> int:
+    engine = create_engine()
+    with engine.connect() as conn:
+        return conn.execute(text(f"SELECT count(*) FROM {table_name}")).scalar_one()
 
 
 def extract_item_identity(item: dict, item_description: str) -> tuple[Optional[str], str]:
@@ -130,7 +139,7 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
                 )
             )
         except Exception:
-            print("Weird line", id_cpro, repr(line))
+            logger.exception("Weird line %s %r", id_cpro, line)
             raise
     # Ajout des lignes des charges (ex: livraison)
     for charge_idx, charge in enumerate(content.get("cac:AllowanceCharge", [])):
@@ -168,7 +177,7 @@ def transform_to_silver(
     bronze_factures_xml: list[BronzeCproExportFactureXml],
 ) -> list[SilverCproExportFactureXmlLigne]:
     result = []
-    for fac in tqdm(bronze_factures_xml):
+    for fac in bronze_factures_xml:
         try:
             lines = transform_xml_to_silver(fac.content, fac.id_cpro, fac.xml_schema)
             result.extend(lines)
@@ -180,7 +189,23 @@ def transform_to_silver(
 def process_to_silver(
     bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
     silver_table_name: str = DEFAULT_TABLE_NAME,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> None:
-    bronze_factures = load_bronze_rows(bronze_table_name)
-    silver_lines = transform_to_silver(bronze_factures)
-    save_list_pydantic(silver_lines, silver_table_name, if_exists="replace")
+    total = count_bronze_rows(bronze_table_name)
+    pages = iter_rows_from_table(bronze_table_name, BronzeCproExportFactureXml, batch_size=batch_size)
+    first = True
+    written = 0
+    with tqdm(total=total, desc="Transformation des factures XML en silver") as progress:
+        for bronze_factures in pages:
+            silver_lines = transform_to_silver(bronze_factures)
+            if save_pages(
+                [silver_lines] if silver_lines else [],
+                silver_table_name,
+                if_exists="replace" if first else "append",
+            ):
+                first = False
+                written += len(silver_lines)
+            progress.update(len(bronze_factures))
+    if written == 0:
+        create_empty_table(silver_table_name, SilverCproExportFactureXmlLigne)
+        logger.warning("No data to export, skipping database insertion")
