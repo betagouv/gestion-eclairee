@@ -3,6 +3,7 @@ from pathlib import Path
 
 from sqlalchemy import Engine, text
 
+from gesec.data.classify_gm.paths import load_ddl
 from gesec.data.pipeline.db import create_engine
 from gesec.data.pipeline.layer_3_gold.constants import UGAP_SIREN
 
@@ -33,6 +34,7 @@ def process_to_gold(engine: Engine | None = None) -> None:
     """
     engine = engine or create_engine()
     with engine.begin() as conn:
+        conn.execute(text(load_ddl()))
         conn.execute(text(f"DROP TABLE IF EXISTS {TABLE_NAME}"))
         conn.execute(text(f"CREATE TABLE {TABLE_NAME} AS {load_query()}").bindparams(ugap_siren=UGAP_SIREN))
         for index_name, columns in INDEXES:
