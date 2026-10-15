@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from gesec.data.sync import build_missing_download_list as module
+from gesec.data.sync import build_missing_ej_download_list as module
 
 
 def write_reference(tmp_path, rows: list[dict]) -> str:
@@ -36,7 +36,7 @@ def test_builds_single_file_with_missing_factures(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "load_downloaded_ids", lambda prefix=module.FACTURES_PREFIX: {"111111111"})
 
     output = str(tmp_path / "liste_telechargement_missing.csv")
-    written = module.build_missing_download_list(
+    written = module.build_missing_ej_download_list(
         reference_filepath=reference,
         output=output,
     )
@@ -56,7 +56,7 @@ def test_returns_none_when_nothing_missing(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(module, "load_downloaded_ids", lambda prefix=module.FACTURES_PREFIX: {"111111111"})
 
-    written = module.build_missing_download_list(
+    written = module.build_missing_ej_download_list(
         reference_filepath=reference,
         output=str(tmp_path / "liste_telechargement_missing.csv"),
     )

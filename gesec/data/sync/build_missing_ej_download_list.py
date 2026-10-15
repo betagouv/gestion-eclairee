@@ -10,7 +10,7 @@ manquantes sont écrites au même format que les listes de travail (`EJ`,
 `SERVICES`), dans `liste_telechargement_missing.csv`.
 
 Usage :
-    uv run python -m gesec.data.sync.build_missing_download_list \\
+    uv run python -m gesec.data.sync.build_missing_ej_download_list \\
         <export_csv> [--output <fichier>]
 """
 
@@ -65,7 +65,7 @@ def load_downloaded_ids(prefix: str = FACTURES_PREFIX) -> set[str]:
     return ids
 
 
-def build_missing_download_list(
+def build_missing_ej_download_list(
     reference_filepath: str,
     output: str = OUTPUT_DEFAULT,
 ) -> str | None:
@@ -130,7 +130,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--output", default=OUTPUT_DEFAULT, help="Fichier de sortie de la liste")
     options = parser.parse_args(argv)
 
-    build_missing_download_list(
+    build_missing_ej_download_list(
         reference_filepath=options.reference,
         output=options.output,
     )
