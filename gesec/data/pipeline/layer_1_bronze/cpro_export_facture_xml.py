@@ -231,6 +231,8 @@ def export_to_database(
         create_empty_table(table_name + "_status", BronzeCproExportFactureXmlStatus)
     if written == 0:
         logger.warning("No data to export, skipping database insertion")
+    else:
+        logger.info(f"Saved {written} rows in {table_name}")
 
 
 def process_files_to_bronze(

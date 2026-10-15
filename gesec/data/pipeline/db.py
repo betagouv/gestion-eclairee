@@ -72,7 +72,6 @@ def save_df(
 ) -> None:
     engine = create_engine()
     df.to_sql(name=table_name, con=engine, if_exists=if_exists, index=False, dtype=dtype, chunksize=1000)
-    logger.info(f"Saved {df.shape[0]} rows in {table_name}")
 
 
 def save_pages(
@@ -98,8 +97,6 @@ def save_pages(
         written += len(page)
     if written == 0:
         logger.warning(f"No data to export, skipping database insertion in {table_name}")
-    else:
-        logger.info(f"Saved {written} rows in {table_name} (total)")
     return written
 
 

@@ -242,7 +242,7 @@ def process_to_gold(
     )
     if written == 0:
         create_empty_table(TABLE_NAME, GoldCproExportFactureLigne)
-    logger.info(f"Transformé en {written} lignes gold depuis les factures XML et Factur-X")
+    logger.info(f"Saved {written} rows in {TABLE_NAME}")
 
     factures = load_rows_from_table(silver_facture_table_name, SilverCproExportFacture)
     xml_factures = load_rows_from_table(silver_facture_xml_facture_table_name, SilverCproExportFactureXmlFacture)
@@ -258,5 +258,7 @@ def process_to_gold(
 
     if save_pages(chunked(suivi), UGAP_LIGNE_TABLE_NAME, if_exists="replace") == 0:
         create_empty_table(UGAP_LIGNE_TABLE_NAME, GoldUgapLigne)
+    logger.info(f"Saved {len(suivi)} rows in {UGAP_LIGNE_TABLE_NAME}")
     if save_pages(chunked(enrichment), FOURNISSEUR_IN_FINE_TABLE_NAME, if_exists="replace") == 0:
         create_empty_table(FOURNISSEUR_IN_FINE_TABLE_NAME, GoldFournisseurInFine)
+    logger.info(f"Saved {len(enrichment)} rows in {FOURNISSEUR_IN_FINE_TABLE_NAME}")

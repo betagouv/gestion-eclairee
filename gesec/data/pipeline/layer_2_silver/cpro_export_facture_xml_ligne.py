@@ -209,3 +209,5 @@ def process_to_silver(
     if written == 0:
         create_empty_table(silver_table_name, SilverCproExportFactureXmlLigne)
         logger.warning("No data to export, skipping database insertion")
+    else:
+        logger.info(f"Saved {written} rows in {silver_table_name}")
