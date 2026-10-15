@@ -67,6 +67,7 @@ def main() -> None:
         app,
         host=os.environ.get("MCP_HOST", "127.0.0.1"),
         port=int(os.environ.get("MCP_PORT", "9000")),
+        workers=1,
     )
 
 
