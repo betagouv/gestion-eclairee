@@ -8,9 +8,14 @@ zéros de tête sont perdus). Une référence est donc considérée présente d�
 qu'elle est un suffixe d'un `numero` de `gesec_facture`.
 
 Les références absentes sont écrites dans `liste_telechargement_missing.csv`,
-au format attendu par `download_cpro.py` (colonne unique `FACTURE_NUM`). Le
-numéro passé est la `REF_FAC` brute, telle qu'elle apparaît dans l'export : le
-script de téléchargement cherche par `Numéro de facture` sans EJ ni service.
+au format attendu par `download_cpro.py` (`FACTURE_NUM` et `FACTURE_MONTANT`).
+Le numéro passé est la `REF_FAC` brute, telle qu'elle apparaît dans l'export :
+le script de téléchargement cherche par `Numéro de facture` sans EJ ni service.
+
+Le montant (`MNT_FAC`, déjà au format français) est joint quand il est unique
+pour la référence, ce qui permet à `download_cpro.py` de filtrer en plus sur le
+TTC exact. En cas de montants distincts pour une même référence, la valeur est
+laissée vide pour éviter un filtre hasardeux.
 
 Les artefacts de la colonne `REF_FAC` (erreurs de tableur, montants négatifs ou
 décimaux) sont écartés : ils ne désignent aucune facture téléchargeable.
@@ -38,6 +43,7 @@ logger = logging.getLogger(__name__)
 CHORUS_FILE_DEFAULT = "export_augdt_20260814.csv"
 OUTPUT_DEFAULT = "liste_telechargement_missing.csv"
 REFERENCE_COLUMN = "REF_FAC"
+MONTANT_COLUMN = "MNT_FAC"
 
 # Erreurs de tableur recopiées dans `REF_FAC` (`#NOM?`, `#VALEUR!`...) : elles
 # ne désignent aucune facture.
@@ -55,16 +61,32 @@ def is_noise_reference(reference: str) -> bool:
     return bool(EXCEL_ERROR_PATTERN.match(reference) or NOISE_PATTERN.search(reference))
 
 
+def _unique_montant(values: pd.Series) -> str:
+    distinct = set(values)
+    return distinct.pop() if len(distinct) == 1 else ""
+
+
 def load_reference_list(filepath: str) -> pd.DataFrame:
-    """Charge le CSV de référence et renvoie les `REF_FAC` uniques, non bruitées."""
+    """Charge le CSV de référence et renvoie les `REF_FAC` uniques, non bruitées.
+
+    Chaque référence est accompagnée de son montant (`MNT_FAC`) quand il est
+    unique ; sinon `FACTURE_MONTANT` reste vide.
+    """
     df = pd.read_csv(filepath, encoding="iso-8859-3", delimiter=";", dtype="str")
-    refs = df[REFERENCE_COLUMN].dropna().str.strip()
-    refs = refs[refs != ""].drop_duplicates()
-    noise_count = int(refs.map(is_noise_reference).sum())
+    df["FACTURE_NUM"] = df[REFERENCE_COLUMN].fillna("").str.strip()
+    df["FACTURE_MONTANT"] = df[MONTANT_COLUMN].fillna("").str.strip()
+    df = df[df["FACTURE_NUM"] != ""]
+    df = df.drop_duplicates(subset=["FACTURE_NUM", "FACTURE_MONTANT"])
+
+    noise_mask = df["FACTURE_NUM"].map(is_noise_reference)
+    noise_count = int(df.loc[noise_mask, "FACTURE_NUM"].nunique())
     if noise_count:
         logger.info("%d référence(s) bruitée(s) retirée(s)", noise_count)
-    refs = refs[~refs.map(is_noise_reference)]
-    return pd.DataFrame({"FACTURE_NUM": sorted(refs)})
+    df = df[~noise_mask]
+
+    montants = df.groupby("FACTURE_NUM")["FACTURE_MONTANT"].agg(_unique_montant)
+    result = montants.rename("FACTURE_MONTANT").reset_index()
+    return result.sort_values(by="FACTURE_NUM").reset_index(drop=True)
 
 
 def load_numeros() -> list[str]:
