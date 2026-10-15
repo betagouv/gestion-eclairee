@@ -15,6 +15,8 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - Classification GM : `uv run ./manage.py classify_gm [--ministere <code>] [--date-min <iso>] [--date-max <iso>]`
   (étape indépendante du launcher : appelle le LLM Albert, écrit `gesec_facture_gm_pred`).
   Sans `--n`, classe tout le périmètre éligible ; `--batch-size` borne les lots lus/écrits.
+- Méta-table BUDAT : `uv run ./manage.py build_meta_budat`
+  (rejoue `gold.meta_budat` seul ; à lancer après `classify_gm` pour propager les prédictions)
 - Extraction XML : `uv run python -m gesec.data.processors.cpro.pivots_xml -i <in> -o <out>`
 - Serveur MCP (HTTP local) : `MCP_BASE_API_URL=<url> MCP_PORT=9000 uv run --package mcpserver python -m mcpserver.server`
   (`MCP_PORT` défaut `9000` ; en prod, process `mcp` du Procfile, port via `MCP_PORT`)
