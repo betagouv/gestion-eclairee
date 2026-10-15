@@ -4,9 +4,12 @@
 -- Contrat de réconciliation : chaque ligne BUDAT est présente au moins une fois,
 -- la somme de `montant` est égale à la somme BUDAT à l'arrondi centime près.
 --
--- Jointure facture : ltrim(facture_ref, '0') = ltrim(numero, '0') ; la REF_FAC de
--- BUDAT est peu fiable (113 920 réfs non numériques), la facture retenue en cas de
--- `numero` dupliqué (224 cas) est celle au plus grand id.
+-- Jointure facture : ltrim(btrim(facture_ref), '0') = ltrim(numero, '0') ; la REF_FAC
+-- de BUDAT est peu fiable (113 920 réfs non numériques) et souvent préfixée d'espaces
+-- (92 % des facture_absente 2025), d'où le btrim côté BUDAT. Le numero CPRO, lui, n'a
+-- jamais d'espace de bord. La facture retenue en cas de `numero` dupliqué (224 cas)
+-- est celle au plus grand id. Le rapprochement par suffixe (REF_FAC tronquée) a été
+-- écarté : gain marginal mesuré (~5,7 M€, ~0,1 % du montant BUDAT) et ambigu.
 -- Repli sur BUDAT quand la facture est absente : service = SEDP, ministère via
 -- silver_services, segment = budat_gm tronqué à 2 niveaux (ex. 33.01.04 -> 33.01).
 -- Montants TTC : `montant` = prorata du montant BUDAT sur les lignes de la facture
@@ -49,7 +52,7 @@ budat as (
         ej, marche, seej, coalesce(gm, '') as budat_gm, libelle, fournisseur as fournisseur_budat,
         fournisseur_siren as fournisseur_siren_budat, facture_fi, societe,
         service as service_budat, cc, pce, txt50, activite, description,
-        ltrim(facture_ref, '0') as facture_ref_norm
+        ltrim(btrim(facture_ref), '0') as facture_ref_norm
     from bronze_budat_export_augdt
 ),
 facture as (

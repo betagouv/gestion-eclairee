@@ -255,6 +255,35 @@ def test_repli_budat_sur_les_lignes_non_rapprochees(engine: Engine) -> None:
     assert facture_sans_lignes["service"] == "SERVICE"
 
 
+def test_rapprochement_ref_fac_avec_espaces(engine: Engine) -> None:
+    save_rows(engine, "silver_services", [SilverService(code="SEDP1", name="Service 1", ministere="INTERIEUR")])
+    create_facture(numero="1234", id_cpro="cpro-a-espaces")
+    create_facture(numero="9999", id_cpro="cpro-toujours-absente")
+    save_rows(engine, "gesec_facture_ligne", [gold_line("cpro-a-espaces", "00010", "120.00")])
+    save_rows(
+        engine,
+        "bronze_budat_export_augdt",
+        [
+            budat_row(1, "   1234", montant="100,00"),
+            budat_row(2, "   9999", montant="50,00", service="SEDP2"),
+        ],
+    )
+
+    process_to_gold(engine=engine)
+
+    rows = fetch_meta(engine)
+    assert len(rows) == 2
+
+    rapprochee = rows[0]
+    assert rapprochee["cas"] == "lignes_non_ugap"
+    assert rapprochee["montant"] == Decimal("100.00")
+    assert rapprochee["montant_ligne_ttc"] == Decimal("120.00")
+
+    absente = rows[1]
+    assert absente["cas"] == "facture_sans_lignes"
+    assert absente["montant"] == Decimal("50.00")
+
+
 def test_eclatement_prorata_et_fournisseur_in_fine(engine: Engine) -> None:
     save_rows(engine, "silver_services", [SilverService(code="SEDP1", name="Service 1", ministere="INTERIEUR")])
     create_facture(numero="789", id_cpro="cpro-non-ugap", gm="33.04.01", ministere="ECOLOGIE")
