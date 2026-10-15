@@ -18,6 +18,10 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - Méta-table BUDAT : `uv run ./manage.py build_meta_budat`
   (rejoue `gold.meta_budat` seul ; à lancer après `classify_gm` pour propager les prédictions)
 - Extraction XML : `uv run python -m gesec.data.processors.cpro.pivots_xml -i <in> -o <out>`
+- Synthèse BUDAT (lecture seule, JSON) : `uv run python scripts/synthese_budat.py <ENV_VAR> <annee>`
+  (`<ENV_VAR>` nomme la variable d'env portant l'URL de la base, ex. `PROD_DB_URL` ;
+  `<annee>` sélectionne l'année BUDAT ; sortie JSON sur stdout, tableaux en tableaux
+  de tableaux)
 - Serveur MCP (HTTP local) : `MCP_BASE_API_URL=<url> MCP_PORT=9000 uv run --package mcpserver python -m mcpserver.server`
   (`MCP_PORT` défaut `9000` ; en prod, process `mcp` du Procfile, port via `MCP_PORT`)
 - Inspection MCP : `npx @modelcontextprotocol/inspector --url http://127.0.0.1:9000/mcp`

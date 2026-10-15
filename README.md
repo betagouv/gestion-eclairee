@@ -27,6 +27,29 @@ ruff format; ruff check --fix
 ty check
 
 
+## Synthèse BUDAT
+
+Génère en JSON les chiffres de couverture du corpus BUDAT (volume, montants,
+enrichissement UGAP, groupes de marchandises). Lecture seule sur la base pointée
+par la variable d'environnement nommée en premier argument.
+
+```sh
+uv run python scripts/synthese_budat.py <ENV_VAR> <annee>
+```
+
+- `<ENV_VAR>` : nom de la variable d'environnement contenant l'URL de la base
+  (ex. `PROD_DB_URL`).
+- `<annee>` : année BUDAT à analyser (ex. `2025`).
+
+La sortie JSON va sur stdout ; les tableaux sont émis en tableaux de tableaux
+(en-tête en première ligne). Exemple, avec la variable définie dans un fichier
+dotenv sans polluer l'environnement du shell :
+
+```sh
+( set -a && source ../gesec.env && set +a && uv run python scripts/synthese_budat.py PROD_DB_URL 2025 ) > synthese.json
+```
+
+
 ## MCP server
 
 Le serveur MCP (`mcpserver/`) fait partie du workspace uv (voir Setup).
