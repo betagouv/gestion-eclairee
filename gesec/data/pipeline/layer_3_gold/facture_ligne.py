@@ -1,18 +1,16 @@
-import itertools
 import logging
 import re
 from collections.abc import Iterable, Iterator, Sequence
-from typing import Optional, TypeVar
+from typing import Optional
 
 from sqlalchemy import text
 
 from gesec.data.pipeline.db import (
     DEFAULT_BATCH_SIZE,
-    create_empty_table,
+    TableWriter,
     execute_sql,
     iter_rows_from_table,
     load_rows_from_table,
-    save_pages,
 )
 from gesec.data.pipeline.layer_2_silver.cpro_export_factur_x_ligne import (
     DEFAULT_TABLE_NAME as SILVER_FACTUR_X_LIGNE_DEFAULT_TABLE_NAME,
@@ -52,13 +50,6 @@ FOURNISSEUR_IN_FINE_TABLE_NAME = "gesec_facture_ligne_fournisseur_in_fine"
 
 RE_IDENTIFIANT_LIVRAISON = re.compile(r"^(\d+)-\d+$")
 
-T = TypeVar("T")
-
-
-def chunked(items: Sequence[T], size: int = DEFAULT_BATCH_SIZE) -> Iterator[list[T]]:
-    for start in range(0, len(items), size):
-        yield list(items[start : start + size])
-
 
 def load_xml_id_cpros(table_name: str) -> set[str]:
     rows = execute_sql(text(f"SELECT DISTINCT id_cpro FROM {table_name}"))
@@ -69,29 +60,22 @@ def transform_to_gold(
     factur_x_table_name: str = SILVER_FACTUR_X_LIGNE_DEFAULT_TABLE_NAME,
     facture_xml_table_name: str = SILVER_FACTURE_XML_LIGNE_DEFAULT_TABLE_NAME,
     batch_size: int = DEFAULT_BATCH_SIZE,
-) -> Iterator[list[GoldCproExportFactureLigne]]:
+) -> Iterator[GoldCproExportFactureLigne]:
     """Prend en priorité les lignes de facture XML, puis celles de factur-x.
 
-    Itère les lignes silver par lots, sans charger les tables entières. Le set
+    Itère les lignes silver une à une, sans charger les tables entières. Le set
     des `id_cpro` couverts par le XML est conservé en mémoire pour exclure les
     factures déjà traitées côté Factur-X.
     """
 
     xml_id_cpros = load_xml_id_cpros(facture_xml_table_name)
 
-    for page in iter_rows_from_table(facture_xml_table_name, SilverCproExportFactureXmlLigne, batch_size=batch_size):
-        lines = [GoldCproExportFactureLigne(**line.model_dump(), source="facture-xml") for line in page]
-        if lines:
-            yield lines
+    for line in iter_rows_from_table(facture_xml_table_name, SilverCproExportFactureXmlLigne, batch_size=batch_size):
+        yield GoldCproExportFactureLigne(**line.model_dump(), source="facture-xml")
 
-    for page in iter_rows_from_table(factur_x_table_name, SilverCproExportFacturXLigne, batch_size=batch_size):
-        lines = [
-            GoldCproExportFactureLigne(**line.model_dump(), source="factur-x")
-            for line in page
-            if line.id_cpro not in xml_id_cpros
-        ]
-        if lines:
-            yield lines
+    for line in iter_rows_from_table(factur_x_table_name, SilverCproExportFacturXLigne, batch_size=batch_size):
+        if line.id_cpro not in xml_id_cpros:
+            yield GoldCproExportFactureLigne(**line.model_dump(), source="factur-x")
 
 
 def is_ugap_facture(fournisseur_identifiant: Optional[str]) -> bool:
@@ -147,8 +131,8 @@ def build_ugap_ligne(
 
 
 def match_ugap(
-    factures: Sequence[SilverCproExportFacture],
-    xml_factures: Sequence[SilverCproExportFactureXmlFacture],
+    factures: Iterable[SilverCproExportFacture],
+    xml_factures: Iterable[SilverCproExportFactureXmlFacture],
     ugap_lines: Sequence[SilverUgapExportFacture],
     gold_lines: Iterable[GoldCproExportFactureLigne],
 ) -> tuple[list[GoldUgapLigne], list[GoldFournisseurInFine]]:
@@ -233,32 +217,30 @@ def process_to_gold(
     silver_ugap_table_name: str = SILVER_UGAP_DEFAULT_TABLE_NAME,
     silver_facture_xml_facture_table_name: str = SILVER_FACTURE_XML_FACTURE_DEFAULT_TABLE_NAME,
 ) -> None:
-    written = save_pages(
-        transform_to_gold(
-            factur_x_table_name=silver_factur_x_table_name, facture_xml_table_name=silver_facture_xml_table_name
-        ),
-        TABLE_NAME,
-        if_exists="replace",
-    )
-    if written == 0:
-        create_empty_table(TABLE_NAME, GoldCproExportFactureLigne)
-    logger.info(f"Saved {written} rows in {TABLE_NAME}")
+    with TableWriter(TABLE_NAME, GoldCproExportFactureLigne) as gold_writer:
+        gold_writer.add_all(
+            transform_to_gold(
+                factur_x_table_name=silver_factur_x_table_name, facture_xml_table_name=silver_facture_xml_table_name
+            )
+        )
+    logger.info(f"Saved {gold_writer.written} rows in {TABLE_NAME}")
 
-    factures = load_rows_from_table(silver_facture_table_name, SilverCproExportFacture)
-    xml_factures = load_rows_from_table(silver_facture_xml_facture_table_name, SilverCproExportFactureXmlFacture)
+    factures = iter_rows_from_table(silver_facture_table_name, SilverCproExportFacture)
+    xml_factures = iter_rows_from_table(silver_facture_xml_facture_table_name, SilverCproExportFactureXmlFacture)
     ugap_rows = load_rows_from_table(silver_ugap_table_name, SilverUgapExportFacture)
 
     suivi, enrichment = match_ugap(
         factures,
         xml_factures,
         ugap_rows,
-        itertools.chain.from_iterable(iter_rows_from_table(TABLE_NAME, GoldCproExportFactureLigne)),
+        iter_rows_from_table(TABLE_NAME, GoldCproExportFactureLigne),
     )
     logger.info(f"Rapprochement UGAP: {len(suivi)} lignes de suivi, {len(enrichment)} lignes d'enrichissement")
 
-    if save_pages(chunked(suivi), UGAP_LIGNE_TABLE_NAME, if_exists="replace") == 0:
-        create_empty_table(UGAP_LIGNE_TABLE_NAME, GoldUgapLigne)
+    with TableWriter(UGAP_LIGNE_TABLE_NAME, GoldUgapLigne) as suivi_writer:
+        suivi_writer.add_all(suivi)
     logger.info(f"Saved {len(suivi)} rows in {UGAP_LIGNE_TABLE_NAME}")
-    if save_pages(chunked(enrichment), FOURNISSEUR_IN_FINE_TABLE_NAME, if_exists="replace") == 0:
-        create_empty_table(FOURNISSEUR_IN_FINE_TABLE_NAME, GoldFournisseurInFine)
+
+    with TableWriter(FOURNISSEUR_IN_FINE_TABLE_NAME, GoldFournisseurInFine) as enrichment_writer:
+        enrichment_writer.add_all(enrichment)
     logger.info(f"Saved {len(enrichment)} rows in {FOURNISSEUR_IN_FINE_TABLE_NAME}")

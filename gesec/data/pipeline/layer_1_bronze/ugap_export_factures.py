@@ -4,7 +4,7 @@ import re
 
 from django.core.files.storage import default_storage
 
-from gesec.data.pipeline.db import save_list_pydantic
+from gesec.data.pipeline.db import TableWriter
 from gesec.data.pipeline.utils import load_xlsx
 
 from .schemas import BronzeUgapExportFacture
@@ -46,5 +46,6 @@ def process_files_to_bronze(directory: str = DEFAULT_DIRECTORY, table_name: str 
         logger.warning("No data to export, skipping database insertion")
         return
 
-    save_list_pydantic(rows, table_name=table_name, if_exists="replace")
+    with TableWriter(table_name, BronzeUgapExportFacture) as writer:
+        writer.add_all(rows)
     logger.info("Operation completed successfully")

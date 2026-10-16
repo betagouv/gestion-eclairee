@@ -8,10 +8,9 @@ from tqdm import tqdm
 
 from gesec.data.pipeline.db import (
     DEFAULT_BATCH_SIZE,
-    create_empty_table,
+    TableWriter,
     create_engine,
     iter_rows_from_table,
-    save_pages,
 )
 from gesec.data.pipeline.layer_1_bronze.cpro_export_facture_xml import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeCproExportFactureXml
@@ -173,17 +172,12 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
     return result
 
 
-def transform_to_silver(
-    bronze_factures_xml: list[BronzeCproExportFactureXml],
-) -> list[SilverCproExportFactureXmlLigne]:
-    result = []
-    for fac in bronze_factures_xml:
-        try:
-            lines = transform_xml_to_silver(fac.content, fac.id_cpro, fac.xml_schema)
-            result.extend(lines)
-        except Exception as e:
-            logger.exception(f"Could not process {fac.id_cpro}: {e}")
-    return result
+def transform_to_silver(bronze: BronzeCproExportFactureXml) -> list[SilverCproExportFactureXmlLigne]:
+    try:
+        return transform_xml_to_silver(bronze.content, bronze.id_cpro, bronze.xml_schema)
+    except Exception as e:
+        logger.exception(f"Could not process {bronze.id_cpro}: {e}")
+        return []
 
 
 def process_to_silver(
@@ -192,22 +186,11 @@ def process_to_silver(
     batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> None:
     total = count_bronze_rows(bronze_table_name)
-    pages = iter_rows_from_table(bronze_table_name, BronzeCproExportFactureXml, batch_size=batch_size)
-    first = True
-    written = 0
-    with tqdm(total=total, desc="Transformation des factures XML en silver") as progress:
-        for bronze_factures in pages:
-            silver_lines = transform_to_silver(bronze_factures)
-            if save_pages(
-                [silver_lines] if silver_lines else [],
-                silver_table_name,
-                if_exists="replace" if first else "append",
-            ):
-                first = False
-                written += len(silver_lines)
-            progress.update(len(bronze_factures))
-    if written == 0:
-        create_empty_table(silver_table_name, SilverCproExportFactureXmlLigne)
-        logger.warning("No data to export, skipping database insertion")
-    else:
+    rows = iter_rows_from_table(bronze_table_name, BronzeCproExportFactureXml, batch_size=batch_size)
+    with TableWriter(silver_table_name, SilverCproExportFactureXmlLigne, batch_size=batch_size) as writer:
+        for bronze in tqdm(rows, total=total, desc="Transformation des factures XML en silver"):
+            writer.add_all(transform_to_silver(bronze))
+
+    written = writer.written
+    if written:
         logger.info(f"Saved {written} rows in {silver_table_name}")

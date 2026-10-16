@@ -14,7 +14,7 @@ from django.conf import settings
 from tqdm import tqdm
 from xmlschema import XMLSchema, XMLSchemaValidationError
 
-from gesec.data.pipeline.db import DEFAULT_BATCH_SIZE, create_empty_table, save_pages
+from gesec.data.pipeline.db import DEFAULT_BATCH_SIZE, TableWriter
 from gesec.storage import find_files
 
 from ..utils import LoadTimings, read_xml_file, resolve_n_workers
@@ -213,25 +213,18 @@ def export_to_database(
     pages: Iterator[tuple[list[BronzeCproExportFactureXml], list[BronzeCproExportFactureXmlStatus]]],
     table_name: str = DEFAULT_TABLE_NAME,
 ) -> None:
-    """Écrit les pages bronze et leurs statuts au fil de l'eau."""
-    rows_first = True
-    status_first = True
-    written = 0
-    for rows, status in pages:
-        for row in rows:
-            row.content = clean_decimals(row.content)
-        if save_pages([rows], table_name, if_exists="replace" if rows_first else "append"):
-            rows_first = False
-            written += len(rows)
-        if save_pages([status], table_name + "_status", if_exists="replace" if status_first else "append"):
-            status_first = False
-    if rows_first:
-        create_empty_table(table_name, BronzeCproExportFactureXml)
-    if status_first:
-        create_empty_table(table_name + "_status", BronzeCproExportFactureXmlStatus)
-    if written == 0:
-        logger.warning("No data to export, skipping database insertion")
-    else:
+    """Écrit les lignes bronze au fil de l'eau, puis leurs statuts (légers)."""
+    rows_writer = TableWriter(table_name, BronzeCproExportFactureXml)
+    status_writer = TableWriter(table_name + "_status", BronzeCproExportFactureXmlStatus)
+    with rows_writer, status_writer:
+        for page_rows, page_status in pages:
+            status_writer.add_all(page_status)
+            for row in page_rows:
+                row.content = clean_decimals(row.content)
+                rows_writer.add(row)
+
+    written = rows_writer.written
+    if written:
         logger.info(f"Saved {written} rows in {table_name}")
 
 

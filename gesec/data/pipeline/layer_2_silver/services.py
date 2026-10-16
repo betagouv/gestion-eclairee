@@ -1,6 +1,6 @@
 import logging
 
-from ..db import load_rows_from_table, save_list_pydantic
+from ..db import DEFAULT_BATCH_SIZE, TableWriter, iter_rows_from_table
 from ..layer_1_bronze.cpro_annuaire import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
 from ..layer_1_bronze.schemas import BronzeCproAnnuaireService
 from .schemas import SilverService
@@ -23,21 +23,13 @@ KNOWN_SERVICES = {
 }
 
 
-def load_services_from_cpro_annuaire(bronze_table_name: str) -> list[BronzeCproAnnuaireService]:
-    return load_rows_from_table(bronze_table_name, BronzeCproAnnuaireService)
-
-
-def transform(bronze_services: list[BronzeCproAnnuaireService]) -> list[SilverService]:
-    silver_services = []
-    for bronze_service in bronze_services:
-        ministere = map_service(code=bronze_service.code_service, name=bronze_service.libelle_service)
-        silver_service = SilverService(
-            code=bronze_service.code_service,
-            name=bronze_service.libelle_service,
-            ministere=ministere,
-        )
-        silver_services.append(silver_service)
-    return silver_services
+def transform(bronze_service: BronzeCproAnnuaireService) -> SilverService:
+    ministere = map_service(code=bronze_service.code_service, name=bronze_service.libelle_service)
+    return SilverService(
+        code=bronze_service.code_service,
+        name=bronze_service.libelle_service,
+        ministere=ministere,
+    )
 
 
 def map_service(code: str, name: str) -> str:
@@ -81,7 +73,9 @@ def map_service(code: str, name: str) -> str:
 def process_bronze_to_silver(
     bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
     silver_table_name: str = DEFAULT_TABLE_NAME,
-):
-    bronze_services = load_services_from_cpro_annuaire(bronze_table_name)
-    silver_services = transform(bronze_services)
-    save_list_pydantic(silver_services, silver_table_name, if_exists="replace")
+    batch_size: int = DEFAULT_BATCH_SIZE,
+) -> None:
+    rows = iter_rows_from_table(bronze_table_name, BronzeCproAnnuaireService, batch_size=batch_size)
+    with TableWriter(silver_table_name, SilverService, batch_size=batch_size) as writer:
+        for bronze in rows:
+            writer.add(transform(bronze))

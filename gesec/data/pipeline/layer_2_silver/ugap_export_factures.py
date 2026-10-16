@@ -1,11 +1,16 @@
 import logging
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any, Optional
 
 from pydantic import ValidationError
 
-from gesec.data.pipeline.db import load_rows_from_table, save_list_pydantic
+from gesec.data.pipeline.db import (
+    DEFAULT_BATCH_SIZE,
+    TableWriter,
+    iter_rows_from_table,
+)
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeUgapExportFacture
 from gesec.data.pipeline.layer_1_bronze.ugap_export_factures import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
 
@@ -120,85 +125,97 @@ def transform_bronze_row(bronze: BronzeUgapExportFacture) -> SilverUgapExportFac
     )
 
 
-def deduplicate(
-    rows: list[SilverUgapExportFacture],
-) -> tuple[list[SilverUgapExportFacture], set[tuple[str, str]]]:
-    """Dédoublonne sur (commande, article, date de paiement, montant HT) en gardant la dernière ligne triée.
+@dataclass
+class ParsedUgapRow:
+    source: str
+    source_idx: str
+    silver: Optional[SilverUgapExportFacture]
+    error: Optional[str]
 
-    Les lignes sont triées par (source, source_idx) avant le dédoublonnage pour
-    rendre le résultat déterministe vis-à-vis de l'ordre de lecture en base. À
-    clé égale, la dernière ligne triée l'emporte ; les lignes évincées sont
-    retournées comme duplicats.
-    """
-    kept: dict[tuple[str, str, Optional[date], Optional[Decimal]], SilverUgapExportFacture] = {}
-    duplicates: set[tuple[str, str]] = set()
-    for row in sorted(rows, key=lambda row: (row.source, row.source_idx)):
-        key = (
+    @property
+    def dedup_key(self) -> tuple[str, str, Optional[date], Optional[Decimal]]:
+        row = self.silver
+        if row is None:
+            return ("", "", None, None)
+        return (
             row.numero_commande_ugap,
             row.code_article_ugap,
             row.jour_paiement_commande_ugap,
             row.montant_facture_ht,
         )
-        current = kept.get(key)
+
+    @property
+    def order_key(self) -> tuple[str, str]:
+        return (self.source, self.source_idx)
+
+
+def parse_bronze_row(bronze: BronzeUgapExportFacture) -> ParsedUgapRow:
+    try:
+        silver = transform_bronze_row(bronze)
+    except (ValueError, ValidationError) as error:
+        return ParsedUgapRow(source=bronze.source, source_idx=bronze.source_idx, silver=None, error=str(error))
+    return ParsedUgapRow(source=bronze.source, source_idx=bronze.source_idx, silver=silver, error=None)
+
+
+def deduplicate(parsed: list[ParsedUgapRow]) -> int:
+    """Élague en place les doublons, en gardant la dernière ligne triée.
+
+    Dédoublonne sur (commande, article, date de paiement, montant HT). Les lignes
+    sont considérées dans l'ordre (source, source_idx) ; à clé égale, la dernière
+    l'emporte. Les entrées évincées voient leur `silver` remis à `None` et
+    reçoivent l'erreur `Duplicat`. Renvoie le nombre de doublons évincés.
+    """
+    kept: dict[tuple[str, str, Optional[date], Optional[Decimal]], ParsedUgapRow] = {}
+    duplicates = 0
+    for entry in sorted(parsed, key=lambda entry: entry.order_key):
+        if entry.silver is None:
+            continue
+        current = kept.get(entry.dedup_key)
         if current is not None:
-            duplicates.add((current.source, current.source_idx))
-        kept[key] = row
-    return list(kept.values()), duplicates
-
-
-def build_status(
-    bronze: BronzeUgapExportFacture,
-    status: UgapExportFactureStatus,
-    status_details: Optional[str] = None,
-) -> SilverUgapExportFactureStatus:
-    return SilverUgapExportFactureStatus(
-        **bronze.model_dump(),
-        status=status,
-        status_details=status_details,
-    )
-
-
-def transform_bronze_to_silver(
-    bronze_rows: list[BronzeUgapExportFacture],
-) -> tuple[list[SilverUgapExportFacture], list[SilverUgapExportFactureStatus]]:
-    parsed: list[tuple[BronzeUgapExportFacture, Optional[SilverUgapExportFacture], Optional[Exception]]] = []
-    for bronze in bronze_rows:
-        try:
-            silver = transform_bronze_row(bronze)
-        except (ValueError, ValidationError) as error:
-            parsed.append((bronze, None, error))
-        else:
-            parsed.append((bronze, silver, None))
-
-    valid_rows = [silver for _bronze, silver, error in parsed if error is None and silver is not None]
-    kept_rows, duplicates = deduplicate(valid_rows)
-
-    statuses = []
-    for bronze, _silver, error in parsed:
-        if error is not None:
-            statuses.append(build_status(bronze, "Validation error", str(error)))
-        elif (bronze.source, bronze.source_idx) in duplicates:
-            statuses.append(
-                build_status(bronze, "Duplicat", "Doublon sur (commande, article, date de paiement, montant HT)")
-            )
-        else:
-            statuses.append(build_status(bronze, "Ok"))
-    return kept_rows, statuses
+            current.silver = None
+            current.error = "Duplicat"
+            duplicates += 1
+        kept[entry.dedup_key] = entry
+    return duplicates
 
 
 def process_bronze_to_silver(
     bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
     silver_table_name: str = DEFAULT_TABLE_NAME,
-) -> tuple[list[SilverUgapExportFacture], list[SilverUgapExportFactureStatus]]:
-    bronze_rows = load_rows_from_table(bronze_table_name, BronzeUgapExportFacture)
-    logger.info(f"Chargé {len(bronze_rows)} items depuis la table bronze {bronze_table_name}")
+    batch_size: int = DEFAULT_BATCH_SIZE,
+) -> None:
+    """Stream le bronze par pages, dédoublonne en Python, écrit la silver et ses statuts."""
+    parsed: list[ParsedUgapRow] = []
+    for bronze in iter_rows_from_table(bronze_table_name, BronzeUgapExportFacture, batch_size=batch_size):
+        parsed.append(parse_bronze_row(bronze))
 
-    silver_rows, statuses = transform_bronze_to_silver(bronze_rows)
-    logger.info(f"Transformé en {len(silver_rows)} lignes silver après validation et dédoublonnage")
+    duplicates = deduplicate(parsed)
 
-    if silver_rows:
-        save_list_pydantic(silver_rows, silver_table_name, if_exists="replace")
-    if statuses:
-        save_list_pydantic(statuses, silver_table_name + "_status", if_exists="replace")
-    logger.info("Process bronze_to_silver terminé avec succès")
-    return silver_rows, statuses
+    silver_rows = [entry.silver for entry in parsed if entry.silver is not None]
+    statuses = [
+        SilverUgapExportFactureStatus(
+            source=entry.source,
+            source_idx=entry.source_idx,
+            status=_status(entry),
+            status_details=entry.error,
+        )
+        for entry in parsed
+    ]
+
+    rows_writer = TableWriter(silver_table_name, SilverUgapExportFacture, batch_size=batch_size)
+    status_writer = TableWriter(silver_table_name + "_status", SilverUgapExportFactureStatus, batch_size=batch_size)
+    with rows_writer, status_writer:
+        rows_writer.add_all(silver_rows)
+        status_writer.add_all(statuses)
+
+    written = rows_writer.written
+
+    if duplicates:
+        logger.info(f"Évincé {duplicates} doublons UGAP")
+    logger.info(f"Saved {written} rows in {silver_table_name}")
+
+
+def _status(entry: ParsedUgapRow) -> UgapExportFactureStatus:
+    if entry.silver is not None:
+        return "Ok"
+    return "Duplicat" if entry.error == "Duplicat" else "Validation error"

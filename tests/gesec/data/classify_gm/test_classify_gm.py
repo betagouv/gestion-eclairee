@@ -1,5 +1,4 @@
 from datetime import date
-from decimal import Decimal
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -13,7 +12,6 @@ from gesec.data.classify_gm.db import get_database_url
 from gesec.data.classify_gm.gold import TABLE_NAME
 from gesec.data.classify_gm.llm import LLMAskResult
 from gesec.data.classify_gm.paths import load_ddl
-from gesec.models import Facture
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
@@ -32,6 +30,37 @@ class FakeLLM:
         self.calls += 1
         choices = {"domaine": "33", "segment": "33.02", "gm_pred": "33.02.05"}
         return LLMAskResult(content={field: choices[field], "raison": "test"})
+
+
+_FACTURE_DDL = """
+CREATE TABLE IF NOT EXISTS gesec_facture (
+    id INTEGER,
+    source TEXT,
+    source_idx INTEGER,
+    identifiant_chorus_pro TEXT,
+    numero TEXT,
+    date_etat_courant DATE,
+    date_modification DATE,
+    mt_ht NUMERIC,
+    mt_ttc NUMERIC,
+    montant_tva NUMERIC,
+    montant_a_payer NUMERIC,
+    montant_ttc_avant_remise NUMERIC,
+    montant_remise_globale_ttc NUMERIC,
+    fournisseur_type_d_identifiant TEXT,
+    fournisseur_identifiant TEXT,
+    fournisseur_designation TEXT,
+    destinataire_code_service TEXT,
+    destinataire_service TEXT,
+    devise_de_la_facture TEXT,
+    numero_du_bon_de_commande TEXT,
+    numero_de_marche TEXT,
+    gm TEXT,
+    gm_list TEXT[],
+    gm_multi BOOLEAN,
+    ministere TEXT
+)
+"""
 
 
 _LIGNE_DDL = """
@@ -63,46 +92,60 @@ def conn() -> Iterator[psycopg.Connection]:
     with connection.cursor() as cur:
         cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(TABLE_NAME)))
         cur.execute(load_ddl())
+        cur.execute(_FACTURE_DDL)
         cur.execute(_LIGNE_DDL)
     connection.commit()
     yield connection
     with connection.cursor() as cur:
         cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(TABLE_NAME)))
         cur.execute("DROP TABLE IF EXISTS gesec_facture_ligne")
+        cur.execute("DROP TABLE IF EXISTS gesec_facture")
     connection.commit()
     connection.close()
 
 
 def create_facture(
+    conn: psycopg.Connection,
     id_cpro: str,
     *,
     ministere: str = "FINANCES",
     date_etat_courant: date = date(2025, 1, 1),
     gm: str | None = "33.02",
-) -> Facture:
-    facture = Facture.objects.create(
-        source="cpro/exports/f.csv",
-        source_idx=Facture.objects.count() + 1,
-        identifiant_chorus_pro=id_cpro,
-        numero=id_cpro,
-        date_etat_courant=date_etat_courant,
-        date_modification=date_etat_courant,
-        mt_ht=Decimal("100"),
-        mt_ttc=Decimal("120"),
-        montant_tva=Decimal("20"),
-        montant_a_payer=Decimal("120"),
-        fournisseur_type_d_identifiant="SIREN",
-        fournisseur_identifiant="123456789",
-        fournisseur_designation="Fournisseur",
-        destinataire_code_service="SERVICE",
-        destinataire_service="Service",
-        devise_de_la_facture="EUR",
-        numero_du_bon_de_commande="BC",
-        numero_de_marche="MARCHE",
-        gm=gm,
-        ministere=ministere,
-    )
-    return facture
+) -> None:
+    with conn.cursor() as cur:
+        cur.execute("SELECT coalesce(max(id), 0) + 1 FROM gesec_facture")
+        row = cur.fetchone()
+        assert row is not None
+        next_id = row[0]
+        cur.execute(
+            """
+            INSERT INTO gesec_facture (
+                id, source, source_idx, identifiant_chorus_pro, numero,
+                date_etat_courant, date_modification, mt_ht, mt_ttc, montant_tva, montant_a_payer,
+                fournisseur_type_d_identifiant, fournisseur_identifiant, fournisseur_designation,
+                destinataire_code_service, destinataire_service, devise_de_la_facture,
+                numero_du_bon_de_commande, numero_de_marche, gm, ministere
+            )
+            VALUES (
+                %s, 'cpro/exports/f.csv', %s, %s, %s,
+                %s, %s, 100, 120, 20, 120,
+                'SIREN', '123456789', 'Fournisseur',
+                'SERVICE', 'Service', 'EUR',
+                'BC', 'MARCHE', %s, %s
+            )
+            """,
+            (
+                next_id,
+                next_id,
+                id_cpro,
+                id_cpro,
+                date_etat_courant,
+                date_etat_courant,
+                gm,
+                ministere,
+            ),
+        )
+    conn.commit()
 
 
 def add_ligne(conn: psycopg.Connection, id_cpro: str, line_id: str = "1") -> None:
@@ -136,7 +179,7 @@ def fetch_predictions(conn: psycopg.Connection) -> list[dict[str, Any]]:
 
 
 def test_classifie_et_ecrit_la_prediction(conn: psycopg.Connection) -> None:
-    create_facture("cpro-1")
+    create_facture(conn, "cpro-1")
     add_ligne(conn, "cpro-1")
 
     results = run_classify_hierarchical(conn, FakeLLM(), model="test", mode="new")
@@ -157,9 +200,9 @@ def test_classifie_et_ecrit_la_prediction(conn: psycopg.Connection) -> None:
 
 
 def test_filtre_ministere(conn: psycopg.Connection) -> None:
-    create_facture("cpro-fin", ministere="FINANCES")
+    create_facture(conn, "cpro-fin", ministere="FINANCES")
     add_ligne(conn, "cpro-fin")
-    create_facture("cpro-int", ministere="INTERIEUR")
+    create_facture(conn, "cpro-int", ministere="INTERIEUR")
     add_ligne(conn, "cpro-int")
 
     results = run_classify_hierarchical(conn, FakeLLM(), model="test", ministere="INTERIEUR")
@@ -168,9 +211,9 @@ def test_filtre_ministere(conn: psycopg.Connection) -> None:
 
 
 def test_filtre_date(conn: psycopg.Connection) -> None:
-    create_facture("cpro-old", date_etat_courant=date(2024, 1, 1))
+    create_facture(conn, "cpro-old", date_etat_courant=date(2024, 1, 1))
     add_ligne(conn, "cpro-old")
-    create_facture("cpro-new", date_etat_courant=date(2025, 6, 1))
+    create_facture(conn, "cpro-new", date_etat_courant=date(2025, 6, 1))
     add_ligne(conn, "cpro-new")
 
     results = run_classify_hierarchical(
@@ -181,7 +224,7 @@ def test_filtre_date(conn: psycopg.Connection) -> None:
 
 
 def test_mode_new_ignore_deja_classifiees(conn: psycopg.Connection) -> None:
-    create_facture("cpro-1")
+    create_facture(conn, "cpro-1")
     add_ligne(conn, "cpro-1")
     run_classify_hierarchical(conn, FakeLLM(), model="test", mode="new")
 
@@ -192,7 +235,7 @@ def test_mode_new_ignore_deja_classifiees(conn: psycopg.Connection) -> None:
 
 
 def test_reprocess_ecrase_la_prediction(conn: psycopg.Connection) -> None:
-    create_facture("cpro-1")
+    create_facture(conn, "cpro-1")
     add_ligne(conn, "cpro-1")
     run_classify_hierarchical(conn, FakeLLM(), model="test", mode="new")
 
@@ -228,9 +271,9 @@ def test_read_identifiants_csv_vide(tmp_path: Path) -> None:
 
 
 def test_identifiants_cible_le_classement(conn: psycopg.Connection) -> None:
-    create_facture("cpro-a")
+    create_facture(conn, "cpro-a")
     add_ligne(conn, "cpro-a")
-    create_facture("cpro-b")
+    create_facture(conn, "cpro-b")
     add_ligne(conn, "cpro-b")
 
     results = run_classify_hierarchical(conn, FakeLLM(), model="test", identifiants=["cpro-b"])
@@ -241,7 +284,7 @@ def test_identifiants_cible_le_classement(conn: psycopg.Connection) -> None:
 
 def test_sans_n_classifie_tout_le_perimetre(conn: psycopg.Connection) -> None:
     for i in range(5):
-        create_facture(f"cpro-{i}")
+        create_facture(conn, f"cpro-{i}")
         add_ligne(conn, f"cpro-{i}")
 
     results = run_classify_hierarchical(conn, FakeLLM(), model="test", batch_size=2)
@@ -252,7 +295,7 @@ def test_sans_n_classifie_tout_le_perimetre(conn: psycopg.Connection) -> None:
 
 def test_batch_size_pagine_par_cle_sans_doublon(conn: psycopg.Connection) -> None:
     for i in range(3):
-        create_facture(f"cpro-{i}")
+        create_facture(conn, f"cpro-{i}")
         add_ligne(conn, f"cpro-{i}")
 
     results = run_classify_hierarchical(conn, FakeLLM(), model="test", batch_size=1)
@@ -264,7 +307,7 @@ def test_batch_size_pagine_par_cle_sans_doublon(conn: psycopg.Connection) -> Non
 
 def test_n_plafonne_le_nombre_de_factures(conn: psycopg.Connection) -> None:
     for i in range(4):
-        create_facture(f"cpro-{i}")
+        create_facture(conn, f"cpro-{i}")
         add_ligne(conn, f"cpro-{i}")
 
     results = run_classify_hierarchical(conn, FakeLLM(), model="test", n=2, batch_size=1)
@@ -274,9 +317,9 @@ def test_n_plafonne_le_nombre_de_factures(conn: psycopg.Connection) -> None:
 
 
 def test_count_samples_mode_new(conn: psycopg.Connection) -> None:
-    create_facture("cpro-1")
+    create_facture(conn, "cpro-1")
     add_ligne(conn, "cpro-1")
-    create_facture("cpro-2")
+    create_facture(conn, "cpro-2")
     add_ligne(conn, "cpro-2")
 
     assert count_samples(conn, mode="new") == 2
@@ -289,16 +332,16 @@ def test_count_samples_mode_new(conn: psycopg.Connection) -> None:
 
 
 def test_count_samples_ignore_factures_sans_ligne(conn: psycopg.Connection) -> None:
-    create_facture("cpro-avec-ligne")
+    create_facture(conn, "cpro-avec-ligne")
     add_ligne(conn, "cpro-avec-ligne")
-    create_facture("cpro-sans-ligne")
+    create_facture(conn, "cpro-sans-ligne")
 
     assert count_samples(conn, mode="new") == 1
 
 
 def test_count_samples_coherent_avec_iter_samples(conn: psycopg.Connection) -> None:
     for i in range(5):
-        create_facture(f"cpro-{i}")
+        create_facture(conn, f"cpro-{i}")
         add_ligne(conn, f"cpro-{i}")
 
     assert count_samples(conn, mode="new") == len(list(iter_samples(conn, mode="new", batch_size=2)))
@@ -306,7 +349,7 @@ def test_count_samples_coherent_avec_iter_samples(conn: psycopg.Connection) -> N
 
 def test_count_samples_identifiants(conn: psycopg.Connection) -> None:
     for i in range(3):
-        create_facture(f"cpro-{i}")
+        create_facture(conn, f"cpro-{i}")
         add_ligne(conn, f"cpro-{i}")
 
     assert count_samples(conn, mode="new", identifiants=["cpro-0", "cpro-2", "cpro-absent"]) == 2

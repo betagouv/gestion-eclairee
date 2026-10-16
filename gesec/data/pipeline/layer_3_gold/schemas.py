@@ -5,6 +5,54 @@ from typing import Literal, Optional
 from pydantic import BaseModel
 
 
+class GoldFacture(BaseModel):
+    """Facture de la couche Gold (1 ligne par identifiant_chorus_pro).
+
+    `id` reproduit l'ordre d'insertion, utilisé comme tie-break déterministe
+    lorsque plusieurs factures partagent le même `numero`.
+    """
+
+    id: int
+
+    # Source tracking
+    source: str
+    source_idx: int
+
+    # Identification
+    identifiant_chorus_pro: str
+    numero: str
+
+    # Dates
+    date_etat_courant: Optional[date] = None
+    date_modification: date
+
+    # Montants
+    mt_ht: Decimal
+    mt_ttc: Decimal
+    montant_tva: Decimal
+    montant_a_payer: Decimal
+    montant_ttc_avant_remise: Optional[Decimal] = None
+    montant_remise_globale_ttc: Optional[Decimal] = None
+
+    # Fournisseur
+    fournisseur_type_d_identifiant: str
+    fournisseur_identifiant: str
+    fournisseur_designation: str
+
+    # Destinataire
+    destinataire_code_service: str
+    destinataire_service: str
+
+    # Autres champs
+    devise_de_la_facture: str
+    numero_du_bon_de_commande: str
+    numero_de_marche: str
+    gm: Optional[str] = None
+    gm_list: Optional[list[str]] = None
+    gm_multi: Optional[bool] = None
+    ministere: str
+
+
 class GoldCproExportFactureLigne(BaseModel):
     id_cpro: str
     source: str

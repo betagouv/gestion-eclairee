@@ -1,7 +1,15 @@
 import logging
 from typing import Optional
 
-from gesec.data.pipeline.db import load_rows_from_table, save_list_pydantic
+from sqlalchemy import text
+from tqdm import tqdm
+
+from gesec.data.pipeline.db import (
+    DEFAULT_BATCH_SIZE,
+    TableWriter,
+    create_engine,
+    iter_rows_from_table,
+)
 from gesec.data.pipeline.layer_1_bronze.cpro_export_facture_xml import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeCproExportFactureXml
 
@@ -10,6 +18,12 @@ from .schemas import SilverCproExportFactureXmlFacture, SilverCproExportFactureX
 logger = logging.getLogger(__name__)
 
 DEFAULT_TABLE_NAME = "silver_" + __name__.split(".")[-1]
+
+
+def count_bronze_rows(table_name: str) -> int:
+    engine = create_engine()
+    with engine.connect() as conn:
+        return conn.execute(text(f"SELECT count(*) FROM {table_name}")).scalar_one()
 
 
 def extract_numero(content: dict) -> Optional[str]:
@@ -58,50 +72,48 @@ def extract_note(content: dict) -> str:
 
 
 def transform_to_silver(
-    bronze_factures: list[BronzeCproExportFactureXml],
-) -> tuple[list[SilverCproExportFactureXmlFacture], list[SilverCproExportFactureXmlFactureStatus]]:
-    silver_factures: list[SilverCproExportFactureXmlFacture] = []
-    silver_factures_status: list[SilverCproExportFactureXmlFactureStatus] = []
-    for bronze in bronze_factures:
-        try:
-            numero = extract_numero(bronze.content)
-            if numero is None:
-                raise ValueError(f"No cbc:ID for {bronze.id_cpro}")
-            silver_factures.append(
-                SilverCproExportFactureXmlFacture(
-                    id_cpro=bronze.id_cpro,
-                    xml_schema=bronze.xml_schema,
-                    numero=numero,
-                    delivery=bronze.content.get("cac:Delivery"),
-                    delivery_id=extract_delivery_id(bronze.content),
-                    note=extract_note(bronze.content),
-                )
-            )
-            silver_factures_status.append(SilverCproExportFactureXmlFactureStatus(id_cpro=bronze.id_cpro, status="Ok"))
-        except Exception as e:
-            logger.exception(f"Error processing facture {bronze.id_cpro}")
-            silver_factures_status.append(
-                SilverCproExportFactureXmlFactureStatus(
-                    id_cpro=bronze.id_cpro,
-                    status="Error",
-                    status_details=repr(e),
-                )
-            )
-    return silver_factures, silver_factures_status
+    bronze: BronzeCproExportFactureXml,
+) -> tuple[Optional[SilverCproExportFactureXmlFacture], SilverCproExportFactureXmlFactureStatus]:
+    try:
+        numero = extract_numero(bronze.content)
+        if numero is None:
+            raise ValueError(f"No cbc:ID for {bronze.id_cpro}")
+        facture = SilverCproExportFactureXmlFacture(
+            id_cpro=bronze.id_cpro,
+            xml_schema=bronze.xml_schema,
+            numero=numero,
+            delivery=bronze.content.get("cac:Delivery"),
+            delivery_id=extract_delivery_id(bronze.content),
+            note=extract_note(bronze.content),
+        )
+        status = SilverCproExportFactureXmlFactureStatus(id_cpro=bronze.id_cpro, status="Ok")
+    except Exception as e:
+        logger.exception(f"Error processing facture {bronze.id_cpro}")
+        facture = None
+        status = SilverCproExportFactureXmlFactureStatus(id_cpro=bronze.id_cpro, status="Error", status_details=repr(e))
+    return facture, status
 
 
 def process_to_silver(
     bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
     silver_table_name: str = DEFAULT_TABLE_NAME,
-) -> tuple[list[SilverCproExportFactureXmlFacture], list[SilverCproExportFactureXmlFactureStatus]]:
-    bronze_factures = load_rows_from_table(bronze_table_name, BronzeCproExportFactureXml)
-    silver_factures, silver_factures_status = transform_to_silver(bronze_factures)
+    batch_size: int = DEFAULT_BATCH_SIZE,
+) -> None:
+    total = count_bronze_rows(bronze_table_name)
+    rows = iter_rows_from_table(bronze_table_name, BronzeCproExportFactureXml, batch_size=batch_size)
+    factures_writer = TableWriter(silver_table_name, SilverCproExportFactureXmlFacture, batch_size=batch_size)
+    status_writer = TableWriter(
+        silver_table_name + "_status",
+        SilverCproExportFactureXmlFactureStatus,
+        batch_size=batch_size,
+    )
+    with factures_writer, status_writer:
+        for bronze in tqdm(rows, total=total, desc="Transformation des factures XML en silver"):
+            facture, status = transform_to_silver(bronze)
+            if facture is not None:
+                factures_writer.add(facture)
+            status_writer.add(status)
 
-    if not silver_factures:
-        logger.warning("No data to export, skipping database insertion")
-        return silver_factures, silver_factures_status
-
-    save_list_pydantic(silver_factures, silver_table_name, if_exists="replace")
-    if silver_factures_status:
-        save_list_pydantic(silver_factures_status, silver_table_name + "_status", if_exists="replace")
-    return silver_factures, silver_factures_status
+    written = factures_writer.written
+    if written:
+        logger.info(f"Saved {written} rows in {silver_table_name}")

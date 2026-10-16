@@ -14,21 +14,22 @@ from sqlalchemy.engine import URL
 import pandas as pd
 
 from gesec.data.classify_gm.paths import load_ddl
-from gesec.data.pipeline.db import pydantic_model_to_dtype
+from gesec.data.pipeline.db import pydantic_model_to_table
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeBudatExportAugdt
 from gesec.data.pipeline.layer_2_silver.schemas import SilverService
 from gesec.data.pipeline.layer_3_gold.constants import UGAP_SIREN
 from gesec.data.pipeline.layer_3_gold.meta_budat import TABLE_NAME, process_to_gold
-from gesec.data.pipeline.layer_3_gold.schemas import GoldCproExportFactureLigne, GoldFournisseurInFine
-from gesec.models import Facture
+from gesec.data.pipeline.layer_3_gold.schemas import GoldCproExportFactureLigne, GoldFacture, GoldFournisseurInFine
 
 pytestmark = pytest.mark.django_db(transaction=True)
 
 FOURNISSEUR_IN_FINE_TABLE = "gesec_facture_ligne_fournisseur_in_fine"
+FACTURE_TABLE = "gesec_facture"
 
 RAW_TABLES = [
     "bronze_budat_export_augdt",
     "silver_services",
+    FACTURE_TABLE,
     "gesec_facture_ligne",
     FOURNISSEUR_IN_FINE_TABLE,
     "gesec_facture_gm_pred",
@@ -59,6 +60,7 @@ def drop_raw_tables(engine: Engine) -> None:
 def engine() -> Iterator[Engine]:
     test_engine = build_engine()
     drop_raw_tables(test_engine)
+    create_empty_table(test_engine, FACTURE_TABLE, GoldFacture)
     create_empty_table(test_engine, "gesec_facture_ligne", GoldCproExportFactureLigne)
     create_empty_table(test_engine, FOURNISSEUR_IN_FINE_TABLE, GoldFournisseurInFine)
     with test_engine.begin() as conn:
@@ -68,15 +70,26 @@ def engine() -> Iterator[Engine]:
     test_engine.dispose()
 
 
+def table_dtype(table_name: str, model_class: type[BaseModel]) -> dict:
+    table = pydantic_model_to_table(model_class, table_name)
+    return {column.name: column.type for column in table.columns}
+
+
 def create_empty_table(engine: Engine, table_name: str, model_class: type[BaseModel]) -> None:
-    dtype = pydantic_model_to_dtype(model_class)
+    dtype = table_dtype(table_name, model_class)
     pd.DataFrame(columns=list(dtype)).to_sql(table_name, con=engine, if_exists="replace", index=False, dtype=dtype)
 
 
 def save_rows(engine: Engine, table_name: str, rows: Sequence[BaseModel]) -> None:
-    dtype = pydantic_model_to_dtype(rows[0].__class__)
+    dtype = table_dtype(table_name, rows[0].__class__)
     df = pd.DataFrame([row.model_dump() for row in rows])
     df.to_sql(table_name, con=engine, if_exists="replace", index=False, dtype=dtype, chunksize=1000)
+
+
+def insert_row(engine: Engine, table_name: str, row: BaseModel) -> None:
+    table = pydantic_model_to_table(row.__class__, table_name)
+    with engine.begin() as conn:
+        conn.execute(table.insert(), [row.model_dump()])
 
 
 def budat_row(
@@ -116,15 +129,19 @@ def budat_row(
 
 
 def create_facture(
+    engine: Engine,
     numero: str,
     id_cpro: str,
     fournisseur_identifiant: str = "123456789",
     gm: str | None = None,
     ministere: str = "INCONNU",
-) -> Facture:
-    return Facture.objects.create(
+) -> None:
+    with engine.connect() as conn:
+        next_idx = conn.execute(text(f"SELECT coalesce(max(id), 0) + 1 FROM {FACTURE_TABLE}")).scalar_one()
+    row = GoldFacture(
+        id=next_idx,
         source="cpro/exports/f.csv",
-        source_idx=Facture.objects.count() + 1,
+        source_idx=next_idx,
         identifiant_chorus_pro=id_cpro,
         numero=numero,
         date_etat_courant=date(2025, 1, 1),
@@ -144,6 +161,7 @@ def create_facture(
         gm=gm,
         ministere=ministere,
     )
+    insert_row(engine, FACTURE_TABLE, row)
 
 
 def gold_line(id_cpro: str, line_id: str, amount_incl_tax: str) -> GoldCproExportFactureLigne:
@@ -207,7 +225,7 @@ def save_prediction(
 
 def test_repli_budat_sur_les_lignes_non_rapprochees(engine: Engine) -> None:
     save_rows(engine, "silver_services", [SilverService(code="SEDP1", name="Service 1", ministere="INTERIEUR")])
-    create_facture(numero="456", id_cpro="cpro-sans-lignes", gm="33.02.01", ministere="FINANCES")
+    create_facture(engine, numero="456", id_cpro="cpro-sans-lignes", gm="33.02.01", ministere="FINANCES")
     save_rows(
         engine,
         "bronze_budat_export_augdt",
@@ -257,8 +275,8 @@ def test_repli_budat_sur_les_lignes_non_rapprochees(engine: Engine) -> None:
 
 def test_rapprochement_ref_fac_avec_espaces(engine: Engine) -> None:
     save_rows(engine, "silver_services", [SilverService(code="SEDP1", name="Service 1", ministere="INTERIEUR")])
-    create_facture(numero="1234", id_cpro="cpro-a-espaces")
-    create_facture(numero="9999", id_cpro="cpro-toujours-absente")
+    create_facture(engine, numero="1234", id_cpro="cpro-a-espaces")
+    create_facture(engine, numero="9999", id_cpro="cpro-toujours-absente")
     save_rows(engine, "gesec_facture_ligne", [gold_line("cpro-a-espaces", "00010", "120.00")])
     save_rows(
         engine,
@@ -286,9 +304,9 @@ def test_rapprochement_ref_fac_avec_espaces(engine: Engine) -> None:
 
 def test_eclatement_prorata_et_fournisseur_in_fine(engine: Engine) -> None:
     save_rows(engine, "silver_services", [SilverService(code="SEDP1", name="Service 1", ministere="INTERIEUR")])
-    create_facture(numero="789", id_cpro="cpro-non-ugap", gm="33.04.01", ministere="ECOLOGIE")
-    create_facture(numero="790", id_cpro="cpro-ugap", fournisseur_identifiant=f"{UGAP_SIREN}0001")
-    create_facture(numero="791", id_cpro="cpro-total-nul")
+    create_facture(engine, numero="789", id_cpro="cpro-non-ugap", gm="33.04.01", ministere="ECOLOGIE")
+    create_facture(engine, numero="790", id_cpro="cpro-ugap", fournisseur_identifiant=f"{UGAP_SIREN}0001")
+    create_facture(engine, numero="791", id_cpro="cpro-total-nul")
     save_rows(
         engine,
         "gesec_facture_ligne",
@@ -348,9 +366,9 @@ def test_eclatement_prorata_et_fournisseur_in_fine(engine: Engine) -> None:
 
 def test_arbitrage_triplets_gm(engine: Engine) -> None:
     save_rows(engine, "silver_services", [SilverService(code="SEDP1", name="Service 1", ministere="INTERIEUR")])
-    create_facture(numero="100", id_cpro="cpro-pred", gm="33.02.01", ministere="FINANCES")
-    create_facture(numero="200", id_cpro="cpro-seul", gm="41.10.03", ministere="FINANCES")
-    create_facture(numero="300", id_cpro="cpro-sans-gm")
+    create_facture(engine, numero="100", id_cpro="cpro-pred", gm="33.02.01", ministere="FINANCES")
+    create_facture(engine, numero="200", id_cpro="cpro-seul", gm="41.10.03", ministere="FINANCES")
+    create_facture(engine, numero="300", id_cpro="cpro-sans-gm")
     save_prediction(engine, "cpro-pred", gm="33.04.09", domaine="33", segment="33.04")
     save_rows(
         engine,

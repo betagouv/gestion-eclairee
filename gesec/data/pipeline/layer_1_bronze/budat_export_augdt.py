@@ -1,6 +1,6 @@
 import logging
 
-from gesec.data.pipeline.db import save_list_pydantic
+from gesec.data.pipeline.db import TableWriter
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeBudatExportAugdt
 from gesec.data.pipeline.utils import load_csv
 
@@ -15,6 +15,7 @@ def process_to_bronze(filepath: str, table_name: str = DEFAULT_TABLE_NAME) -> No
     logger.info(f"Processed {len(rows)} rows in {filepath}")
 
     # Export to database
-    save_list_pydantic(rows, table_name=table_name, if_exists="replace")
+    with TableWriter(table_name, BronzeBudatExportAugdt) as writer:
+        writer.add_all(rows)
 
     logger.info("Operation completed successfully")

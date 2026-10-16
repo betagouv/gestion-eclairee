@@ -1,28 +1,22 @@
 import logging
+from collections.abc import Iterator
 
 from sqlalchemy import text
 
-from gesec.data.dj_models import Facture
-from gesec.data.pipeline.db import create_engine
+from gesec.data.pipeline.db import TableWriter, create_engine, iter_rows_from_table
 
 from ..layer_2_silver.cpro_export_factures import DEFAULT_TABLE_NAME as SILVER_DEFAULT_TABLE_NAME
 from ..layer_2_silver.oda_export_ej_gm_mapping import DEFAULT_TABLE_NAME as SILVER_EJ_GM_MAPPING_DEFAULT_TABLE_NAME
 from ..layer_2_silver.schemas import SilverCproExportFacture, SilverService
 from ..layer_2_silver.services import DEFAULT_TABLE_NAME as SILVER_SERVICES_DEFAULT_TABLE_NAME
+from .schemas import GoldFacture
 
 logger = logging.getLogger(__name__)
 
-
-def load_silver_factures(silver_table_name: str) -> list[SilverCproExportFacture]:
-    """Récupère toutes les lignes de la table Silver et les convertit en SilverCproExportFacture."""
-    engine = create_engine()
-    with engine.connect() as conn:
-        result = conn.execute(text(f"SELECT * FROM {silver_table_name}"))
-        rows = result.fetchall()
-        return [SilverCproExportFacture(**dict(row._asdict())) for row in rows]
+TABLE_NAME = "gesec_facture"
 
 
-def load_silver_oda_ej_to_gm_mapping(silver_table_name: str) -> dict[str, list[str]]:
+def load_silver_ej_to_gm_mapping(silver_table_name: str) -> dict[str, list[str]]:
     engine = create_engine()
     with engine.connect() as conn:
         result = conn.execute(
@@ -46,17 +40,17 @@ def load_silver_services(table_name: str) -> list[SilverService]:
 
 
 def transform_silver_to_gold(
-    silver_factures: list[SilverCproExportFacture],
+    silver_factures: Iterator[SilverCproExportFacture],
     silver_ej_to_gm_mapping: dict[str, list[str]],
     silver_services: list[SilverService],
-) -> list[Facture]:
-    """Transforme une liste de SilverCproExportFacture en liste de Facture (modèle Django)."""
-    result = []
+) -> Iterator[GoldFacture]:
+    """Transforme les SilverCproExportFacture en GoldFacture, dans l'ordre de lecture."""
     service_by_code: dict[str, SilverService] = {service.code: service for service in silver_services}
-    for silver in silver_factures:
+    for idx, silver in enumerate(silver_factures, start=1):
         gm_list = silver_ej_to_gm_mapping.get(silver.numero_du_bon_de_commande)
         service = service_by_code.get(silver.destinataire_code_service)
-        fac = Facture(
+        yield GoldFacture(
+            id=idx,
             source=silver.source,
             source_idx=silver.source_idx,
             identifiant_chorus_pro=silver.identifiant_chorus_pro,
@@ -82,10 +76,8 @@ def transform_silver_to_gold(
             gm_list=gm_list if gm_list else None,
             gm_multi=(len(gm_list) > 1) if gm_list else None,
             # Ministere
-            ministere=service.ministere if service else "INCONNU",
+            ministere=service.ministere or "INCONNU" if service else "INCONNU",
         )
-        result.append(fac)
-    return result
 
 
 def process_silver_to_gold(
@@ -96,24 +88,17 @@ def process_silver_to_gold(
     """
     Pipeline complet :
     1. Charge les données Silver
-    2. Les transforme en Facture (modèle Django gold)
-    3. Sauvegarde dans la table Facture avec bulk_create et update_conflicts
+    2. Les transforme en GoldFacture
+    3. Sauvegarde dans la table gesec_facture
     """
-    silver_factures = load_silver_factures(silver_table_name)
-    logger.info(f"Chargé {len(silver_factures)} items depuis la table silver {silver_table_name}")
-    silver_ej_to_gm_mapping = load_silver_oda_ej_to_gm_mapping(silver_ej_gm_mapping_table_name)
+    silver_ej_to_gm_mapping = load_silver_ej_to_gm_mapping(silver_ej_gm_mapping_table_name)
     logger.info(f"Chargé {len(silver_ej_to_gm_mapping)} items depuis la table silver {silver_ej_gm_mapping_table_name}")
     silver_services = load_silver_services(silver_services_table_name)
     logger.info(f"Chargé {len(silver_services)} items depuis la table silver {silver_services_table_name}")
 
-    gold_factures = transform_silver_to_gold(silver_factures, silver_ej_to_gm_mapping, silver_services)
-    logger.info(f"Transformé en {len(gold_factures)} lignes gold après transformation")
+    silver_factures = iter_rows_from_table(silver_table_name, SilverCproExportFacture)
 
-    update_fields = [field.name for field in Facture._meta.get_fields() if field.name not in ("id", "created_at")]
-    Facture.objects.bulk_create(
-        gold_factures,
-        update_conflicts=True,
-        update_fields=update_fields,
-        unique_fields=["identifiant_chorus_pro"],
-    )
-    logger.info("Process silver_to_gold terminé avec succès")
+    with TableWriter(TABLE_NAME, GoldFacture) as writer:
+        writer.add_all(transform_silver_to_gold(silver_factures, silver_ej_to_gm_mapping, silver_services))
+
+    logger.info(f"Process silver_to_gold terminé avec succès : {writer.written} lignes dans {TABLE_NAME}")

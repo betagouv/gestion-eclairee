@@ -7,10 +7,9 @@ from tqdm import tqdm
 
 from gesec.data.pipeline.db import (
     DEFAULT_BATCH_SIZE,
-    create_empty_table,
+    TableWriter,
     create_engine,
     iter_rows_from_table,
-    save_pages,
 )
 from gesec.data.pipeline.layer_1_bronze.cpro_export_factur_x import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeCproExportFacturX
@@ -192,31 +191,17 @@ def transform_xml_to_silver(content: dict, id_cpro: str, xml_schema: str) -> lis
 
 
 def transform_to_silver(
-    bronze_factures_xml: list[BronzeCproExportFacturX],
-) -> tuple[list[SilverCproExportFacturXLigne], list[SilverCproExportFacturXLigneStatus]]:
-    result = []
-    status_list = []
-    for fac in bronze_factures_xml:
-        try:
-            lines = transform_xml_to_silver(fac.content, fac.id_cpro, fac.xml_schema)
-        except (ValueError, KeyError, TypeError) as e:
-            logger.warning(f"Cannot transform {fac.id_cpro} to silver: {e!r}")
-            status_list.append(
-                SilverCproExportFacturXLigneStatus(
-                    id_cpro=fac.id_cpro,
-                    status="Error",
-                    status_details=repr(e),
-                )
-            )
-        else:
-            result.extend(lines)
-            status_list.append(
-                SilverCproExportFacturXLigneStatus(
-                    id_cpro=fac.id_cpro,
-                    status="Ok",
-                )
-            )
-    return result, status_list
+    bronze: BronzeCproExportFacturX,
+) -> tuple[list[SilverCproExportFacturXLigne], SilverCproExportFacturXLigneStatus]:
+    try:
+        lines = transform_xml_to_silver(bronze.content, bronze.id_cpro, bronze.xml_schema)
+    except (ValueError, KeyError, TypeError) as e:
+        logger.warning(f"Cannot transform {bronze.id_cpro} to silver: {e!r}")
+        lines = []
+        status = SilverCproExportFacturXLigneStatus(id_cpro=bronze.id_cpro, status="Error", status_details=repr(e))
+    else:
+        status = SilverCproExportFacturXLigneStatus(id_cpro=bronze.id_cpro, status="Ok")
+    return lines, status
 
 
 def process_to_silver(
@@ -225,32 +210,17 @@ def process_to_silver(
     batch_size: int = DEFAULT_BATCH_SIZE,
 ) -> None:
     total = count_bronze_rows(bronze_table_name)
-    pages = iter_rows_from_table(bronze_table_name, BronzeCproExportFacturX, batch_size=batch_size)
-    lines_first = True
-    status_first = True
-    written = 0
-    with tqdm(total=total, desc="Transformation des factur-x en silver") as progress:
-        for bronze_factures in pages:
-            silver_lines, silver_lines_status = transform_to_silver(bronze_factures)
-            if save_pages(
-                [silver_lines] if silver_lines else [],
-                silver_table_name,
-                if_exists="replace" if lines_first else "append",
-            ):
-                lines_first = False
-                written += len(silver_lines)
-            if save_pages(
-                [silver_lines_status] if silver_lines_status else [],
-                silver_table_name + "_status",
-                if_exists="replace" if status_first else "append",
-            ):
-                status_first = False
-            progress.update(len(bronze_factures))
-    if lines_first:
-        create_empty_table(silver_table_name, SilverCproExportFacturXLigne)
-    if status_first:
-        create_empty_table(silver_table_name + "_status", SilverCproExportFacturXLigneStatus)
-    if written == 0:
-        logger.warning("No data to export, skipping database insertion")
-    else:
+    rows = iter_rows_from_table(bronze_table_name, BronzeCproExportFacturX, batch_size=batch_size)
+    lines_writer = TableWriter(silver_table_name, SilverCproExportFacturXLigne, batch_size=batch_size)
+    status_writer = TableWriter(
+        silver_table_name + "_status", SilverCproExportFacturXLigneStatus, batch_size=batch_size
+    )
+    with lines_writer, status_writer:
+        for bronze in tqdm(rows, total=total, desc="Transformation des factur-x en silver"):
+            lines, status = transform_to_silver(bronze)
+            lines_writer.add_all(lines)
+            status_writer.add(status)
+
+    written = lines_writer.written
+    if written:
         logger.info(f"Saved {written} rows in {silver_table_name}")

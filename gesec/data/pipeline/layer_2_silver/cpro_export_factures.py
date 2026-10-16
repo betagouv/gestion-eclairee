@@ -1,13 +1,19 @@
 import logging
+from dataclasses import dataclass
+from datetime import date
+from typing import Optional
 
 from pydantic import ValidationError
-from sqlalchemy import text
 
-from gesec.data.pipeline.db import create_engine, save_list_pydantic
+from gesec.data.pipeline.db import (
+    DEFAULT_BATCH_SIZE,
+    TableWriter,
+    iter_rows_from_table,
+)
 
 from ..layer_1_bronze.cpro_export_factures import DEFAULT_TABLE_NAME as BRONZE_DEFAULT_TABLE_NAME
+from ..layer_1_bronze.schemas import BronzeCproExportFacture
 from .schemas import (
-    BronzeCproExportFacture,
     CproExportFactureStatus,
     SilverCproExportFacture,
     SilverCproExportFactureProcessingStatus,
@@ -18,89 +24,123 @@ logger = logging.getLogger(__name__)
 DEFAULT_TABLE_NAME = "silver_" + __name__.split(".")[-1]
 
 
-def load_bronze_factures_cpro_export(table_name: str) -> list[BronzeCproExportFacture]:
-    """Récupère toutes les lignes d'une table et les convertit en BronzeCproExportFacture."""
-    engine = create_engine()
-    with engine.connect() as conn:
-        result = conn.execute(text(f"SELECT * FROM {table_name}"))
-        rows = result.fetchall()
-    return [BronzeCproExportFacture(**row._asdict()) for row in rows]
+@dataclass
+class ParsedFacture:
+    identifiant_chorus_pro: Optional[str]
+    date_modification: Optional[date]
+    source: str
+    source_idx: int
+    silver: Optional[SilverCproExportFacture]
+    error: Optional[str]
+
+    @property
+    def order_key(self) -> tuple[date, str, int]:
+        return (self.date_modification or date.min, self.source, self.source_idx)
 
 
-def transform_bronze_to_silver(
-    bronze_factures: list[BronzeCproExportFacture],
-) -> tuple[list[SilverCproExportFacture], list[SilverCproExportFactureProcessingStatus]]:
-    """
-    Transforme une liste de BronzeCproExportFacture en SilverCproExportFacture.
-    - Rejette les factures dont le destinataire n'est pas l'État (SIRET 11000201100044)
-    - Rejette les lignes qui ne respectent pas le schéma Silver
-    - Dédoublonne sur identifiant_chorus_pro (garde la première occurrence)
-    """
-    silver_factures: list[SilverCproExportFacture] = []
-    list_status: list[SilverCproExportFactureProcessingStatus] = []
-    seen_ids: set = set()
-
-    for bronze_facture in bronze_factures:
-        bronze_facture_dict = bronze_facture.model_dump()
-        status: CproExportFactureStatus
-
-        # Vérifier les champs destinataire
-        if (
-            bronze_facture.destinataire_type_d_identifiant != "Structure avec N° SIRET"
-            or bronze_facture.destinataire_identifiant != "11000201100044"
-            or bronze_facture.destinataire_designation != "SERVICES DE L'ETAT POUR LA FACTURATION ELECTRONIQUE"
-        ):
-            status = "Validation error"
-            status_details = (
-                f"Destinataire invalide: "
-                f"type={bronze_facture.destinataire_type_d_identifiant}, "
-                f"id={bronze_facture.destinataire_identifiant}, "
-                f"designation={bronze_facture.destinataire_designation}"
-            )
-        else:
-            try:
-                silver_facture = SilverCproExportFacture.model_validate(bronze_facture_dict)
-            except ValidationError as e:
-                status = "Validation error"
-                status_details = str(e)
-            else:
-                if silver_facture.identifiant_chorus_pro in seen_ids:
-                    status = "Duplicat"
-                    status_details = None
-                else:
-                    seen_ids.add(silver_facture.identifiant_chorus_pro)
-                    silver_factures.append(silver_facture)
-                    status = "Ok"
-                    status_details = None
-
-        list_status.append(
-            SilverCproExportFactureProcessingStatus(
-                **bronze_facture_dict,
-                status=status,
-                status_details=status_details,
-            )
+def parse_facture(bronze: BronzeCproExportFacture) -> ParsedFacture:
+    """Filtre le destinataire État (SIRET 11000201100044) et valide le schéma silver."""
+    bronze_dict = bronze.model_dump()
+    if (
+        bronze.destinataire_type_d_identifiant != "Structure avec N° SIRET"
+        or bronze.destinataire_identifiant != "11000201100044"
+        or bronze.destinataire_designation != "SERVICES DE L'ETAT POUR LA FACTURATION ELECTRONIQUE"
+    ):
+        error = (
+            f"Destinataire invalide: "
+            f"type={bronze.destinataire_type_d_identifiant}, "
+            f"id={bronze.destinataire_identifiant}, "
+            f"designation={bronze.destinataire_designation}"
         )
+        silver = None
+    else:
+        try:
+            silver = SilverCproExportFacture.model_validate(bronze_dict)
+        except ValidationError as e:
+            silver = None
+            error = str(e)
+        else:
+            error = None
+    return ParsedFacture(
+        identifiant_chorus_pro=bronze.identifiant_chorus_pro,
+        date_modification=bronze.date_modification,
+        source=bronze.source,
+        source_idx=bronze.source_idx,
+        silver=silver,
+        error=error,
+    )
 
-    return silver_factures, list_status
+
+def deduplicate(parsed: list[ParsedFacture]) -> int:
+    """Élague en place les doublons, en gardant la facture validée la plus récente.
+
+    Dédoublonne sur `identifiant_chorus_pro` ; à `date_modification` égale (ou
+    nulle), l'ordre départage sur `source` puis `source_idx` décroissants. Règle
+    déterministe et sans impact métier : seules `date_modification` diverge
+    entre doublons. Les entrées évincées voient leur `silver` remis à `None` et
+    reçoivent l'erreur `Duplicat`. Renvoie le nombre de doublons évincés.
+    """
+    kept: dict[str, ParsedFacture] = {}
+    duplicates = 0
+    for entry in parsed:
+        if entry.silver is None:
+            continue
+        identifiant = entry.silver.identifiant_chorus_pro
+        current = kept.get(identifiant)
+        if current is None:
+            kept[identifiant] = entry
+        elif entry.order_key > current.order_key:
+            current.silver = None
+            current.error = "Duplicat"
+            duplicates += 1
+            kept[identifiant] = entry
+        else:
+            entry.silver = None
+            entry.error = "Duplicat"
+            duplicates += 1
+    return duplicates
 
 
 def process_bronze_to_silver(
     bronze_table_name: str = BRONZE_DEFAULT_TABLE_NAME,
     silver_table_name: str = DEFAULT_TABLE_NAME,
-) -> tuple[list[SilverCproExportFacture], list[SilverCproExportFactureProcessingStatus]]:
-    """
-    Pipeline complet :
-    1. Charge les données Bronze
-    2. Les transforme en Silver (filtre + dédoublonne)
-    3. Sauvegarde dans la table Silver (drop + recrée)
-    """
-    bronze_factures = load_bronze_factures_cpro_export(bronze_table_name)
-    logger.info(f"Chargé {len(bronze_factures)} items depuis la table bronze {bronze_table_name}")
+    batch_size: int = DEFAULT_BATCH_SIZE,
+) -> None:
+    """Stream le bronze par pages, dédoublonne en Python, écrit la silver et ses statuts."""
+    parsed: list[ParsedFacture] = []
+    for bronze in iter_rows_from_table(bronze_table_name, BronzeCproExportFacture, batch_size=batch_size):
+        parsed.append(parse_facture(bronze))
 
-    silver_factures, silver_factures_status = transform_bronze_to_silver(bronze_factures)
-    logger.info(f"Transformé en {len(silver_factures)} lignes silver après filtrage et dédoublonnage")
+    duplicates = deduplicate(parsed)
 
-    save_list_pydantic(silver_factures, silver_table_name, if_exists="replace")
-    save_list_pydantic(silver_factures_status, silver_table_name + "_status", if_exists="replace")
-    logger.info("Process bronze_to_silver terminé avec succès")
-    return silver_factures, silver_factures_status
+    silver_factures = [entry.silver for entry in parsed if entry.silver is not None]
+    silver_factures_status = [
+        SilverCproExportFactureProcessingStatus(
+            identifiant_chorus_pro=entry.identifiant_chorus_pro,
+            status=_status(entry),
+            status_details=entry.error,
+        )
+        for entry in parsed
+    ]
+
+    factures_writer = TableWriter(silver_table_name, SilverCproExportFacture, batch_size=batch_size)
+    status_writer = TableWriter(
+        silver_table_name + "_status",
+        SilverCproExportFactureProcessingStatus,
+        batch_size=batch_size,
+    )
+    with factures_writer, status_writer:
+        factures_writer.add_all(silver_factures)
+        status_writer.add_all(silver_factures_status)
+
+    written = factures_writer.written
+
+    if duplicates:
+        logger.info(f"Évincé {duplicates} doublons sur identifiant_chorus_pro")
+    logger.info(f"Saved {written} rows in {silver_table_name}")
+
+
+def _status(entry: ParsedFacture) -> CproExportFactureStatus:
+    if entry.silver is not None:
+        return "Ok"
+    return "Duplicat" if entry.error == "Duplicat" else "Validation error"

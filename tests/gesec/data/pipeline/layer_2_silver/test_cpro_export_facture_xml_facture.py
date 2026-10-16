@@ -106,48 +106,48 @@ def test_transform_to_silver_fills_delivery_note_and_status():
         "cbc:Note": ["Facture", "Référence UGAP : 0900000001"],
     }
 
-    factures, statuses = transform_to_silver([bronze_facture(content)])
+    facture, status = transform_to_silver(bronze_facture(content))
 
-    assert len(factures) == 1
-    assert factures[0].numero == "7001234567"
-    assert factures[0].delivery == {"cbc:ID": "0900000001-0080000002"}
-    assert factures[0].delivery_id == "0900000001-0080000002"
-    assert factures[0].note == "Facture\nRéférence UGAP : 0900000001"
-    assert statuses == [SilverCproExportFactureXmlFactureStatus(id_cpro="1", status="Ok")]
+    assert facture is not None
+    assert facture.numero == "7001234567"
+    assert facture.delivery == {"cbc:ID": "0900000001-0080000002"}
+    assert facture.delivery_id == "0900000001-0080000002"
+    assert facture.note == "Facture\nRéférence UGAP : 0900000001"
+    assert status == SilverCproExportFactureXmlFactureStatus(id_cpro="1", status="Ok")
 
 
 def test_transform_to_silver_keeps_facture_with_empty_delivery_and_note():
     content = {"cbc:ID": "7001234567", "cac:Delivery": [None], "cbc:Note": [None]}
 
-    factures, statuses = transform_to_silver([bronze_facture(content)])
+    facture, status = transform_to_silver(bronze_facture(content))
 
-    assert len(factures) == 1
-    assert factures[0].delivery == [None]
-    assert factures[0].delivery_id is None
-    assert factures[0].note == ""
-    assert statuses == [SilverCproExportFactureXmlFactureStatus(id_cpro="1", status="Ok")]
+    assert facture is not None
+    assert facture.delivery == [None]
+    assert facture.delivery_id is None
+    assert facture.note == ""
+    assert status == SilverCproExportFactureXmlFactureStatus(id_cpro="1", status="Ok")
 
 
 def test_transform_to_silver_exposes_all_delivery_ids_in_raw_delivery():
     delivery = [{"cbc:ID": "0900000001-0080000002"}, {"cbc:ID": "0900000003-0080000004"}]
     content = {"cbc:ID": "7001234567", "cac:Delivery": delivery}
 
-    factures, statuses = transform_to_silver([bronze_facture(content)])
+    facture, status = transform_to_silver(bronze_facture(content))
 
-    assert factures[0].delivery_id == "0900000001-0080000002"
-    assert factures[0].delivery == delivery
-    assert statuses == [SilverCproExportFactureXmlFactureStatus(id_cpro="1", status="Ok")]
+    assert facture is not None
+    assert facture.delivery_id == "0900000001-0080000002"
+    assert facture.delivery == delivery
+    assert status == SilverCproExportFactureXmlFactureStatus(id_cpro="1", status="Ok")
 
 
 def test_transform_to_silver_flags_facture_without_numero():
     content = {"cac:Delivery": {"cbc:ID": "0900000001-0080000002"}}
 
-    factures, statuses = transform_to_silver([bronze_facture(content)])
+    facture, status = transform_to_silver(bronze_facture(content))
 
-    assert factures == []
-    assert len(statuses) == 1
-    assert statuses[0].status == "Error"
-    assert statuses[0].status_details
+    assert facture is None
+    assert status.status == "Error"
+    assert status.status_details
 
 
 def test_transform_to_silver_isolates_facture_error(monkeypatch, caplog):
@@ -161,11 +161,14 @@ def test_transform_to_silver_isolates_facture_error(monkeypatch, caplog):
     monkeypatch.setattr(module, "extract_delivery_id", boom)
 
     with caplog.at_level(logging.ERROR):
-        factures, statuses = transform_to_silver([broken, healthy])
+        broken_facture, broken_status = transform_to_silver(broken)
+        healthy_facture, healthy_status = transform_to_silver(healthy)
 
-    assert [facture.id_cpro for facture in factures] == ["healthy"]
-    assert statuses == [
-        SilverCproExportFactureXmlFactureStatus(id_cpro="broken", status="Error", status_details="ValueError('boom')"),
-        SilverCproExportFactureXmlFactureStatus(id_cpro="healthy", status="Ok"),
-    ]
+    assert broken_facture is None
+    assert broken_status == SilverCproExportFactureXmlFactureStatus(
+        id_cpro="broken", status="Error", status_details="ValueError('boom')"
+    )
+    assert healthy_facture is not None
+    assert healthy_facture.id_cpro == "healthy"
+    assert healthy_status == SilverCproExportFactureXmlFactureStatus(id_cpro="healthy", status="Ok")
     assert any(record.levelno == logging.ERROR for record in caplog.records)

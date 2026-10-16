@@ -5,11 +5,13 @@ from typing import Any
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeUgapExportFacture
 from gesec.data.pipeline.layer_2_silver.ugap_export_factures import (
     DEFAULT_TABLE_NAME,
+    _status,
+    deduplicate,
+    parse_bronze_row,
     to_date,
     to_decimal,
     to_text,
     transform_bronze_row,
-    transform_bronze_to_silver,
 )
 from gesec.data.pipeline.utils import cell_to_text
 from tests.gesec.data.pipeline.ugap_helpers import ugap_row
@@ -124,58 +126,44 @@ def test_transform_empty_texts_become_empty_strings():
     assert row.titulaire_rang_2 == ""
 
 
-def test_transform_bronze_to_silver_rejects_missing_keys():
-    missing_article: dict[str, Any] = {"Code Article UGAP": None}
-    rows, statuses = transform_bronze_to_silver(
-        [
-            bronze_row(source_idx="a", **{"Numéro de commande UGAP": "#"}),
-            bronze_row(source_idx="b", **missing_article),
-            bronze_row(source_idx="c"),
-        ]
-    )
+def test_parse_bronze_row_rejects_invalid_types():
+    entry = parse_bronze_row(bronze_row(**{"Jour de création de la commande UGAP": "not a date"}))
 
-    assert [row.source_idx for row in rows] == ["c"]
-    status_by_idx = {status.source_idx: status for status in statuses}
-    assert status_by_idx["a"].status == "Validation error"
-    assert status_by_idx["b"].status == "Validation error"
-    assert status_by_idx["c"].status == "Ok"
+    assert entry.silver is None
+    assert entry.error
+    assert _status(entry) == "Validation error"
 
 
-def test_transform_bronze_to_silver_rejects_invalid_types():
-    rows, statuses = transform_bronze_to_silver([bronze_row(**{"Jour de création de la commande UGAP": "not a date"})])
+def test_parse_bronze_row_keeps_valid_row():
+    entry = parse_bronze_row(bronze_row(source_idx="a"))
 
-    assert rows == []
-    assert statuses[0].status == "Validation error"
-    assert "date" in (statuses[0].status_details or "")
+    assert entry.silver is not None
+    assert entry.error is None
+    assert _status(entry) == "Ok"
 
 
 def test_deduplicate_keeps_distinct_payments():
     early: dict[str, Any] = {"Jour de paiement de la commande UGAP": "01/01/2025"}
     late: dict[str, Any] = {"Jour de paiement de la commande UGAP": "01/01/2026"}
-    rows, statuses = transform_bronze_to_silver(
-        [
-            bronze_row(source_idx="p1", **early),
-            bronze_row(source_idx="p2", **late),
-        ]
-    )
+    parsed = [
+        parse_bronze_row(bronze_row(source_idx="p1", **early)),
+        parse_bronze_row(bronze_row(source_idx="p2", **late)),
+    ]
 
-    assert [row.source_idx for row in rows] == ["p1", "p2"]
-    assert [row.jour_paiement_commande_ugap for row in rows] == [date(2025, 1, 1), date(2026, 1, 1)]
-    assert {status.status for status in statuses} == {"Ok"}
+    assert deduplicate(parsed) == 0
+    assert {_status(entry) for entry in parsed} == {"Ok"}
 
 
 def test_deduplicate_keeps_distinct_amounts():
     partial: dict[str, Any] = {"Montant Facturé HT": 100}
     full: dict[str, Any] = {"Montant Facturé HT": 200}
-    rows, statuses = transform_bronze_to_silver(
-        [
-            bronze_row(source_idx="a_partial", **partial),
-            bronze_row(source_idx="b_full", **full),
-        ]
-    )
+    parsed = [
+        parse_bronze_row(bronze_row(source_idx="a_partial", **partial)),
+        parse_bronze_row(bronze_row(source_idx="b_full", **full)),
+    ]
 
-    assert [row.source_idx for row in rows] == ["a_partial", "b_full"]
-    assert {status.status for status in statuses} == {"Ok"}
+    assert deduplicate(parsed) == 0
+    assert {_status(entry) for entry in parsed} == {"Ok"}
 
 
 def test_deduplicate_same_payment_ignores_creation_day():
@@ -187,29 +175,24 @@ def test_deduplicate_same_payment_ignores_creation_day():
         "Jour de paiement de la commande UGAP": "01/01/2025",
         "Jour de création de la commande UGAP": "01/01/2026",
     }
-    rows, statuses = transform_bronze_to_silver(
-        [
-            bronze_row(source_idx="a_first", **first),
-            bronze_row(source_idx="b_second", **second),
-        ]
-    )
+    parsed = [
+        parse_bronze_row(bronze_row(source_idx="a_first", **first)),
+        parse_bronze_row(bronze_row(source_idx="b_second", **second)),
+    ]
 
-    assert [row.source_idx for row in rows] == ["b_second"]
-    assert rows[0].jour_creation_commande_ugap == date(2026, 1, 1)
-    status_by_idx = {status.source_idx: status for status in statuses}
-    assert status_by_idx["b_second"].status == "Ok"
-    assert status_by_idx["a_first"].status == "Duplicat"
+    assert deduplicate(parsed) == 1
+    status_by_idx = {entry.source_idx: _status(entry) for entry in parsed}
+    assert status_by_idx["b_second"] == "Ok"
+    assert status_by_idx["a_first"] == "Duplicat"
 
 
 def test_deduplicate_last_sorted_wins():
-    rows, statuses = transform_bronze_to_silver(
-        [
-            bronze_row(source_idx="second", source="ugap/b.xlsx"),
-            bronze_row(source_idx="first", source="ugap/a.xlsx"),
-        ]
-    )
+    parsed = [
+        parse_bronze_row(bronze_row(source_idx="second", source="ugap/b.xlsx")),
+        parse_bronze_row(bronze_row(source_idx="first", source="ugap/a.xlsx")),
+    ]
 
-    assert [row.source_idx for row in rows] == ["second"]
-    status_by_idx = {status.source_idx: status for status in statuses}
-    assert status_by_idx["second"].status == "Ok"
-    assert status_by_idx["first"].status == "Duplicat"
+    assert deduplicate(parsed) == 1
+    status_by_idx = {entry.source_idx: _status(entry) for entry in parsed}
+    assert status_by_idx["second"] == "Ok"
+    assert status_by_idx["first"] == "Duplicat"

@@ -4,8 +4,6 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel
 
-from ..layer_1_bronze.schemas import BronzeCproExportFacture, BronzeUgapExportFacture
-
 
 class SilverCproExportFacture(BaseModel):
     """Facture dédupliquée de la couche Silver (1 ligne par identifiant_chorus_pro)."""
@@ -138,9 +136,10 @@ class SilverCproExportFacture(BaseModel):
 CproExportFactureStatus = Literal["Ok", "Validation error", "Duplicat"]
 
 
-class SilverCproExportFactureProcessingStatus(BronzeCproExportFacture):
+class SilverCproExportFactureProcessingStatus(BaseModel):
     """Suivi de l'état de traitement d'une facture bronze."""
 
+    identifiant_chorus_pro: Optional[str]
     status: CproExportFactureStatus
     status_details: Optional[str]
 
@@ -149,6 +148,18 @@ class SilverService(BaseModel):
     code: str
     name: str
     ministere: Optional[str] = None
+
+
+class SilverOdaExportEjGmMapping(BaseModel):
+    """Correspondance (EJ, GM) distincte extraite de l'export ODA."""
+
+    domaine: Optional[str] = None
+    domaine_libelle: Optional[str] = None
+    segment: Optional[str] = None
+    libelle_du_segment: Optional[str] = None
+    groupe_de_marchandises_p_cle: Optional[str] = None
+    gdm_libelle: Optional[str] = None
+    numero_ej_reference_facture: Optional[str] = None
 
 
 class SilverCproExportFacturXLigne(BaseModel):
@@ -233,9 +244,11 @@ class SilverUgapExportFacture(BaseModel):
 UgapExportFactureStatus = Literal["Ok", "Validation error", "Duplicat"]
 
 
-class SilverUgapExportFactureStatus(BronzeUgapExportFacture):
+class SilverUgapExportFactureStatus(BaseModel):
     """Suivi de l'état de traitement d'une ligne bronze d'export UGAP."""
 
+    source: str
+    source_idx: str
     status: UgapExportFactureStatus
     status_details: Optional[str] = None
 

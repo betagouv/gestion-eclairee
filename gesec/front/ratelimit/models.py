@@ -50,7 +50,7 @@ class RateLimitCount(models.Model):
         db_default=RandomUUID(),
         editable=False,
     )
-    key = models.CharField()
+    key = models.TextField()
     interval = models.IntegerField()
     count = models.BigIntegerField(default=0)
     expiry = models.DateTimeField()

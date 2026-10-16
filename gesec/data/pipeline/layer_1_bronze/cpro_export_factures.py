@@ -13,7 +13,7 @@ from django.core.files.storage import default_storage
 
 from tqdm import tqdm
 
-from gesec.data.pipeline.db import create_engine, save_list_dict
+from gesec.data.pipeline.db import TableWriter, create_engine
 from gesec.data.pipeline.utils import resolve_n_workers
 
 from .schemas import BronzeCproExportFacture
@@ -465,7 +465,8 @@ def export_to_database(rows: list[dict], table_name: str = DEFAULT_TABLE_NAME) -
     uniq = set((x["source"], x["source_idx"]) for x in rows)
     assert len(rows) == len(uniq), "Input contains duplicates"
 
-    save_list_dict(rows, table_name, if_exists="replace")
+    with TableWriter(table_name, BronzeCproExportFacture, use_validation_alias=True) as writer:
+        writer.add_all_dicts(rows)
 
     engine = create_engine()
     # Create indexes on key columns using raw psycopg connection
