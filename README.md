@@ -30,6 +30,7 @@ ty check
 ## Synthèse BUDAT
 
 Génère en JSON les chiffres de couverture du corpus BUDAT (volume, montants,
+couverture par ministère, factures restant à éclater par fournisseur,
 enrichissement UGAP, groupes de marchandises). Lecture seule sur la base pointée
 par la variable d'environnement nommée en premier argument.
 

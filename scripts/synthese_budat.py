@@ -137,6 +137,44 @@ def couverture_par_ministere(engine: Engine, annee: str) -> dict[str, Any]:
     return {"tableau": tableau}
 
 
+def restant_eclater_par_fournisseur(engine: Engine, annee: str) -> dict[str, Any]:
+    rows = fetch_all(
+        engine,
+        """
+        with facture as (
+            select
+                id_cpro,
+                fournisseur_facture,
+                bool_or(montant_ligne_ttc is not null) as eclatee,
+                sum(montant) as montant
+            from gesec_meta_budat
+            where annee = :annee and id_cpro is not null
+            group by id_cpro, fournisseur_facture
+        ),
+        restant as (select * from facture where not eclatee),
+        tot as (select count(*) as n, sum(montant) as m from restant)
+        select
+            r.fournisseur_facture,
+            count(*) as factures,
+            round(sum(r.montant), 2) as montant,
+            round(100.0 * count(*) / t.n, 1) as part_factures,
+            round(100.0 * sum(r.montant) / t.m, 1) as part_montant
+        from restant r
+        cross join tot t
+        group by r.fournisseur_facture, t.n, t.m
+        order by sum(r.montant) desc
+        limit 20
+        """,
+        {"annee": annee},
+    )
+    tableau: Tableau = [["fournisseur", "factures", "montant_m", "part_factures", "part_montant"]]
+    for r in rows:
+        tableau.append(
+            [r["fournisseur_facture"], r["factures"], en_millions(r["montant"]), r["part_factures"], r["part_montant"]]
+        )
+    return {"tableau": tableau}
+
+
 def enrichissement_ugap(engine: Engine, annee: str) -> dict[str, Any]:
     row = fetch_one(
         engine,
@@ -405,6 +443,7 @@ def main() -> None:
         "annee": args.annee,
         "couverture": couverture(engine, args.annee),
         "couverture_par_ministere": couverture_par_ministere(engine, args.annee),
+        "restant_eclater_par_fournisseur": restant_eclater_par_fournisseur(engine, args.annee),
         "enrichissement_ugap": enrichissement_ugap(engine, args.annee),
         "gm": gm(engine, args.annee),
     }
