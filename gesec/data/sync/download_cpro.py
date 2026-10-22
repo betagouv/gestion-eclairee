@@ -13,7 +13,7 @@ from typing import Optional
 from django.core.files.storage import default_storage
 
 from cloakbrowser import launch_context
-from playwright._impl._errors import TimeoutError as PlaywrightTimeoutError
+from playwright._impl._errors import Error as PlaywrightError
 
 logger = logging.getLogger(__name__)
 
@@ -487,7 +487,7 @@ def download_items(page, params: Optional[SearchParams] = None):
                 logger.info(f"Saved as {filename}")
                 download_success = True
                 break
-            except PlaywrightTimeoutError as e:
+            except PlaywrightError as e:
                 logger.warning(f"Download attempt {attempt + 1}/3 failed for {filename}: {e} {params_str}")
                 if attempt < 2:
                     logger.info(f"Retrying download for {filename}...")
@@ -829,7 +829,7 @@ if __name__ == "__main__":
                         f"Processing completed in {duration:.2f}s ({idx}/{total_tuples}) {params.to_log_string()}"
                     )
                     break
-                except PlaywrightTimeoutError as e:
+                except PlaywrightError as e:
                     duration = time.perf_counter() - start_time
                     logger.warning(
                         f"search_and_download attempt {attempt + 1}/3 failed in {duration:.2f}: "
