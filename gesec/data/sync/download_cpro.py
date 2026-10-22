@@ -467,6 +467,7 @@ def download_items(page, params: Optional[SearchParams] = None):
         # Click the button to trigger download with retry logic (3 attempts max)
         download_success = False
         for attempt in range(3):
+            download = None
             try:
                 button.click()
                 with page.expect_download(timeout=30 * 1000) as download_info:
@@ -492,6 +493,19 @@ def download_items(page, params: Optional[SearchParams] = None):
                     logger.info(f"Retrying download for {filename}...")
                 else:
                     logger.error(f"Max retries reached for download_items, skipping {params_str} filename={filename}")
+            finally:
+                # Free the Playwright temp artifact: it persists on disk until the
+                # context is closed and would otherwise accumulate over thousands of
+                # downloads until the container runs out of space.
+                if download is not None:
+                    try:
+                        download.delete()
+                    except Exception as e:
+                        logger.warning(f"Failed to delete temp download for {filename}: {e} {params_str}")
+
+        # Close any popup page opened by the download confirmation button
+        # (formtarget="_blank"); otherwise pages pile up and eventually kill the browser.
+        close_extra_pages(page)
 
         if not download_success:
             stats["error"] += 1
@@ -500,6 +514,24 @@ def download_items(page, params: Optional[SearchParams] = None):
         stats["download"] += 1
 
     return stats
+
+
+def close_extra_pages(page) -> None:
+    """Close every page of the context except the main one.
+
+    The download confirmation button uses formtarget="_blank", so each download
+    can leave an extra page open. Closing them keeps the browser memory bounded.
+
+    Args:
+        page: The main Playwright page object
+    """
+    for other in page.context.pages:
+        if other is page:
+            continue
+        try:
+            other.close()
+        except Exception as e:
+            logger.warning(f"Failed to close extra page: {e}")
 
 
 def read_input_file(input_file: str) -> list[tuple[str, str | None, str, str]]:
@@ -627,8 +659,14 @@ def download_export_csv(page, params: SearchParams) -> str:
     download = download_info.value
     assert download_info.is_done(), "Download should be done."
     download_path = download.path()
-    with open(download_path, "rb") as src:
-        default_storage.save(filepath, src)
+    try:
+        with open(download_path, "rb") as src:
+            default_storage.save(filepath, src)
+    finally:
+        try:
+            download.delete()
+        except Exception as e:
+            logger.warning(f"Failed to delete temp export download: {e}")
 
     logger.info(f"Export CSV saved as {filepath}")
     return filepath
