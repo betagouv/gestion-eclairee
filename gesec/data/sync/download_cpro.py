@@ -25,6 +25,18 @@ SELECT_ALL_MODIFIER = "Meta" if platform.system() == "Darwin" else "Control"
 # Examples: "123", "123,45", "1234", "1,23"
 FRENCH_NUMBER_PATTERN = re.compile(r"^\d+(,\d{1,2})?$")
 
+DOWNLOAD_WAIT_MARKER = 'waiting for event "download"'
+
+
+class DirtyDownloadStateError(Exception):
+    """Raised when a download confirmation button left the page in a broken state.
+
+    The confirmation button uses formtarget="_blank": the click succeeds but the
+    download never starts, leaving a pending popup/navigation behind. Replaying the
+    same click on the same page keeps failing identically, so the caller must reset
+    the page before retrying.
+    """
+
 
 def validate_french_number(value: str) -> bool:
     """Validate that a string is in French number format.
@@ -150,7 +162,11 @@ def init_search_page(page, ignore_payment_state: bool):
     logger.info("Initializing search page")
 
     # Ouverture de la page
-    page.goto("https://cpro.chorus-pro.gouv.fr/cpp/rechercheFactures")
+    page.goto(
+        "https://cpro.chorus-pro.gouv.fr/cpp/rechercheFactures",
+        wait_until="domcontentloaded",
+        timeout=60_000,
+    )
 
     if not ignore_payment_state:
         # Sélection de l'état Mise en paiement
@@ -489,6 +505,16 @@ def download_items(page, params: Optional[SearchParams] = None):
                 break
             except PlaywrightError as e:
                 logger.warning(f"Download attempt {attempt + 1}/3 failed for {filename}: {e} {params_str}")
+
+                # Close any popup left open by this attempt before retrying: a popup
+                # from attempt N would otherwise block attempt N+1.
+                close_extra_pages(page)
+
+                if DOWNLOAD_WAIT_MARKER in str(e) and attempt == 2:
+                    raise DirtyDownloadStateError(
+                        f"Download never started for {filename} after 3 attempts {params_str}"
+                    ) from e
+
                 if attempt < 2:
                     logger.info(f"Retrying download for {filename}...")
                 else:
@@ -532,6 +558,28 @@ def close_extra_pages(page) -> None:
             other.close()
         except Exception as e:
             logger.warning(f"Failed to close extra page: {e}")
+
+
+def reset_page(ctx, page):
+    """Replace the current page with a fresh one.
+
+    Used to recover from a broken page state (pending popup or navigation left by a
+    failed download). Closing the old page and opening a new one clears that state;
+    the caller must use the returned page from now on.
+
+    If the context cannot be reset (close or new_page failing), the error propagates
+    to stop the run: an unrecoverable context only produces empty failures afterwards.
+
+    Args:
+        ctx: The Playwright browser context
+        page: The current page to discard
+
+    Returns:
+        The newly opened page
+    """
+    close_extra_pages(page)
+    page.close()
+    return ctx.new_page()
 
 
 def read_input_file(input_file: str) -> list[tuple[str, str | None, str, str]]:
@@ -819,26 +867,29 @@ if __name__ == "__main__":
                 ignore_payment_state=options.ignore_payment_state,
             )
 
-            # Search and download with retry logic (3 attempts max)
+            # Search and download with retry logic (3 attempts max). Any failure
+            # resets the page before retrying: replaying on a page left broken by a
+            # failed download keeps failing identically.
             for attempt in range(3):
+                start_time = time.perf_counter()
                 try:
-                    start_time = time.perf_counter()
                     search_and_download(page, params)
                     duration = time.perf_counter() - start_time
                     logger.info(
                         f"Processing completed in {duration:.2f}s ({idx}/{total_tuples}) {params.to_log_string()}"
                     )
                     break
-                except PlaywrightError as e:
+                except (DirtyDownloadStateError, PlaywrightError) as e:
                     duration = time.perf_counter() - start_time
                     logger.warning(
-                        f"search_and_download attempt {attempt + 1}/3 failed in {duration:.2f}: "
-                        f"{e} {params.to_log_string()}"
+                        f"search_and_download attempt {attempt + 1}/3 failed "
+                        f"({type(e).__name__}) in {duration:.2f}: {e} {params.to_log_string()}"
                     )
+                    page = reset_page(ctx, page)
                     if attempt < 2:
-                        logger.info("Retrying search_and_download...")
+                        logger.info("Retrying search_and_download on a fresh page...")
                     else:
-                        logger.error(f"Max retries reached for search_and_download, skipping {params.to_log_string()}")
+                        logger.error(f"Max retries reached ({type(e).__name__}), skipping {params.to_log_string()}")
 
         if options.headed:
             input("Press any key to quit...")
