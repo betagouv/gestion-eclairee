@@ -82,6 +82,7 @@ class LLMClient:
         model: str,
         response_format: dict | None = None,
         temperature: float = 0.0,
+        max_tokens: int | None = None,
         max_retries: int = 3,
         retry_delay: float = 60.0,
         retry_short_delay: float = 10.0,
@@ -100,6 +101,7 @@ class LLMClient:
                     model=model,
                     messages=cast(list[ChatCompletionMessageParam], messages),
                     temperature=temperature,
+                    max_tokens=max_tokens if max_tokens is not None else omit,
                     response_format=cast(ResponseFormatJSONSchema, response_format) if response_format else omit,
                     extra_body=extra_body,
                 )

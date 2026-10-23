@@ -328,6 +328,7 @@ MATOMO_URL = config.str("MATOMO_URL", default="")
 
 ALBERT_API_KEY = config.str("ALBERT_API_KEY")
 ALBERT_BASE_URL = config.str("ALBERT_BASE_URL")
+EXTRACT_PDF_DATA_ROOT = config.str("EXTRACT_PDF_DATA_ROOT", default="")
 ALBERT_USE_RATE_LIMITER = config.bool("ALBERT_USE_RATE_LIMITER", default=False)
 # Limites par modèle (requêtes/min).
 # Défaut pour un modèle non listé : ALBERT_RATE_PER_MINUTE_DEFAULT.
