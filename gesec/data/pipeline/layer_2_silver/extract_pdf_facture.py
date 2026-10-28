@@ -90,7 +90,7 @@ def transform_bronze(
         logger.warning("Validation PDF échouée pour %s : %s", bronze.id_cpro, error)
         return (
             _facture_row(
-                bronze, status=status, objet_facture=facture.objet_facture, error_type="validation", error=error
+                bronze, status="failed", objet_facture=facture.objet_facture, error_type="validation", error=error
             ),
             [],
         )

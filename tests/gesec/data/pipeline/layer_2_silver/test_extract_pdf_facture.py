@@ -71,6 +71,24 @@ def test_process_to_silver_writes_factures_and_lignes(tables: None) -> None:
     )
     upsert(BronzeExtractPdf(id_cpro="2", status="no_lines", content={"lignes": []}))
     upsert(BronzeExtractPdf(id_cpro="3", status="failed", error_type="llm", error="boom"))
+    upsert(
+        BronzeExtractPdf(
+            id_cpro="4",
+            status="success",
+            pdf_filename="facture4.pdf",
+            content={
+                "lignes": [
+                    {
+                        "line_id": "1",
+                        "line_amount_excl_tax": "100",
+                        "line_amount_incl_tax": "130",
+                        "line_amount_vat": "20",
+                        "currency": "EUR",
+                    }
+                ]
+            },
+        )
+    )
 
     process_to_silver()
 
@@ -85,6 +103,7 @@ def test_process_to_silver_writes_factures_and_lignes(tables: None) -> None:
             ("1", "success", "Objet PDF", None),
             ("2", "no_lines", None, None),
             ("3", "failed", None, "llm"),
+            ("4", "failed", None, "validation"),
         ]
         cur.execute(
             sql.SQL("SELECT id_cpro, line_id, line_amount_incl_tax, currency FROM {}").format(
