@@ -68,10 +68,10 @@ exploitable ; ses lignes et son objet sont extraits par OCR puis LLM.
 _Dans les sources_ : pièce jointe de catégorie `FACTURE_PDF` (Chorus Pro)
 _Éviter_ : PDF non DEMAT, facture scannée
 
-**Fallback PDF** :
-Chemin d'extraction appliqué aux factures PDF non dématérialisées ; il alimente
-le gold uniquement pour les factures sans lignes XML ou Factur-X.
-_Éviter_ : extraction PDF, OCR
+**Extraction PDF** :
+Source de lignes appliquée aux factures PDF non dématérialisées ; elle alimente
+le gold pour les factures sans lignes XML ou Factur-X, en dernier à l'agrégation.
+_Éviter_ : fallback PDF, fallback, OCR
 
 **Objet de la facture** :
 Libellé décrivant la prestation facturée, porté par la facture ; extrait du PDF

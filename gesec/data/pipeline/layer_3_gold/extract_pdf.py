@@ -1,4 +1,4 @@
-"""Fallback gold des lignes extraites depuis les PDF non DEMAT.
+"""Lignes gold extraites depuis les PDF non dématérialisés.
 
 Le silver ne porte que les montants décodés par le LLM. C'est ici, où
 `gesec_facture` est disponible, que les montants manquants sont complétés via

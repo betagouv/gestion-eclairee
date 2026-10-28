@@ -5,15 +5,16 @@ Statut : accepté
 Certaines factures Chorus Pro ne fournissent aucun pivot XML exploitable, y
 compris sous forme de Factur-X. Le gold restait alors sans lignes, et donc sans
 objet ni classement GM, alors que la version PDF de la facture était disponible
-dans l'archive téléchargée. Le pipeline ajoute donc un fallback : lire le PDF,
-en extraire un Markdown, demander les lignes et l'objet au LLM, puis alimenter
-le gold uniquement pour les factures que le chemin XML n'a pas couvertes.
+dans l'archive téléchargée. Le pipeline ajoute donc une extraction PDF : lire le
+PDF, en extraire un Markdown, demander les lignes et l'objet au LLM, puis
+alimenter le gold uniquement pour les factures que le chemin XML n'a pas
+couvertes.
 
 ## Périmètre
 
-Une facture est candidate au fallback si son archive ne contient aucun `.xml`
-sous `pivot/`, y compris un `*.factur-x.xml`. Les autres pièces jointes ne sont
-pas des sources de lignes. L'en-tête de la facture doit exister dans
+Une facture est candidate à l'extraction PDF si son archive ne contient aucun
+`.xml` sous `pivot/`, y compris un `*.factur-x.xml`. Les autres pièces jointes ne
+sont pas des sources de lignes. L'en-tête de la facture doit exister dans
 `gesec_facture` : sans lui, l'extraction est inutile et le statut
 `header_missing` est enregistré sans appel OCR ni LLM.
 
@@ -62,7 +63,7 @@ pas par un update a posteriori. La source des lignes PDF porte le nom du PDF
 (`extract_pdf:<nom_pdf>`), ce qui permet de les distinguer des lignes XML.
 
 L'ordre du launcher est significatif : silver PDF, puis `gold.facture`, puis
-`gold.facture_ligne` (qui branche le fallback PDF avant `match_ugap`), puis
+`gold.facture_ligne` (qui branche l'extraction PDF avant `match_ugap`), puis
 `meta_budat`.
 
 ## Options écartées
@@ -87,7 +88,7 @@ L'ordre du launcher est significatif : silver PDF, puis `gold.facture`, puis
 
 - `manage.py extract_pdf` est une étape indépendante du launcher, avec ses modes
   `new`, `retry`, `reprocess` et `all`, et peut tourner avec `--dry-run`.
-- Un run complet enchaîne désormais l'extraction PDF en silver puis le fallback
+- Un run complet enchaîne désormais l'extraction PDF en silver puis l'agrégation
   gold ; `classify_gm` lit l'objet de facture ainsi obtenu.
 - Le coût OCR/LLM est proportionnel aux seules factures sans pivot XML, et les
   relances ne rejouent que les erreurs sélectionnées.

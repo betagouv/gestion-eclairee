@@ -34,7 +34,7 @@ from gesec.data.pipeline.layer_2_silver.schemas import (
 from gesec.data.pipeline.layer_2_silver.ugap_export_factures import (
     DEFAULT_TABLE_NAME as SILVER_UGAP_DEFAULT_TABLE_NAME,
 )
-from gesec.data.pipeline.layer_3_gold import extract_pdf_fallback
+from gesec.data.pipeline.layer_3_gold import extract_pdf
 from gesec.data.pipeline.layer_3_gold.constants import UGAP_SIREN
 from gesec.data.pipeline.layer_3_gold.schemas import (
     GoldCproExportFactureLigne,
@@ -80,7 +80,7 @@ def transform_to_gold(
             covered_ids.add(line.id_cpro)
             yield GoldCproExportFactureLigne(**line.model_dump(), source="factur-x")
 
-    yield from extract_pdf_fallback.transform_to_gold(covered_ids=covered_ids, batch_size=batch_size)
+    yield from extract_pdf.transform_to_gold(covered_ids=covered_ids, batch_size=batch_size)
 
 
 def is_ugap_facture(fournisseur_identifiant: Optional[str]) -> bool:

@@ -9,7 +9,7 @@ from gesec.data.classify_gm.db import get_database_url
 from gesec.data.pipeline.db import TableWriter
 from gesec.data.pipeline.layer_2_silver.extract_pdf_ligne import DEFAULT_TABLE_NAME as SILVER_PDF_LIGNE_TABLE_NAME
 from gesec.data.pipeline.layer_2_silver.schemas import SilverExtractPdfLigne
-from gesec.data.pipeline.layer_3_gold.extract_pdf_fallback import transform_to_gold
+from gesec.data.pipeline.layer_3_gold.extract_pdf import transform_to_gold
 from gesec.data.pipeline.layer_3_gold.facture import transform_silver_to_gold
 from tests.gesec.data.pipeline.layer_3_gold.test_facture_ligne import silver_facture
 
