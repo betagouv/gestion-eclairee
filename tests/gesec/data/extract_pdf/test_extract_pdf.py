@@ -447,3 +447,21 @@ def test_run_extract_dry_run_counts_statuses_without_writes():
     assert summary.no_pdf == 1
     assert summary.failed == 1
     assert summary.success == 0
+
+
+def test_run_extract_limit_borne_les_candidats_pas_les_non_candidats():
+    selection = PdfSelection(
+        candidates={id_cpro: _candidate(id_cpro) for id_cpro in ("1", "2", "3")},
+        header_missing=["4"],
+        no_pdf=["5"],
+        parse_errors={},
+        xml_ids=set(),
+        all_ids={"1", "2", "3", "4", "5"},
+    )
+
+    summary = run_extract(selection=selection, results={}, mode="new", limit=2, dry_run=True)
+
+    assert summary.selected == 5
+    assert summary.pending == 2
+    assert summary.header_missing == 1
+    assert summary.no_pdf == 1

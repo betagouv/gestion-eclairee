@@ -314,16 +314,21 @@ def run_extract(
         error_types=error_types,
         id_filter=id_filter,
     )
-    if limit is not None:
-        targets = targets[: max(0, limit)]
 
-    summary = ExtractSummary(mode=mode, dry_run=dry_run, selected=len(targets), skipped_xml=skipped_xml)
+    summary = ExtractSummary(mode=mode, dry_run=dry_run, skipped_xml=skipped_xml)
+    candidate_ids = [id_cpro for id_cpro in targets if id_cpro in selection.candidates]
+    if limit is not None:
+        candidate_ids = candidate_ids[: max(0, limit)]
+    selected_ids = set(candidate_ids)
+    summary.selected = len(targets)
+
     candidates: list[PdfCandidate] = []
 
     for id_cpro in targets:
         candidate = selection.candidates.get(id_cpro)
         if candidate is not None:
-            candidates.append(candidate)
+            if id_cpro in selected_ids:
+                candidates.append(candidate)
         elif id_cpro in selection.header_missing:
             summary.header_missing += 1
             if not dry_run:

@@ -36,7 +36,7 @@ class Command(BaseCommand):
             default=None,
             help="Avec --mode retry, limite aux types d'erreur ou statuts donnés (répétable)",
         )
-        parser.add_argument("--limit", type=int, default=None, help="Nombre max de factures à traiter")
+        parser.add_argument("--limit", type=int, default=None, help="Nombre max de candidats extractibles à traiter")
         parser.add_argument(
             "--max-pages",
             type=int,
