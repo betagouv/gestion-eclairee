@@ -62,6 +62,11 @@ def select_target_ids(
         raise ValueError(f"mode invalide : {mode!r} (attendu : new|retry|reprocess|all)")
     if not inventory_ids:
         return set()
+    explicit = set(id_filter) if id_filter else None
+    if explicit is not None:
+        inventory_ids = [id_cpro for id_cpro in inventory_ids if id_cpro in explicit]
+        if not inventory_ids:
+            return set()
     if mode == "all":
         return set(inventory_ids)
 
@@ -89,17 +94,19 @@ def select_target_ids(
             allowed = list(error_types)
             statement += " AND (error_type = ANY(:allowed) OR status = ANY(:allowed))"
             parameters["allowed"] = allowed
-    if id_filter:
-        statement += " AND id_cpro = ANY(:explicit)"
-        parameters["explicit"] = list(id_filter)
 
     rows = execute_sql(text(statement), parameters)
     return {row.id_cpro for row in rows}
 
 
-def upsert(result: BronzeExtractPdf) -> None:
-    """Insère ou met à jour une tentative, en incrémentant `attempts` sur conflit."""
-    ensure_table()
+def upsert(result: BronzeExtractPdf, *, ensure: bool = True) -> None:
+    """Insère ou met à jour une tentative, en incrémentant `attempts` sur conflit.
+
+    `ensure=False` évite de revérifier l'existence de la table à chaque ligne
+    quand l'appelant l'a déjà garantie (`ensure_table()` en amont).
+    """
+    if ensure:
+        ensure_table()
     now = datetime.now(UTC)
     values = result.model_dump(exclude={"created_at", "updated_at", "last_attempt_at"})
     values.update(attempts=1, last_attempt_at=now, created_at=now, updated_at=now)

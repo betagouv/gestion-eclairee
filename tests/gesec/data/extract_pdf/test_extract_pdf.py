@@ -374,10 +374,12 @@ def test_select_targets_ecarte_les_factures_avec_xml(bronze_table: None):
         all_ids={"1", "2", "5", "9"},
     )
 
-    assert select_targets(selection, mode="new") == (["5"], 1)
+    assert select_targets(selection, mode="new") == (["5"], 0)
     assert select_targets(selection, mode="retry") == (["1"], 0)
     assert select_targets(selection, mode="reprocess") == (["1", "2"], 0)
-    assert select_targets(selection, mode="all") == (["1", "2", "5"], 1)
+    assert select_targets(selection, mode="all") == (["1", "2", "5"], 0)
+    assert select_targets(selection, mode="new", id_filter=["9"]) == ([], 1)
+    assert select_targets(selection, mode="all", id_filter=["5", "9"]) == (["5"], 1)
 
 
 def _ligne(**overrides) -> ExtractedLigne:
@@ -533,7 +535,8 @@ def test_process_candidates_borne_les_taches_en_vol(monkeypatch: pytest.MonkeyPa
 
     monkeypatch.setattr(run_module, "_safe_markdown", fake_markdown)
     monkeypatch.setattr(run_module, "_run_llm", fake_llm)
-    monkeypatch.setattr(run_module, "upsert", lambda result: None)
+    monkeypatch.setattr(run_module, "ensure_table", lambda: None)
+    monkeypatch.setattr(run_module, "upsert", lambda result, *, ensure=True: None)
 
     candidates = [_candidate(str(index)) for index in range(20)]
     summary = ExtractSummary(mode="new", dry_run=False)

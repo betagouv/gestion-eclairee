@@ -13,4 +13,5 @@ __pycache__/
 /htmlcov/
 /.coverage
 .agent-vm
+/plans/
 

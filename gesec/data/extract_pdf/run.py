@@ -26,7 +26,7 @@ from gesec.data.extract_pdf.paths import (
     PROMPT_VERSION,
 )
 from gesec.data.extract_pdf.pdf4llm_extract import PdfMarkdownResult, build_lighton_ocr_client, extract_pdf_markdown
-from gesec.data.extract_pdf.result_table import select_target_ids, upsert
+from gesec.data.extract_pdf.result_table import ensure_table, select_target_ids, upsert
 from gesec.data.extract_pdf.schemas import (
     BronzeExtractPdf,
     PdfErrorType,
@@ -82,7 +82,7 @@ def select_targets(
         id_filter=id_filter,
     )
     targets &= inventory_ids
-    skipped_xml = len(targets & selection.xml_ids)
+    skipped_xml = len(set(id_filter or ()) & selection.xml_ids)
     targets -= selection.xml_ids
     return sorted(targets), skipped_xml
 
@@ -236,9 +236,10 @@ def _process_candidates(
     """
     candidate_iter = iter(candidates)
     backlog_limit = workers
+    ensure_table()
 
     def record(result: BronzeExtractPdf) -> None:
-        upsert(result)
+        upsert(result, ensure=False)
         _increment(summary, result.status)
 
     def submit_markdown(pool: ThreadPoolExecutor) -> bool:
@@ -341,6 +342,8 @@ def run_extract(
     summary.selected = len(targets)
 
     candidates: list[PdfCandidate] = []
+    if not dry_run:
+        ensure_table()
 
     for id_cpro in targets:
         candidate = selection.candidates.get(id_cpro)
@@ -350,7 +353,7 @@ def run_extract(
         elif id_cpro in selection.header_missing:
             summary.header_missing += 1
             if not dry_run:
-                upsert(_status_row(id_cpro, "header_missing"))
+                upsert(_status_row(id_cpro, "header_missing"), ensure=False)
         elif id_cpro in selection.parse_errors:
             summary.failed += 1
             if not dry_run:
@@ -360,12 +363,13 @@ def run_extract(
                         status="failed",
                         error_type="parse",
                         error=selection.parse_errors[id_cpro],
-                    )
+                    ),
+                    ensure=False,
                 )
         else:
             summary.no_pdf += 1
             if not dry_run:
-                upsert(_status_row(id_cpro, "no_pdf"))
+                upsert(_status_row(id_cpro, "no_pdf"), ensure=False)
 
     if dry_run:
         summary.pending = len(candidates)

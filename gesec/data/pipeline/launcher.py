@@ -28,9 +28,9 @@ def launch_pipeline(ministere: str | None = None, n_workers: int | None = None):
     silver.cpro_export_facture_xml_ligne.process_to_silver()
     silver.oda_export_ej_gm_mapping.process_bronze_to_silver()
     silver.ugap_export_factures.process_bronze_to_silver()
+    silver.extract_pdf_facture.process_to_silver()
 
     ## Gold
-    silver.extract_pdf_facture.process_to_silver()
     gold.facture.process_silver_to_gold()
     gold.facture_ligne.process_to_gold()
     gold.meta_budat.process_to_gold()

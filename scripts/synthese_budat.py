@@ -329,7 +329,8 @@ def extraction_pdf(engine: Engine, annee: str) -> dict[str, Any]:
         select
             status,
             count(*) as factures,
-            coalesce(sum(page_count), 0) as pages
+            coalesce(sum(page_count), 0) as pages,
+            count(page_count) as factures_avec_pages
         from tentatives
         group by status
         order by count(*) desc
@@ -338,6 +339,7 @@ def extraction_pdf(engine: Engine, annee: str) -> dict[str, Any]:
     )
     total_f = sum(r["factures"] for r in statuts)
     total_pages = sum(r["pages"] for r in statuts)
+    total_avec_pages = sum(r["factures_avec_pages"] for r in statuts)
     statuts_tableau: Tableau = [["statut", "factures", "part", "pages", "page_moy"]]
     for r in statuts:
         statuts_tableau.append(
@@ -346,11 +348,17 @@ def extraction_pdf(engine: Engine, annee: str) -> dict[str, Any]:
                 r["factures"],
                 pct(r["factures"], total_f),
                 r["pages"],
-                round(float(r["pages"]) / float(r["factures"]), 1) if r["factures"] else 0.0,
+                round(float(r["pages"]) / float(r["factures_avec_pages"]), 1) if r["factures_avec_pages"] else 0.0,
             ]
         )
     statuts_tableau.append(
-        ["Total", total_f, 100.0, total_pages, round(float(total_pages) / total_f, 1) if total_f else 0.0]
+        [
+            "Total",
+            total_f,
+            100.0,
+            total_pages,
+            round(float(total_pages) / total_avec_pages, 1) if total_avec_pages else 0.0,
+        ]
     )
 
     reconciliation = fetch_one(

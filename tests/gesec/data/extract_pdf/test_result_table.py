@@ -42,6 +42,18 @@ def test_select_target_ids_sans_table(bronze_table: None) -> None:
     assert select_target_ids(["1", "2"], mode="reprocess") == set()
 
 
+def test_select_target_ids_avec_id_filter(bronze_table: None) -> None:
+    upsert(BronzeExtractPdf(id_cpro="1", status="failed", error_type="llm"))
+    inventory = ["1", "2", "3"]
+
+    assert select_target_ids(inventory, mode="new", id_filter=["1", "3"]) == {"3"}
+    assert select_target_ids(inventory, mode="all", id_filter=["1", "3"]) == {"1", "3"}
+    assert select_target_ids(inventory, mode="retry", id_filter=["1", "3"]) == {"1"}
+    assert select_target_ids(inventory, mode="reprocess", id_filter=["1", "3"]) == {"1"}
+    assert select_target_ids(inventory, mode="reprocess", id_filter=["3"]) == set()
+    assert select_target_ids(inventory, mode="new", id_filter=["9"]) == set()
+
+
 def test_select_target_ids_modes(bronze_table: None) -> None:
     upsert(BronzeExtractPdf(id_cpro="1", status="failed", error_type="llm"))
     upsert(BronzeExtractPdf(id_cpro="2", status="success"))
