@@ -125,6 +125,8 @@ class PdfMarkdownResult:
     markdown_sha256: str | None
     markdown_cached: bool
     markdown_path: str
+    pdf_filename: str | None = None
+    pdf_path: str | None = None
     status: PdfExtractionStatus | None = None
     error: str = ""
     error_type: PdfErrorType | None = None

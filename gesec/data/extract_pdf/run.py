@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import logging
+import os
 from collections import deque
 from collections.abc import Sequence
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 from django.conf import settings
+from django.core.files.storage import default_storage
 
 from tqdm import tqdm
 
@@ -24,6 +26,7 @@ from gesec.data.extract_pdf.paths import (
     MAX_PAGES,
     PDF4LLM_MD_MAX_WORKERS,
     PROMPT_VERSION,
+    UNZIPPED_PREFIX,
 )
 from gesec.data.extract_pdf.pdf4llm_extract import PdfMarkdownResult, build_lighton_ocr_client, extract_pdf_markdown
 from gesec.data.extract_pdf.result_table import ensure_table, select_target_ids, upsert
@@ -33,6 +36,9 @@ from gesec.data.extract_pdf.schemas import (
     PdfExtractionStatus,
 )
 from gesec.data.extract_pdf.selection import PdfCandidate, PdfSelection
+from gesec.data.pipeline.utils import read_xml_file
+from gesec.data.processors.cpro.models.pivots_xml import CategoriePJ
+from gesec.data.processors.cpro.pivots_xml import parse_xml_to_obj
 
 logger = logging.getLogger(__name__)
 
@@ -71,9 +77,7 @@ def select_targets(
     error_types: Sequence[str] | None = None,
     id_filter: Sequence[str] | None = None,
 ) -> tuple[list[str], int]:
-    inventory_ids = (
-        set(selection.candidates) | set(selection.header_missing) | set(selection.no_pdf) | set(selection.parse_errors)
-    )
+    inventory_ids = set(selection.candidates) | set(selection.header_missing)
 
     targets = select_target_ids(
         list(inventory_ids),
@@ -85,6 +89,40 @@ def select_targets(
     skipped_xml = len(set(id_filter or ()) & selection.xml_ids)
     targets -= selection.xml_ids
     return sorted(targets), skipped_xml
+
+
+def resolve_pdf(candidate: PdfCandidate) -> tuple[str, str] | None:
+    """Détermine le PDF à extraire depuis `PivotS.xml`.
+
+    Retourne `(pdf_path, pdf_filename)` ou `None` si la facture n'expose aucun
+    PDF de catégorie facture. Lève si le PivotS est absent ou illisible.
+    """
+    pivot_path = f"{UNZIPPED_PREFIX}/{candidate.folder}/PivotS.xml"
+    if not default_storage.exists(pivot_path):
+        raise ValueError(f"PivotS.xml absent pour {candidate.folder}")
+
+    pivot = parse_xml_to_obj(read_xml_file(pivot_path))
+    factures = pivot.CPPFactures.CPPFacturePivotUnitaire
+    facture = next((item for item in factures if item.DonneesFacture.IdCPRO == candidate.id_cpro), None)
+    if facture is None:
+        if len(factures) != 1:
+            raise ValueError(f"Facture {candidate.id_cpro} absente de PivotS.xml ({len(factures)} factures)")
+        facture = factures[0]
+
+    names: set[str] = set()
+    factures_pdf: list[tuple[int, int, str]] = []
+    for position, pj in enumerate(facture.PJ, 1):
+        suffix = f".{position}" if pj.NomPJ in names else ""
+        names.add(pj.NomPJ)
+        if pj.CategoriePJ != CategoriePJ.FACTURE_PDF:
+            continue
+        stem, extension = os.path.splitext(pj.NomPJ)
+        factures_pdf.append((pj.NumOrdre, position, f"{stem}{suffix}{extension}"))
+
+    if not factures_pdf:
+        return None
+    pdf_filename = min(factures_pdf, key=lambda item: (item[0], item[1]))[2]
+    return f"{UNZIPPED_PREFIX}/{candidate.folder}/pivot/{pdf_filename}", pdf_filename
 
 
 def _candidate_row(
@@ -100,8 +138,8 @@ def _candidate_row(
         id_cpro=candidate.id_cpro,
         status=status,
         content=content,
-        pdf_path=candidate.pdf_path,
-        pdf_filename=candidate.pdf_filename,
+        pdf_path=markdown.pdf_path if markdown else None,
+        pdf_filename=markdown.pdf_filename if markdown else None,
         pdf_sha256=markdown.pdf_sha256 if markdown else None,
         markdown_path=markdown.markdown_path if markdown else None,
         markdown_sha256=markdown.markdown_sha256 if markdown else None,
@@ -121,6 +159,30 @@ def _failed_markdown(candidate: PdfCandidate, error: str, error_type: PdfErrorTy
     return _candidate_row(candidate, status="failed", error=error, error_type=error_type)
 
 
+def _empty_markdown(
+    *,
+    status: PdfExtractionStatus,
+    error: str = "",
+    error_type: PdfErrorType | None = None,
+    pdf_path: str | None = None,
+    pdf_filename: str | None = None,
+) -> PdfMarkdownResult:
+    return PdfMarkdownResult(
+        markdown="",
+        duration_s=0.0,
+        page_count=0,
+        pdf_sha256=None,
+        markdown_sha256=None,
+        markdown_cached=False,
+        markdown_path="",
+        pdf_path=pdf_path,
+        pdf_filename=pdf_filename,
+        status=status,
+        error=error,
+        error_type=error_type,
+    )
+
+
 def _safe_markdown(
     candidate: PdfCandidate,
     *,
@@ -129,28 +191,30 @@ def _safe_markdown(
     max_pages: int,
 ) -> PdfMarkdownResult:
     try:
-        return extract_pdf_markdown(
+        resolved = resolve_pdf(candidate)
+    except Exception as e:
+        logger.warning("PivotS.xml illisible pour %s : %s", candidate.id_cpro, e)
+        return _empty_markdown(status="failed", error=repr(e), error_type="parse")
+    if resolved is None:
+        return _empty_markdown(status="no_pdf")
+
+    pdf_path, pdf_filename = resolved
+    try:
+        result = extract_pdf_markdown(
             id_cpro=candidate.id_cpro,
-            pdf_path=candidate.pdf_path,
-            pdf_filename=candidate.pdf_filename,
+            pdf_path=pdf_path,
+            pdf_filename=pdf_filename,
             ocr_client=ocr_client,
             force_refresh=force_refresh,
             max_pages=max_pages,
         )
     except Exception as e:
         logger.exception("Préparation Markdown échouée pour %s", candidate.id_cpro)
-        return PdfMarkdownResult(
-            markdown="",
-            duration_s=0.0,
-            page_count=0,
-            pdf_sha256=None,
-            markdown_sha256=None,
-            markdown_cached=False,
-            markdown_path="",
-            status="failed",
-            error=repr(e),
-            error_type="parse",
+        return _empty_markdown(
+            status="failed", error=repr(e), error_type="parse", pdf_path=pdf_path, pdf_filename=pdf_filename
         )
+
+    return replace(result, pdf_path=pdf_path, pdf_filename=pdf_filename)
 
 
 def _run_llm(
@@ -354,22 +418,6 @@ def run_extract(
             summary.header_missing += 1
             if not dry_run:
                 upsert(_status_row(id_cpro, "header_missing"), ensure=False)
-        elif id_cpro in selection.parse_errors:
-            summary.failed += 1
-            if not dry_run:
-                upsert(
-                    BronzeExtractPdf(
-                        id_cpro=id_cpro,
-                        status="failed",
-                        error_type="parse",
-                        error=selection.parse_errors[id_cpro],
-                    ),
-                    ensure=False,
-                )
-        else:
-            summary.no_pdf += 1
-            if not dry_run:
-                upsert(_status_row(id_cpro, "no_pdf"), ensure=False)
 
     if dry_run:
         summary.pending = len(candidates)

@@ -19,7 +19,7 @@ from gesec.data.extract_pdf.pdf4llm_extract import (
 from gesec.data.extract_pdf.pdf_utils import page_count, pdf_within_page_limit
 from gesec.data.extract_pdf.prompt import response_format_lignes
 from gesec.data.extract_pdf.result_table import TABLE_NAME, upsert
-from gesec.data.extract_pdf.run import ExtractSummary, _process_candidates, run_extract, select_targets
+from gesec.data.extract_pdf.run import ExtractSummary, _process_candidates, resolve_pdf, run_extract, select_targets
 from gesec.data.extract_pdf.schemas import BronzeExtractPdf, ExtractedFacture, ExtractedLigne
 from gesec.data.extract_pdf.selection import PdfCandidate, PdfSelection, scan_inventory
 from gesec.data.pipeline.layer_2_silver.extract_pdf_ligne import transform_to_silver
@@ -284,19 +284,17 @@ def test_scan_inventory_selects_pdf_and_skips_xml(
 
     selection = scan_inventory()
 
-    assert sorted(selection.candidates) == ["111111111"]
-    assert selection.candidates["111111111"].pdf_filename == "facture.pdf"
+    assert sorted(selection.candidates) == ["111111111", "333333333"]
+    assert selection.candidates["111111111"].folder == "facture_111111111"
     assert selection.header_missing == ["444444444"]
-    assert selection.no_pdf == ["333333333"]
     assert selection.xml_ids == {"222222222"}
 
 
-def test_scan_inventory_chooses_first_pdf_by_num_ordre_and_duplicate_suffix(
+def test_resolve_pdf_chooses_first_pdf_by_num_ordre_and_duplicate_suffix(
     s3_client, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
 ):
     prefix = f"test-extract-pdf/{request.node.name}"
-    monkeypatch.setattr("gesec.data.extract_pdf.selection.UNZIPPED_PREFIX", prefix)
-    monkeypatch.setattr("gesec.data.extract_pdf.selection._existing_headers", lambda ids: set(ids))
+    monkeypatch.setattr("gesec.data.extract_pdf.run.UNZIPPED_PREFIX", prefix)
 
     _put(
         s3_client,
@@ -310,35 +308,41 @@ def test_scan_inventory_chooses_first_pdf_by_num_ordre_and_duplicate_suffix(
             ],
         ),
     )
-    _put(s3_client, f"{prefix}/facture_555555555/pivot/facture.3.pdf", b"pdf")
 
-    selection = scan_inventory()
+    resolved = resolve_pdf(PdfCandidate(id_cpro="555555555", folder="facture_555555555"))
 
-    assert selection.candidates["555555555"].pdf_filename == "facture.3.pdf"
+    assert resolved == (f"{prefix}/facture_555555555/pivot/facture.3.pdf", "facture.3.pdf")
 
 
-def test_scan_inventory_tracks_pivot_parse_error(
+def test_resolve_pdf_returns_none_without_facture_pdf(
     s3_client, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
 ):
     prefix = f"test-extract-pdf/{request.node.name}"
-    monkeypatch.setattr("gesec.data.extract_pdf.selection.UNZIPPED_PREFIX", prefix)
-    monkeypatch.setattr("gesec.data.extract_pdf.selection._existing_headers", lambda ids: set(ids))
+    monkeypatch.setattr("gesec.data.extract_pdf.run.UNZIPPED_PREFIX", prefix)
 
-    _put(s3_client, f"{prefix}/facture_666666666/PivotS.xml", "<not-xml")
+    _put(
+        s3_client,
+        f"{prefix}/facture_666666666/PivotS.xml",
+        _pivot_xml("666666666", [(1, "annexe.pdf", "Document annexe")]),
+    )
 
-    selection = scan_inventory()
+    assert resolve_pdf(PdfCandidate(id_cpro="666666666", folder="facture_666666666")) is None
 
-    assert "666666666" in selection.parse_errors
-    assert selection.candidates == {}
+
+def test_resolve_pdf_raises_on_unreadable_pivot(
+    s3_client, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+):
+    prefix = f"test-extract-pdf/{request.node.name}"
+    monkeypatch.setattr("gesec.data.extract_pdf.run.UNZIPPED_PREFIX", prefix)
+
+    _put(s3_client, f"{prefix}/facture_777777777/PivotS.xml", "<not-xml")
+
+    with pytest.raises(Exception):
+        resolve_pdf(PdfCandidate(id_cpro="777777777", folder="facture_777777777"))
 
 
 def _candidate(id_cpro: str) -> PdfCandidate:
-    return PdfCandidate(
-        id_cpro=id_cpro,
-        folder=f"facture_{id_cpro}",
-        pdf_path=f"pivot/{id_cpro}.pdf",
-        pdf_filename=f"{id_cpro}.pdf",
-    )
+    return PdfCandidate(id_cpro=id_cpro, folder=f"facture_{id_cpro}")
 
 
 @pytest.fixture
@@ -368,8 +372,6 @@ def test_select_targets_ecarte_les_factures_avec_xml(bronze_table: None):
     selection = PdfSelection(
         candidates={id_cpro: _candidate(id_cpro) for id_cpro in ("1", "2", "5", "9")},
         header_missing=[],
-        no_pdf=[],
-        parse_errors={},
         xml_ids={"9"},
         all_ids={"1", "2", "5", "9"},
     )
@@ -456,19 +458,15 @@ def test_run_extract_dry_run_counts_statuses_without_writes(bronze_table: None):
     selection = PdfSelection(
         candidates={"1": _candidate("1")},
         header_missing=["2"],
-        no_pdf=["3"],
-        parse_errors={"4": "bad xml"},
         xml_ids=set(),
-        all_ids={"1", "2", "3", "4"},
+        all_ids={"1", "2"},
     )
 
     summary = run_extract(selection=selection, mode="new", dry_run=True)
 
-    assert summary.selected == 4
+    assert summary.selected == 2
     assert summary.pending == 1
     assert summary.header_missing == 1
-    assert summary.no_pdf == 1
-    assert summary.failed == 1
     assert summary.success == 0
 
 
@@ -477,18 +475,15 @@ def test_run_extract_limit_borne_les_candidats_pas_les_non_candidats(bronze_tabl
     selection = PdfSelection(
         candidates={id_cpro: _candidate(id_cpro) for id_cpro in ("1", "2", "3")},
         header_missing=["4"],
-        no_pdf=["5"],
-        parse_errors={},
         xml_ids=set(),
-        all_ids={"1", "2", "3", "4", "5"},
+        all_ids={"1", "2", "3", "4"},
     )
 
     summary = run_extract(selection=selection, mode="new", limit=2, dry_run=True)
 
-    assert summary.selected == 5
+    assert summary.selected == 4
     assert summary.pending == 2
     assert summary.header_missing == 1
-    assert summary.no_pdf == 1
 
 
 def test_process_candidates_borne_les_taches_en_vol(monkeypatch: pytest.MonkeyPatch):
