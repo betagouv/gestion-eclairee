@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
+from collections import deque
 from collections.abc import Sequence
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from typing import Literal
 
@@ -25,9 +26,8 @@ from gesec.data.extract_pdf.paths import (
     PROMPT_VERSION,
 )
 from gesec.data.extract_pdf.pdf4llm_extract import PdfMarkdownResult, build_lighton_ocr_client, extract_pdf_markdown
-from gesec.data.extract_pdf.result_table import upsert
+from gesec.data.extract_pdf.result_table import select_target_ids, upsert
 from gesec.data.extract_pdf.schemas import (
-    ERROR_STATUSES,
     BronzeExtractPdf,
     PdfErrorType,
     PdfExtractionStatus,
@@ -66,7 +66,6 @@ def build_llm_client(*, extraction_model: str) -> LLMClient:
 
 def select_targets(
     selection: PdfSelection,
-    results: dict[str, BronzeExtractPdf],
     *,
     mode: ExtractionMode,
     error_types: Sequence[str] | None = None,
@@ -76,27 +75,13 @@ def select_targets(
         set(selection.candidates) | set(selection.header_missing) | set(selection.no_pdf) | set(selection.parse_errors)
     )
 
-    if mode == "new":
-        targets = inventory_ids - results.keys()
-    elif mode == "retry":
-        targets = {id_cpro for id_cpro, row in results.items() if row.status in ERROR_STATUSES}
-    elif mode == "reprocess":
-        targets = inventory_ids & results.keys()
-    else:
-        targets = inventory_ids
-
+    targets = select_target_ids(
+        list(inventory_ids),
+        mode=mode,
+        error_types=error_types,
+        id_filter=id_filter,
+    )
     targets &= inventory_ids
-    if error_types:
-        allowed = set(error_types)
-        targets = {
-            id_cpro
-            for id_cpro in targets
-            if results.get(id_cpro, None)
-            and (results[id_cpro].error_type in allowed or results[id_cpro].status in allowed)
-        }
-    if id_filter:
-        targets &= set(id_filter)
-
     skipped_xml = len(targets & selection.xml_ids)
     targets -= selection.xml_ids
     return sorted(targets), skipped_xml
@@ -243,59 +228,93 @@ def _process_candidates(
     md_workers: int,
     extraction_model: str,
 ) -> None:
-    llm_pool = ThreadPoolExecutor(max_workers=workers)
-    llm_futures: list[Future[BronzeExtractPdf]] = []
+    """Traite les candidats avec des fenêtres de tâches en vol bornées.
+
+    Au plus `md_workers` préparations Markdown et `workers` extractions LLM sont
+    en vol simultanément, plus `workers` Markdown prêts en attente d'un créneau
+    LLM : la RAM suit ces bornes, pas le nombre de candidats.
+    """
+    candidate_iter = iter(candidates)
+    backlog_limit = workers
 
     def record(result: BronzeExtractPdf) -> None:
         upsert(result)
         _increment(summary, result.status)
 
-    try:
-        with ThreadPoolExecutor(max_workers=md_workers) as md_pool:
-            md_futures = {
-                md_pool.submit(
-                    _safe_markdown,
-                    candidate,
-                    ocr_client=ocr_client,
-                    force_refresh=force_refresh,
-                    max_pages=max_pages,
-                ): candidate
-                for candidate in candidates
-            }
-            for future in tqdm(as_completed(md_futures), total=len(md_futures), desc="extract_pdf markdown"):
-                candidate = md_futures[future]
-                markdown = future.result()
-                if markdown.status is not None:
-                    record(
-                        _candidate_row(
-                            candidate,
-                            status=markdown.status,
-                            markdown=markdown,
-                            error=markdown.error or None,
-                            error_type=markdown.error_type,
-                        )
-                    )
-                    continue
-                llm_futures.append(
-                    llm_pool.submit(
-                        _run_llm,
-                        candidate,
-                        markdown,
-                        llm_client=llm_client,
-                        extraction_model=extraction_model,
-                    )
-                )
+    def submit_markdown(pool: ThreadPoolExecutor) -> bool:
+        if len(pending_llm) >= backlog_limit:
+            return False
+        try:
+            candidate = next(candidate_iter)
+        except StopIteration:
+            return False
+        future = pool.submit(
+            _safe_markdown,
+            candidate,
+            ocr_client=ocr_client,
+            force_refresh=force_refresh,
+            max_pages=max_pages,
+        )
+        md_futures[future] = candidate
+        return True
 
-        for future in tqdm(as_completed(llm_futures), total=len(llm_futures), desc="extract_pdf llm"):
-            record(future.result())
-    finally:
-        llm_pool.shutdown(wait=True)
+    def submit_llm(pool: ThreadPoolExecutor, candidate: PdfCandidate, markdown: PdfMarkdownResult) -> None:
+        llm_futures[
+            pool.submit(
+                _run_llm,
+                candidate,
+                markdown,
+                llm_client=llm_client,
+                extraction_model=extraction_model,
+            )
+        ] = candidate
+
+    md_futures: dict[Future[PdfMarkdownResult], PdfCandidate] = {}
+    llm_futures: dict[Future[BronzeExtractPdf], PdfCandidate] = {}
+    pending_llm: deque[tuple[PdfCandidate, PdfMarkdownResult]] = deque()
+
+    with tqdm(total=len(candidates), desc="extract_pdf markdown") as md_progress:
+        with ThreadPoolExecutor(max_workers=md_workers) as md_pool, ThreadPoolExecutor(max_workers=workers) as llm_pool:
+            while True:
+                while len(md_futures) < md_workers and submit_markdown(md_pool):
+                    pass
+                if not (md_futures or llm_futures or pending_llm):
+                    break
+
+                for future in [f for f in llm_futures if f.done()]:
+                    llm_futures.pop(future)
+                    record(future.result())
+
+                while len(llm_futures) < workers and pending_llm:
+                    candidate, markdown = pending_llm.popleft()
+                    submit_llm(llm_pool, candidate, markdown)
+
+                if md_futures:
+                    done, _ = wait(md_futures, return_when=FIRST_COMPLETED)
+                    for future in done:
+                        candidate = md_futures.pop(future)
+                        md_progress.update(1)
+                        markdown = future.result()
+                        if markdown.status is not None:
+                            record(
+                                _candidate_row(
+                                    candidate,
+                                    status=markdown.status,
+                                    markdown=markdown,
+                                    error=markdown.error or None,
+                                    error_type=markdown.error_type,
+                                )
+                            )
+                        else:
+                            pending_llm.append((candidate, markdown))
+                    continue
+
+                wait(llm_futures, return_when=FIRST_COMPLETED)
 
 
 def run_extract(
     *,
     selection: PdfSelection,
-    results: dict[str, BronzeExtractPdf],
     mode: ExtractionMode,
     error_types: Sequence[str] | None = None,
     id_filter: Sequence[str] | None = None,
@@ -309,7 +328,6 @@ def run_extract(
 ) -> ExtractSummary:
     targets, skipped_xml = select_targets(
         selection,
-        results,
         mode=mode,
         error_types=error_types,
         id_filter=id_filter,

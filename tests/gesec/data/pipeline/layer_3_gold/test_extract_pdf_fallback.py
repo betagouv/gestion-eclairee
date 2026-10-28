@@ -10,7 +10,7 @@ from gesec.data.pipeline.db import TableWriter
 from gesec.data.pipeline.layer_2_silver.extract_pdf_ligne import DEFAULT_TABLE_NAME as SILVER_PDF_LIGNE_TABLE_NAME
 from gesec.data.pipeline.layer_2_silver.schemas import SilverExtractPdfLigne
 from gesec.data.pipeline.layer_3_gold.extract_pdf_fallback import transform_to_gold
-from gesec.data.pipeline.layer_3_gold.facture import load_silver_pdf_objects, transform_silver_to_gold
+from gesec.data.pipeline.layer_3_gold.facture import transform_silver_to_gold
 from tests.gesec.data.pipeline.layer_3_gold.test_facture_ligne import silver_facture
 
 pytestmark = pytest.mark.django_db(transaction=True)
@@ -95,6 +95,39 @@ def test_transform_to_gold_rejects_incoherent_totals(tables: None) -> None:
     assert list(transform_to_gold(covered_ids=set())) == []
 
 
+def test_transform_to_gold_regroupe_par_facture_contigue(tables: None) -> None:
+    def demi(id_cpro: str, line_id: str) -> SilverExtractPdfLigne:
+        return _silver_line(
+            id_cpro,
+            line_id=line_id,
+            quantity=Decimal("1"),
+            unit_price=Decimal("50"),
+            line_amount_excl_tax=Decimal("50"),
+            line_amount_incl_tax=Decimal("60"),
+            line_amount_vat=Decimal("10"),
+        )
+
+    _write_silver(
+        [
+            demi("1", "1"),
+            _silver_line("2", line_id="1"),
+            demi("1", "2"),
+        ]
+    )
+
+    lines = list(transform_to_gold(covered_ids=set()))
+
+    assert sorted((line.id_cpro, line.line_id) for line in lines) == [("1", "1"), ("1", "2"), ("2", "1")]
+
+
+def test_transform_to_gold_ecarte_facture_sans_en_tete(tables: None) -> None:
+    _write_silver([_silver_line("1"), _silver_line("999")])
+
+    lines = list(transform_to_gold(covered_ids=set()))
+
+    assert [line.id_cpro for line in lines] == ["1"]
+
+
 def test_transform_silver_to_gold_reprend_objet_pdf(tables: None) -> None:
     connection = psycopg.connect(get_database_url())
     with connection.cursor() as cur:
@@ -103,15 +136,42 @@ def test_transform_silver_to_gold_reprend_objet_pdf(tables: None) -> None:
     connection.commit()
     connection.close()
 
-    objects = load_silver_pdf_objects("silver_extract_pdf_facture")
     factures = transform_silver_to_gold(
         iter([silver_facture(id_cpro="cpro-1")]),
         {},
         [],
-        objects,
+        "silver_extract_pdf_facture",
     )
 
     assert [facture.objet_facture for facture in factures] == ["Objet PDF"]
+
+    connection = psycopg.connect(get_database_url())
+    with connection.cursor() as cur:
+        cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier("silver_extract_pdf_facture")))
+    connection.commit()
+    connection.close()
+
+
+def test_transform_silver_to_gold_lit_les_objets_par_fenetre(tables: None) -> None:
+    connection = psycopg.connect(get_database_url())
+    with connection.cursor() as cur:
+        cur.execute("CREATE TABLE silver_extract_pdf_facture (id_cpro TEXT, objet_facture TEXT)")
+        cur.execute(
+            "INSERT INTO silver_extract_pdf_facture VALUES "
+            "('cpro-1', 'Objet 1'), ('cpro-2', 'Objet 2'), ('cpro-3', 'Objet 3')"
+        )
+    connection.commit()
+    connection.close()
+
+    factures = transform_silver_to_gold(
+        iter([silver_facture(id_cpro="cpro-1"), silver_facture(id_cpro="cpro-2"), silver_facture(id_cpro="cpro-3")]),
+        {},
+        [],
+        "silver_extract_pdf_facture",
+        batch_size=2,
+    )
+
+    assert [facture.objet_facture for facture in factures] == ["Objet 1", "Objet 2", "Objet 3"]
 
     connection = psycopg.connect(get_database_url())
     with connection.cursor() as cur:

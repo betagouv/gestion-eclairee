@@ -133,17 +133,41 @@ def transform_to_gold(
     `covered_ids` porte les factures déjà couvertes par les lignes gold XML ou
     Factur-X : leurs PDF sont ignorés. Les factures sans en-tête `gesec_facture`
     ou dont les montants ne se réconcilient pas sont écartées.
+
+    Les lignes silver sont lues triées par `id_cpro`, regroupées facture par
+    facture, puis les totaux d'en-tête sont chargés par fenêtre bornée de
+    factures : jamais l'ensemble du périmètre d'un coup.
     """
-    lines_by_id: dict[str, list[SilverExtractPdfLigne]] = {}
-    for ligne in iter_rows_from_table(silver_table_name, SilverExtractPdfLigne, batch_size=batch_size):
+    query = f"SELECT * FROM {silver_table_name} ORDER BY id_cpro"
+    rows = iter_rows_from_table(silver_table_name, SilverExtractPdfLigne, batch_size=batch_size, query=query)
+
+    windows: list[list[SilverExtractPdfLigne]] = []
+    grouped: list[SilverExtractPdfLigne] = []
+    previous_id: str | None = None
+
+    def translate_windows() -> Iterator[GoldCproExportFactureLigne]:
+        ids = [facture[0].id_cpro for facture in windows]
+        totals = load_facture_totals(ids)
+        for facture in windows:
+            id_cpro = facture[0].id_cpro
+            facture_totals = totals.get(id_cpro)
+            if facture_totals is None:
+                logger.warning("En-tête absent de gesec_facture pour %s, PDF ignoré", id_cpro)
+                continue
+            yield from _translate_invoice(id_cpro, facture, facture_totals)
+
+    for ligne in rows:
         if ligne.id_cpro in covered_ids:
             continue
-        lines_by_id.setdefault(ligne.id_cpro, []).append(ligne)
+        if previous_id is not None and ligne.id_cpro != previous_id:
+            windows.append(grouped)
+            grouped = []
+            if len(windows) >= batch_size:
+                yield from translate_windows()
+                windows = []
+        previous_id = ligne.id_cpro
+        grouped.append(ligne)
 
-    totals = load_facture_totals(list(lines_by_id))
-    for id_cpro, lignes in lines_by_id.items():
-        facture_totals = totals.get(id_cpro)
-        if facture_totals is None:
-            logger.warning("En-tête absent de gesec_facture pour %s, PDF ignoré", id_cpro)
-            continue
-        yield from _translate_invoice(id_cpro, lignes, facture_totals)
+    if grouped:
+        windows.append(grouped)
+    yield from translate_windows()

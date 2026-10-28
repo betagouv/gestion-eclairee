@@ -1,10 +1,15 @@
+from collections.abc import Iterator
 from decimal import Decimal
 from pathlib import Path
+from typing import cast
 
+import psycopg
 import pymupdf
 import pytest
 
+from gesec.data.classify_gm.llm import LLMClient
 from gesec.data.extract_pdf.extract_llm import parse_extraction
+from gesec.data.extract_pdf.ocr_lighton import LightonOcrClient
 from gesec.data.extract_pdf.paths import markdown_storage_path
 from gesec.data.extract_pdf.pdf4llm_extract import (
     extract_invoice_pdf4llm_markdown,
@@ -13,7 +18,8 @@ from gesec.data.extract_pdf.pdf4llm_extract import (
 )
 from gesec.data.extract_pdf.pdf_utils import page_count, pdf_within_page_limit
 from gesec.data.extract_pdf.prompt import response_format_lignes
-from gesec.data.extract_pdf.run import run_extract, select_targets
+from gesec.data.extract_pdf.result_table import TABLE_NAME, upsert
+from gesec.data.extract_pdf.run import ExtractSummary, _process_candidates, run_extract, select_targets
 from gesec.data.extract_pdf.schemas import BronzeExtractPdf, ExtractedFacture, ExtractedLigne
 from gesec.data.extract_pdf.selection import PdfCandidate, PdfSelection, scan_inventory
 from gesec.data.pipeline.layer_2_silver.extract_pdf_ligne import transform_to_silver
@@ -335,29 +341,43 @@ def _candidate(id_cpro: str) -> PdfCandidate:
     )
 
 
-def test_select_targets_modes_and_error_filter():
+@pytest.fixture
+def bronze_table(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    from psycopg import sql
+
+    from gesec.data.classify_gm.db import get_database_url
+
+    monkeypatch.setenv("DATABASE_URL", get_database_url())
+    connection = psycopg.connect(get_database_url())
+    with connection.cursor() as cur:
+        cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(TABLE_NAME)))
+    connection.commit()
+    connection.close()
+    yield
+    connection = psycopg.connect(get_database_url())
+    with connection.cursor() as cur:
+        cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(TABLE_NAME)))
+    connection.commit()
+    connection.close()
+
+
+@pytest.mark.django_db(transaction=True)
+def test_select_targets_ecarte_les_factures_avec_xml(bronze_table: None):
+    upsert(BronzeExtractPdf(id_cpro="1", status="failed", error_type="llm"))
+    upsert(BronzeExtractPdf(id_cpro="2", status="success"))
     selection = PdfSelection(
-        candidates={id_cpro: _candidate(id_cpro) for id_cpro in ("1", "2", "3", "4", "5", "9")},
+        candidates={id_cpro: _candidate(id_cpro) for id_cpro in ("1", "2", "5", "9")},
         header_missing=[],
         no_pdf=[],
         parse_errors={},
         xml_ids={"9"},
-        all_ids={"1", "2", "3", "4", "5", "9"},
+        all_ids={"1", "2", "5", "9"},
     )
-    results = {
-        "1": BronzeExtractPdf(id_cpro="1", status="failed", error_type="llm"),
-        "2": BronzeExtractPdf(id_cpro="2", status="success"),
-        "3": BronzeExtractPdf(id_cpro="3", status="no_lines"),
-        "4": BronzeExtractPdf(id_cpro="4", status="failed", error_type="ocr"),
-    }
 
-    assert select_targets(selection, results, mode="new") == (["5"], 1)
-    assert select_targets(selection, results, mode="retry") == (["1", "3", "4"], 0)
-    assert select_targets(selection, results, mode="retry", error_types=["llm"]) == (["1"], 0)
-    assert select_targets(selection, results, mode="retry", error_types=["no_lines"]) == (["3"], 0)
-    assert select_targets(selection, results, mode="retry", error_types=["failed"]) == (["1", "4"], 0)
-    assert select_targets(selection, results, mode="reprocess") == (["1", "2", "3", "4"], 0)
-    assert select_targets(selection, results, mode="all") == (["1", "2", "3", "4", "5"], 1)
+    assert select_targets(selection, mode="new") == (["5"], 1)
+    assert select_targets(selection, mode="retry") == (["1"], 0)
+    assert select_targets(selection, mode="reprocess") == (["1", "2"], 0)
+    assert select_targets(selection, mode="all") == (["1", "2", "5"], 1)
 
 
 def _ligne(**overrides) -> ExtractedLigne:
@@ -429,7 +449,8 @@ def test_transform_to_silver_reports_incomplete_amounts():
     assert lignes[0].line_amount_vat is None
 
 
-def test_run_extract_dry_run_counts_statuses_without_writes():
+@pytest.mark.django_db(transaction=True)
+def test_run_extract_dry_run_counts_statuses_without_writes(bronze_table: None):
     selection = PdfSelection(
         candidates={"1": _candidate("1")},
         header_missing=["2"],
@@ -439,7 +460,7 @@ def test_run_extract_dry_run_counts_statuses_without_writes():
         all_ids={"1", "2", "3", "4"},
     )
 
-    summary = run_extract(selection=selection, results={}, mode="new", dry_run=True)
+    summary = run_extract(selection=selection, mode="new", dry_run=True)
 
     assert summary.selected == 4
     assert summary.pending == 1
@@ -449,7 +470,8 @@ def test_run_extract_dry_run_counts_statuses_without_writes():
     assert summary.success == 0
 
 
-def test_run_extract_limit_borne_les_candidats_pas_les_non_candidats():
+@pytest.mark.django_db(transaction=True)
+def test_run_extract_limit_borne_les_candidats_pas_les_non_candidats(bronze_table: None):
     selection = PdfSelection(
         candidates={id_cpro: _candidate(id_cpro) for id_cpro in ("1", "2", "3")},
         header_missing=["4"],
@@ -459,9 +481,75 @@ def test_run_extract_limit_borne_les_candidats_pas_les_non_candidats():
         all_ids={"1", "2", "3", "4", "5"},
     )
 
-    summary = run_extract(selection=selection, results={}, mode="new", limit=2, dry_run=True)
+    summary = run_extract(selection=selection, mode="new", limit=2, dry_run=True)
 
     assert summary.selected == 5
     assert summary.pending == 2
     assert summary.header_missing == 1
     assert summary.no_pdf == 1
+
+
+def test_process_candidates_borne_les_taches_en_vol(monkeypatch: pytest.MonkeyPatch):
+    import threading
+    import time
+
+    from gesec.data.extract_pdf import run as run_module
+    from gesec.data.extract_pdf.pdf4llm_extract import PdfMarkdownResult
+    from gesec.data.extract_pdf.schemas import BronzeExtractPdf
+
+    lock = threading.Lock()
+    md_in_flight = 0
+    llm_in_flight = 0
+    max_md = 0
+    max_llm = 0
+
+    def fake_markdown(candidate, *, ocr_client, force_refresh, max_pages):
+        nonlocal md_in_flight, max_md
+        with lock:
+            md_in_flight += 1
+            max_md = max(max_md, md_in_flight)
+        time.sleep(0.02)
+        with lock:
+            md_in_flight -= 1
+        return PdfMarkdownResult(
+            markdown="texte",
+            duration_s=0.0,
+            page_count=1,
+            pdf_sha256=None,
+            markdown_sha256=None,
+            markdown_cached=False,
+            markdown_path="",
+        )
+
+    def fake_llm(candidate, markdown, *, llm_client, extraction_model):
+        nonlocal llm_in_flight, max_llm
+        with lock:
+            llm_in_flight += 1
+            max_llm = max(max_llm, llm_in_flight)
+        time.sleep(0.02)
+        with lock:
+            llm_in_flight -= 1
+        return BronzeExtractPdf(id_cpro=candidate.id_cpro, status="success")
+
+    monkeypatch.setattr(run_module, "_safe_markdown", fake_markdown)
+    monkeypatch.setattr(run_module, "_run_llm", fake_llm)
+    monkeypatch.setattr(run_module, "upsert", lambda result: None)
+
+    candidates = [_candidate(str(index)) for index in range(20)]
+    summary = ExtractSummary(mode="new", dry_run=False)
+
+    _process_candidates(
+        candidates,
+        summary=summary,
+        llm_client=cast("LLMClient", object()),
+        ocr_client=cast("LightonOcrClient", object()),
+        force_refresh=False,
+        max_pages=50,
+        workers=3,
+        md_workers=2,
+        extraction_model="test",
+    )
+
+    assert max_md <= 2
+    assert max_llm <= 3
+    assert summary.success == 20

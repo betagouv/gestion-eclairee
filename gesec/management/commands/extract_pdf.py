@@ -8,7 +8,6 @@ from gesec.data.extract_pdf.paths import (
     MAX_PAGES,
     PDF4LLM_MD_MAX_WORKERS,
 )
-from gesec.data.extract_pdf.result_table import load_results
 from gesec.data.extract_pdf.run import run_extract
 from gesec.data.extract_pdf.schemas import ERROR_STATUSES, PdfErrorType
 from gesec.data.extract_pdf.selection import scan_inventory
@@ -89,7 +88,6 @@ class Command(BaseCommand):
         try:
             summary = run_extract(
                 selection=scan_inventory(),
-                results=load_results(),
                 mode=mode,
                 error_types=options["error_type"],
                 id_filter=options["id_cpro"],
