@@ -18,7 +18,7 @@ from decimal import Decimal
 from typing import Any
 
 import sqlalchemy
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine, inspect, text
 
 Tableau = list[list[Any]]
 
@@ -29,6 +29,10 @@ def create_engine(env_var: str) -> Engine:
         raise ValueError(f"{env_var} environment variable is required")
     engine = sqlalchemy.create_engine(db_url.replace("postgres:", "postgresql+psycopg:"))
     return engine.execution_options(isolation_level="AUTOCOMMIT", postgresql_readonly=True)
+
+
+def table_exists(engine: Engine, name: str) -> bool:
+    return inspect(engine).has_table(name)
 
 
 def fetch_one(engine: Engine, sql: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -88,8 +92,47 @@ def couverture(engine: Engine, annee: str) -> dict[str, Any]:
             pct(row["eclatees_montant"], total_m),
         ],
     ]
+    origines = fetch_all(
+        engine,
+        """
+        select
+            case
+                when l.source like 'extract_pdf:%' then 'Extraction PDF'
+                when l.source = 'factur-x' then 'Factur-X'
+                when l.source = 'facture-xml' then 'XML'
+                else 'Autre'
+            end as origine,
+            count(distinct l.id_cpro) as factures,
+            count(*) as lignes,
+            sum(l.line_amount_incl_tax) as montant
+        from gesec_facture_ligne l
+        where exists (
+            select 1 from gesec_meta_budat b where b.id_cpro = l.id_cpro and b.annee = :annee
+        )
+        group by 1
+        order by 3 desc
+        """,
+        {"annee": annee},
+    )
+    total_lignes_gold = sum(r["lignes"] for r in origines)
+    total_montant_gold = sum(float(r["montant"]) for r in origines)
+    origines_tableau: Tableau = [["origine", "factures", "lignes", "part_lignes", "montant_m", "part_montant"]]
+    for r in origines:
+        origines_tableau.append(
+            [
+                r["origine"],
+                r["factures"],
+                r["lignes"],
+                pct(r["lignes"], total_lignes_gold),
+                en_millions(r["montant"]),
+                pct(r["montant"], total_montant_gold),
+            ]
+        )
+    origines_tableau.append(["Total", None, total_lignes_gold, 100.0, en_millions(total_montant_gold), 100.0])
+
     return {
         "tableau": tableau,
+        "origines": origines_tableau,
         "factures_distinctes_rattachees": row["factures_rattachees"],
         "factures_distinctes_eclatees": row["factures_eclatees"],
     }
@@ -264,6 +307,101 @@ def enrichissement_ugap(engine: Engine, annee: str) -> dict[str, Any]:
     ]
 
     return {"tableau": tableau, "reliquat": reliquat_tableau}
+
+
+def extraction_pdf(engine: Engine, annee: str) -> dict[str, Any]:
+    empty: dict[str, Any] = {
+        "statuts": [["statut", "factures", "part", "pages", "page_moy"]],
+        "reconciliation": {"extractions_reussies": 0, "extractions_en_gold": 0, "rejetees": 0},
+        "echecs": [["error_type", "factures", "part"]],
+    }
+    if not table_exists(engine, "bronze_extract_pdf"):
+        return empty
+
+    statuts = fetch_all(
+        engine,
+        """
+        with tentatives as (
+            select distinct p.id_cpro, p.status, p.page_count
+            from bronze_extract_pdf p
+            join gesec_meta_budat b on b.id_cpro = p.id_cpro and b.annee = :annee
+        )
+        select
+            status,
+            count(*) as factures,
+            coalesce(sum(page_count), 0) as pages
+        from tentatives
+        group by status
+        order by count(*) desc
+        """,
+        {"annee": annee},
+    )
+    total_f = sum(r["factures"] for r in statuts)
+    total_pages = sum(r["pages"] for r in statuts)
+    statuts_tableau: Tableau = [["statut", "factures", "part", "pages", "page_moy"]]
+    for r in statuts:
+        statuts_tableau.append(
+            [
+                r["status"],
+                r["factures"],
+                pct(r["factures"], total_f),
+                r["pages"],
+                round(float(r["pages"]) / float(r["factures"]), 1) if r["factures"] else 0.0,
+            ]
+        )
+    statuts_tableau.append(
+        ["Total", total_f, 100.0, total_pages, round(float(total_pages) / total_f, 1) if total_f else 0.0]
+    )
+
+    reconciliation = fetch_one(
+        engine,
+        """
+        with tentatives as (
+            select distinct p.id_cpro, p.status
+            from bronze_extract_pdf p
+            join gesec_meta_budat b on b.id_cpro = p.id_cpro and b.annee = :annee
+        )
+        select
+            count(*) filter (where status = 'success') as succes,
+            count(*) filter (
+                where status = 'success'
+                    and exists (select 1 from gesec_facture_ligne l where l.id_cpro = tentatives.id_cpro)
+            ) as succes_en_gold
+        from tentatives
+        """,
+        {"annee": annee},
+    )
+
+    echecs = fetch_all(
+        engine,
+        """
+        with tentatives as (
+            select distinct p.id_cpro, p.error_type
+            from bronze_extract_pdf p
+            join gesec_meta_budat b on b.id_cpro = p.id_cpro and b.annee = :annee
+            where p.status = 'failed'
+        )
+        select error_type, count(*) as factures
+        from tentatives
+        group by error_type
+        order by count(*) desc
+        """,
+        {"annee": annee},
+    )
+    total_echecs = sum(r["factures"] for r in echecs)
+    echecs_tableau: Tableau = [["error_type", "factures", "part"]]
+    for r in echecs:
+        echecs_tableau.append([r["error_type"], r["factures"], pct(r["factures"], total_echecs)])
+
+    return {
+        "statuts": statuts_tableau,
+        "reconciliation": {
+            "extractions_reussies": reconciliation["succes"],
+            "extractions_en_gold": reconciliation["succes_en_gold"],
+            "rejetees": reconciliation["succes"] - reconciliation["succes_en_gold"],
+        },
+        "echecs": echecs_tableau,
+    }
 
 
 def gm(engine: Engine, annee: str) -> dict[str, Any]:
@@ -445,6 +583,7 @@ def main() -> None:
         "couverture_par_ministere": couverture_par_ministere(engine, args.annee),
         "restant_eclater_par_fournisseur": restant_eclater_par_fournisseur(engine, args.annee),
         "enrichissement_ugap": enrichissement_ugap(engine, args.annee),
+        "extraction_pdf": extraction_pdf(engine, args.annee),
         "gm": gm(engine, args.annee),
     }
     sys.stdout.write(dump(result))
