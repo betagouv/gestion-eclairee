@@ -41,6 +41,7 @@ utilise-le pour aiguiller correctement.
 def _facture_block(
     *,
     fournisseur_designation: str | None,
+    objet_facture: str | None,
     mt_ttc: Any,
     lignes: list[dict[str, Any]],
 ) -> str:
@@ -61,6 +62,7 @@ def _facture_block(
     lignes_text = "\n".join(lignes_block) if lignes_block else "  (aucune ligne)"
     return f"""\
 Fournisseur Designation: {fournisseur_designation or ""}
+Objet Facture: {objet_facture or ""}
 Mt Ttc: {mt_ttc if mt_ttc is not None else ""}
 
 Lignes d'articles:
@@ -84,6 +86,7 @@ def _format_chosen_path(codes_and_labels: list[tuple[str, str]]) -> str:
 def build_domain_user_prompt(
     *,
     fournisseur_designation: str | None,
+    objet_facture: str | None,
     mt_ttc: Any,
     lignes: list[dict[str, Any]],
     domains: list[HierarchyNode],
@@ -95,7 +98,14 @@ def build_domain_user_prompt(
 Étape 1/3 — Choisis le DOMAINE GM (préfixe, ex. 33, 41) pour cette facture.
 Chaque option est : code | libellé du domaine : contexte (périmètre et frontières).
 
-{_facture_block(fournisseur_designation=fournisseur_designation, mt_ttc=mt_ttc, lignes=lignes)}
+{
+        _facture_block(
+            fournisseur_designation=fournisseur_designation,
+            objet_facture=objet_facture,
+            mt_ttc=mt_ttc,
+            lignes=lignes,
+        )
+    }
 Domaines autorisés:
 {options}
 
@@ -106,6 +116,7 @@ Consignes: un seul code domaine de la liste ; appuie-toi sur le contexte ; justi
 def build_segment_user_prompt(
     *,
     fournisseur_designation: str | None,
+    objet_facture: str | None,
     mt_ttc: Any,
     lignes: list[dict[str, Any]],
     domain: str,
@@ -123,7 +134,14 @@ def build_segment_user_prompt(
 Choisis le SEGMENT GM (ex. 33.02, 33.04) pour cette facture.
 Chaque option est : code | libellé domaine + libellé segment.
 {ctx_block}
-{_facture_block(fournisseur_designation=fournisseur_designation, mt_ttc=mt_ttc, lignes=lignes)}
+{
+        _facture_block(
+            fournisseur_designation=fournisseur_designation,
+            objet_facture=objet_facture,
+            mt_ttc=mt_ttc,
+            lignes=lignes,
+        )
+    }
 Segments autorisés (sous {chosen}):
 {options}
 
@@ -134,6 +152,7 @@ Consignes: un seul code segment de la liste ; reste cohérent avec le contexte d
 def build_leaf_user_prompt(
     *,
     fournisseur_designation: str | None,
+    objet_facture: str | None,
     mt_ttc: Any,
     lignes: list[dict[str, Any]],
     domain: str,
@@ -162,7 +181,14 @@ def build_leaf_user_prompt(
 Choisis le code GM FEUILLE le plus précis pour cette facture.
 Chaque option est : code | libellé domaine + libellé segment + libellé feuille.
 {ctx_block}
-{_facture_block(fournisseur_designation=fournisseur_designation, mt_ttc=mt_ttc, lignes=lignes)}
+{
+        _facture_block(
+            fournisseur_designation=fournisseur_designation,
+            objet_facture=objet_facture,
+            mt_ttc=mt_ttc,
+            lignes=lignes,
+        )
+    }
 Codes GM autorisés (sous {chosen}):
 {options}
 

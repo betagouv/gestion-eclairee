@@ -1,4 +1,4 @@
-from pathlib import Path
+from typing import get_args
 
 from django.core.management.base import BaseCommand, CommandError
 
@@ -7,10 +7,11 @@ from gesec.data.extract_pdf.paths import (
     EXTRACTION_MODEL,
     MAX_PAGES,
     PDF4LLM_MD_MAX_WORKERS,
-    PDF4LLM_OCR_BACKEND,
-    PDF4LLM_OCR_BACKENDS,
 )
+from gesec.data.extract_pdf.result_table import load_results
 from gesec.data.extract_pdf.run import run_extract
+from gesec.data.extract_pdf.schemas import ERROR_STATUSES, PdfErrorType
+from gesec.data.extract_pdf.selection import scan_inventory
 
 
 class Command(BaseCommand):
@@ -18,29 +19,29 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--factures-dir",
+            "--mode",
             type=str,
-            default=None,
-            help="Répertoire des PDF (sinon EXTRACT_PDF_DATA_ROOT/factures)",
+            choices=["new", "retry", "reprocess", "all"],
+            default="new",
+            help=(
+                "new : factures jamais tentées ; retry : erreurs existantes ; "
+                "reprocess : toutes les lignes existantes ; all : tout (défaut : new)"
+            ),
         )
         parser.add_argument(
-            "--ocr-dir",
+            "--error-type",
             type=str,
+            action="append",
+            choices=(*get_args(PdfErrorType), *ERROR_STATUSES),
             default=None,
-            help="Cache markdown (sinon EXTRACT_PDF_DATA_ROOT/facture_ocr)",
+            help="Avec --mode retry, limite aux types d'erreur ou statuts donnés (répétable)",
         )
-        parser.add_argument(
-            "--output-dir",
-            type=str,
-            default=None,
-            help="CSV de sortie (sinon EXTRACT_PDF_DATA_ROOT)",
-        )
-        parser.add_argument("--limit", type=int, default=None, help="Nombre max de PDF à traiter")
+        parser.add_argument("--limit", type=int, default=None, help="Nombre max de factures à traiter")
         parser.add_argument(
             "--max-pages",
             type=int,
             default=MAX_PAGES,
-            help=f"Ignore les PDF de plus de N pages (défaut : {MAX_PAGES})",
+            help=f"Marque too_large au-delà de N pages (défaut : {MAX_PAGES})",
         )
         parser.add_argument(
             "--id-cpro",
@@ -50,16 +51,15 @@ class Command(BaseCommand):
             help="Limite à un ou plusieurs id_cpro (répétable)",
         )
         parser.add_argument(
-            "--force-markdown",
+            "--force-ocr",
             action="store_true",
-            help="Ignore le cache markdown (facture_ocr/pdf4llm)",
+            help="Ignore le cache Markdown S3 et relance PDF4LLM/OCR",
         )
         parser.add_argument(
             "--dry-run",
             action="store_true",
-            help="Liste les PDF et écrit les timings sans appels OCR/LLM",
+            help="Compte les factures par statut sans appel OCR/LLM ni écriture",
         )
-        parser.add_argument("--run-id", type=str, default=None, help="Identifiant d'exécution pour les CSV")
         parser.add_argument(
             "--workers",
             type=int,
@@ -67,17 +67,12 @@ class Command(BaseCommand):
             help="Parallélisme LLM Albert (défaut : 5)",
         )
         parser.add_argument(
+            "--md-workers",
             "--pdf4llm-md-workers",
+            dest="md_workers",
             type=int,
             default=PDF4LLM_MD_MAX_WORKERS,
             help="Parallélisme markdown PDF4LLM (défaut : min(4, CPU))",
-        )
-        parser.add_argument(
-            "--pdf4llm-ocr-backend",
-            type=str,
-            default=PDF4LLM_OCR_BACKEND,
-            choices=PDF4LLM_OCR_BACKENDS,
-            help="lighton (routage pymupdf4llm + openweight-ocr) ou tesseract (défaut : lighton)",
         )
         parser.add_argument(
             "--extraction-model",
@@ -87,29 +82,32 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        mode = options["mode"]
+        if options["error_type"] and mode != "retry":
+            raise CommandError("--error-type n'est utilisable qu'avec --mode retry")
+
         try:
             summary = run_extract(
-                factures_dir=Path(options["factures_dir"]) if options["factures_dir"] else None,
-                ocr_dir=Path(options["ocr_dir"]) if options["ocr_dir"] else None,
-                output_dir=Path(options["output_dir"]) if options["output_dir"] else None,
+                selection=scan_inventory(),
+                results=load_results(),
+                mode=mode,
+                error_types=options["error_type"],
+                id_filter=options["id_cpro"],
                 limit=options["limit"],
-                force_markdown=options["force_markdown"],
-                dry_run=options["dry_run"],
-                run_id=options["run_id"],
                 max_workers=options["workers"],
-                pdf4llm_md_workers=options["pdf4llm_md_workers"],
+                pdf4llm_md_workers=options["md_workers"],
                 extraction_model=options["extraction_model"],
-                id_cpro_filter=options["id_cpro"],
-                pdf4llm_ocr_backend=options["pdf4llm_ocr_backend"],
                 max_pages=options["max_pages"],
+                force_refresh=options["force_ocr"] or mode in ("reprocess", "all"),
+                dry_run=options["dry_run"],
             )
         except ValueError as e:
             raise CommandError(str(e)) from e
 
         self.stdout.write(
-            f"run_id={summary.run_id} pdfs={summary.pdf_count} ignorés_pages={summary.skipped_pdf_count} "
-            f"lignes={summary.ligne_rows} entêtes={summary.entete_rows} timings={summary.timings_rows}"
+            f"mode={summary.mode} dry_run={summary.dry_run} sélectionnées={summary.selected} "
+            f"en_attente={summary.pending} succès={summary.success} échecs={summary.failed} "
+            f"header_missing={summary.header_missing} no_pdf={summary.no_pdf} "
+            f"no_lines={summary.no_lines} too_large={summary.too_large} "
+            f"ignorées_xml={summary.skipped_xml}"
         )
-        self.stdout.write(f"Lignes : {summary.lignes_csv}")
-        self.stdout.write(f"Entêtes : {summary.entete_csv}")
-        self.stdout.write(f"Timings : {summary.timings_csv}")

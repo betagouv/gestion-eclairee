@@ -19,8 +19,10 @@ from gesec.data.extract_pdf.schemas import ExtractedFacture, ExtractedLigne
 logger = logging.getLogger(__name__)
 
 
-def _parse_extraction(content: Any) -> ExtractedFacture:
+def parse_extraction(content: Any) -> ExtractedFacture:
     data = parse_llm_content(content)
+    if not isinstance(data, dict):
+        raise ValueError("Réponse LLM invalide : objet JSON attendu")
     raw_lignes = data.get("lignes")
     if not isinstance(raw_lignes, list):
         raise ValueError("Champ 'lignes' manquant ou invalide dans la réponse LLM")
@@ -44,7 +46,7 @@ def extract_lignes_from_text(
     text: str,
     content_kind: str = "texte extrait du PDF",
     model: str = EXTRACTION_MODEL,
-) -> tuple[ExtractedFacture, dict[str, int] | None]:
+) -> tuple[dict[str, Any], dict[str, int] | None]:
     with api_slot():
         result = llm_client.ask_llm(
             messages=[
@@ -58,4 +60,7 @@ def extract_lignes_from_text(
             response_format=response_format_lignes(),
             temperature=0.0,
         )
-    return _parse_extraction(result.content), result.usage
+    data = parse_llm_content(result.content)
+    if not isinstance(data, dict):
+        raise ValueError("Réponse LLM invalide : objet JSON attendu")
+    return data, result.usage

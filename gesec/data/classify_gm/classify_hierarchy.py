@@ -69,6 +69,7 @@ def classify_facture_hierarchical(
                 "role": "user",
                 "content": build_domain_user_prompt(
                     fournisseur_designation=sample.fournisseur_designation,
+                    objet_facture=sample.objet_facture,
                     mt_ttc=sample.mt_ttc,
                     lignes=sample.lignes,
                     domains=domains,
@@ -124,6 +125,7 @@ def classify_facture_hierarchical(
                 "role": "user",
                 "content": build_segment_user_prompt(
                     fournisseur_designation=sample.fournisseur_designation,
+                    objet_facture=sample.objet_facture,
                     mt_ttc=sample.mt_ttc,
                     lignes=sample.lignes,
                     domain=domaine,
@@ -181,6 +183,7 @@ def classify_facture_hierarchical(
                 "role": "user",
                 "content": build_leaf_user_prompt(
                     fournisseur_designation=sample.fournisseur_designation,
+                    objet_facture=sample.objet_facture,
                     mt_ttc=sample.mt_ttc,
                     lignes=sample.lignes,
                     domain=domaine,

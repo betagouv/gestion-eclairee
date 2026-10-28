@@ -21,6 +21,7 @@ class GoldFacture(BaseModel):
     # Identification
     identifiant_chorus_pro: str
     numero: str
+    objet_facture: Optional[str] = None
 
     # Dates
     date_etat_courant: Optional[date] = None

@@ -285,3 +285,31 @@ class SilverCproExportFactureXmlLigne(BaseModel):
     line_amount_incl_tax: Decimal
     line_amount_vat: Decimal
     currency: str
+
+
+class SilverExtractPdfFacture(BaseModel):
+    id_cpro: str
+    objet_facture: Optional[str] = None
+    pdf_filename: Optional[str] = None
+    pdf_sha256: Optional[str] = None
+    markdown_path: Optional[str] = None
+    markdown_sha256: Optional[str] = None
+    status: str
+    error_type: Optional[str] = None
+    error: Optional[str] = None
+
+
+class SilverExtractPdfLigne(BaseModel):
+    id_cpro: str
+    pdf_filename: str
+    line_id: str
+    item_name: str
+    item_description: str
+    item_reference: Optional[str]
+    quantity: Optional[Decimal] = None
+    quantity_unit_code: str
+    unit_price: Optional[Decimal] = None
+    line_amount_excl_tax: Optional[Decimal] = None
+    line_amount_incl_tax: Optional[Decimal] = None
+    line_amount_vat: Optional[Decimal] = None
+    currency: str

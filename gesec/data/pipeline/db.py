@@ -43,7 +43,10 @@ def create_engine() -> Engine:
     db_url = os.environ.get("DATABASE_URL")
     if db_url is None:
         raise ValueError("DATABASE_URL environment variable is required")
-    db_url = db_url.replace("postgres:", "postgresql+psycopg:")
+    if db_url.startswith("postgres://"):
+        db_url = "postgresql+psycopg://" + db_url.removeprefix("postgres://")
+    elif db_url.startswith("postgresql://"):
+        db_url = "postgresql+psycopg://" + db_url.removeprefix("postgresql://")
 
     # Create SQLAlchemy engine
     return sqlalchemy.create_engine(db_url)
@@ -84,6 +87,8 @@ def sqltype_for_annotation(annotation: Any) -> TypeEngine:
         args = get_args(annotation)
         item_type = args[0] if args else str
         return ARRAY(sqltype_for_annotation(item_type))
+    if origin is dict:
+        return JSONB()
 
     final_type = _TYPE_MAPPING.get(annotation, sqlalchemy.types.TEXT)
     return final_type()

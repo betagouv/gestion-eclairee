@@ -30,6 +30,7 @@ def launch_pipeline(ministere: str | None = None, n_workers: int | None = None):
     silver.ugap_export_factures.process_bronze_to_silver()
 
     ## Gold
+    silver.extract_pdf_facture.process_to_silver()
     gold.facture.process_silver_to_gold()
     gold.facture_ligne.process_to_gold()
     gold.meta_budat.process_to_gold()

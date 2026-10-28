@@ -1,11 +1,12 @@
 import logging
 from collections.abc import Iterator
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 
 from gesec.data.pipeline.db import TableWriter, create_engine, iter_rows_from_table
 
 from ..layer_2_silver.cpro_export_factures import DEFAULT_TABLE_NAME as SILVER_DEFAULT_TABLE_NAME
+from ..layer_2_silver.extract_pdf_facture import DEFAULT_TABLE_NAME as SILVER_PDF_FACTURE_TABLE_NAME
 from ..layer_2_silver.oda_export_ej_gm_mapping import DEFAULT_TABLE_NAME as SILVER_EJ_GM_MAPPING_DEFAULT_TABLE_NAME
 from ..layer_2_silver.schemas import SilverCproExportFacture, SilverService
 from ..layer_2_silver.services import DEFAULT_TABLE_NAME as SILVER_SERVICES_DEFAULT_TABLE_NAME
@@ -39,13 +40,29 @@ def load_silver_services(table_name: str) -> list[SilverService]:
     return [SilverService(**row._asdict()) for row in rows]
 
 
+def load_silver_pdf_objects(table_name: str) -> dict[str, str]:
+    engine = create_engine()
+    if not inspect(engine).has_table(table_name):
+        return {}
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                f"SELECT id_cpro, objet_facture FROM {table_name} "
+                "WHERE objet_facture IS NOT NULL AND btrim(objet_facture) <> ''"
+            )
+        ).fetchall()
+    return {row.id_cpro: row.objet_facture for row in rows}
+
+
 def transform_silver_to_gold(
     silver_factures: Iterator[SilverCproExportFacture],
     silver_ej_to_gm_mapping: dict[str, list[str]],
     silver_services: list[SilverService],
+    pdf_objects: dict[str, str] | None = None,
 ) -> Iterator[GoldFacture]:
     """Transforme les SilverCproExportFacture en GoldFacture, dans l'ordre de lecture."""
     service_by_code: dict[str, SilverService] = {service.code: service for service in silver_services}
+    pdf_objects = pdf_objects or {}
     for idx, silver in enumerate(silver_factures, start=1):
         gm_list = silver_ej_to_gm_mapping.get(silver.numero_du_bon_de_commande)
         service = service_by_code.get(silver.destinataire_code_service)
@@ -55,6 +72,7 @@ def transform_silver_to_gold(
             source_idx=silver.source_idx,
             identifiant_chorus_pro=silver.identifiant_chorus_pro,
             numero=silver.numero,
+            objet_facture=pdf_objects.get(silver.identifiant_chorus_pro),
             date_etat_courant=silver.date_etat_courant,
             date_modification=silver.date_modification,
             mt_ht=silver.mt_ht,
@@ -84,6 +102,7 @@ def process_silver_to_gold(
     silver_table_name: str = SILVER_DEFAULT_TABLE_NAME,
     silver_ej_gm_mapping_table_name: str = SILVER_EJ_GM_MAPPING_DEFAULT_TABLE_NAME,
     silver_services_table_name: str = SILVER_SERVICES_DEFAULT_TABLE_NAME,
+    silver_pdf_facture_table_name: str = SILVER_PDF_FACTURE_TABLE_NAME,
 ) -> None:
     """
     Pipeline complet :
@@ -95,10 +114,12 @@ def process_silver_to_gold(
     logger.info(f"Chargé {len(silver_ej_to_gm_mapping)} items depuis la table silver {silver_ej_gm_mapping_table_name}")
     silver_services = load_silver_services(silver_services_table_name)
     logger.info(f"Chargé {len(silver_services)} items depuis la table silver {silver_services_table_name}")
+    pdf_objects = load_silver_pdf_objects(silver_pdf_facture_table_name)
+    logger.info(f"Chargé {len(pdf_objects)} objets PDF depuis {silver_pdf_facture_table_name}")
 
     silver_factures = iter_rows_from_table(silver_table_name, SilverCproExportFacture)
 
     with TableWriter(TABLE_NAME, GoldFacture) as writer:
-        writer.add_all(transform_silver_to_gold(silver_factures, silver_ej_to_gm_mapping, silver_services))
+        writer.add_all(transform_silver_to_gold(silver_factures, silver_ej_to_gm_mapping, silver_services, pdf_objects))
 
     logger.info(f"Process silver_to_gold terminé avec succès : {writer.written} lignes dans {TABLE_NAME}")
