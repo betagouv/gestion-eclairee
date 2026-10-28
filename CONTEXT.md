@@ -62,6 +62,23 @@ Version PDF de la facture contenant un XML embarqué ; utilisée quand la factur
 XML est absente.
 _Éviter_ : FacturX, facturx
 
+**Facture PDF non dématérialisée** :
+Version PDF d'une facture dont l'archive ne contient aucun pivot XML
+exploitable ; ses lignes et son objet sont extraits par OCR puis LLM.
+_Dans les sources_ : pièce jointe de catégorie `FACTURE_PDF` (Chorus Pro)
+_Éviter_ : PDF non DEMAT, facture scannée
+
+**Extraction PDF** :
+Source de lignes appliquée aux factures PDF non dématérialisées ; elle alimente
+le gold pour les factures sans lignes XML ou Factur-X, en dernier à l'agrégation.
+_Éviter_ : fallback PDF, fallback, OCR
+
+**Objet de la facture** :
+Libellé décrivant la prestation facturée, porté par la facture ; extrait du PDF
+lorsque le pivot XML est absent.
+_Dans les sources_ : « Objet » (facture), `objet_facture` (gold)
+_Éviter_ : description, libellé
+
 **Pièce jointe (PJ)** :
 Document attaché à une facture dans Chorus Pro (bon de commande, bon de
 livraison, PDF de la facture...).

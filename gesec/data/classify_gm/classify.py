@@ -43,6 +43,7 @@ _MODE_FILTER_SQL: dict[ClassifyMode, LiteralString] = {
 class FactureSample:
     identifiant_chorus_pro: str
     fournisseur_designation: str | None
+    objet_facture: str | None
     mt_ttc: Any
     gm: str | None
     lignes: list[dict[str, Any]]
@@ -135,6 +136,7 @@ def _fetch_headers(
                 """
                 SELECT e.identifiant_chorus_pro,
                        e.fournisseur_designation,
+                       e.objet_facture,
                        e.mt_ttc,
                        e.gm
                 FROM {} e
@@ -219,10 +221,11 @@ def iter_samples(
         )
         if not headers:
             return
-        for identifiant, fournisseur, mt_ttc, gm in headers:
+        for identifiant, fournisseur, objet_facture, mt_ttc, gm in headers:
             yield FactureSample(
                 identifiant_chorus_pro=identifiant,
                 fournisseur_designation=fournisseur,
+                objet_facture=objet_facture,
                 mt_ttc=mt_ttc,
                 gm=gm,
                 lignes=_fetch_lignes(conn, identifiant),

@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS gesec_facture (
     source_idx INTEGER,
     identifiant_chorus_pro TEXT,
     numero TEXT,
+    objet_facture TEXT,
     date_etat_courant DATE,
     date_modification DATE,
     mt_ht NUMERIC,

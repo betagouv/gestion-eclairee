@@ -17,6 +17,13 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
   Sans `--n`, classe tout le périmètre éligible ; `--batch-size` borne les lots lus/écrits.
 - Méta-table BUDAT : `uv run ./manage.py build_meta_budat`
   (rejoue `gold.meta_budat` seul ; à lancer après `classify_gm` pour propager les prédictions)
+- Extraction PDF non DEMAT : `uv run ./manage.py extract_pdf [--mode new|retry|reprocess|all] [--error-type <type>]... [--limit N] [--workers 5] [--md-workers N] [--max-pages 50] [--id-cpro ID]... [--force-ocr] [--dry-run]`
+  (PDF4LLM + routage OCR pymupdf4llm ; défaut LightOn `openweight-ocr` ;
+  `new` ne reprend que les factures jamais tentées, `retry` les erreurs (`--error-type` répétable),
+  `reprocess` toutes les lignes existantes ; `--workers` borne Albert, `--md-workers` le parallélisme markdown ;
+  PDF au-delà de `--max-pages` marqués `too_large` et ignorés)
+  (bronze persistant `bronze_extract_pdf` ; Markdown mis en cache sous
+  `cpro/extract_pdf/facture_{id_cpro}/{nom_pdf}.md` dans le storage configuré)
 - Extraction XML : `uv run python -m gesec.data.processors.cpro.pivots_xml -i <in> -o <out>`
 - Synthèse BUDAT (lecture seule, JSON) : `uv run python scripts/synthese_budat.py <ENV_VAR> <annee>`
   (`<ENV_VAR>` nomme la variable d'env portant l'URL de la base, ex. `PROD_DB_URL` ;
@@ -34,6 +41,7 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - `gesec/data/pipeline/layer_3_gold/` : tables métier `Facture` / `FactureLigne`
 - `gesec/data/classify_gm/` : classification GM (LLM) hors launcher ; référentiel,
   prompts, client Albert, orchestration `gold.py` (`gesec_facture_gm_pred`)
+- `gesec/data/extract_pdf/` : extraction lignes et objet facture depuis PDF non DEMAT (PDF4LLM + LLM)
 - `gesec/data/pipeline/launcher.py` : orchestration des 3 couches
 - `gesec/data/processors/cpro/` : lecture Factur-X / pivots XML
 - `gesec/data/sync/` : listes et téléchargement des exports CPRO
