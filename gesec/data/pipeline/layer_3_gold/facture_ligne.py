@@ -8,6 +8,7 @@ from sqlalchemy import text
 from gesec.data.pipeline.db import (
     DEFAULT_BATCH_SIZE,
     TableWriter,
+    create_engine,
     execute_sql,
     iter_rows_from_table,
     load_rows_from_table,
@@ -48,6 +49,8 @@ logger = logging.getLogger(__name__)
 TABLE_NAME = "gesec_facture_ligne"
 UGAP_LIGNE_TABLE_NAME = "gesec_facture_ugap_ligne"
 FOURNISSEUR_IN_FINE_TABLE_NAME = "gesec_facture_ligne_fournisseur_in_fine"
+
+INDEXES: list[tuple[str, str]] = [("gesec_facture_ligne_id_cpro", "(id_cpro)")]
 
 RE_IDENTIFIANT_LIVRAISON = re.compile(r"^(\d+)-\d+$")
 
@@ -229,6 +232,10 @@ def process_to_gold(
             )
         )
     logger.info(f"Saved {gold_writer.written} rows in {TABLE_NAME}")
+
+    with create_engine().begin() as conn:
+        for index_name, columns in INDEXES:
+            conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {TABLE_NAME} {columns}"))
 
     factures = iter_rows_from_table(silver_facture_table_name, SilverCproExportFacture)
     xml_factures = iter_rows_from_table(silver_facture_xml_facture_table_name, SilverCproExportFactureXmlFacture)

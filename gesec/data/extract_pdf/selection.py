@@ -1,4 +1,4 @@
-"""Inventaire S3 des factures sans XML et sélection du PDF à extraire."""
+"""Sélection des factures à extraire et résolution de leur dossier storage."""
 
 from __future__ import annotations
 
@@ -20,15 +20,12 @@ FOLDER_RE = re.compile(r"^facture_(\d+)(?:_.*)?$")
 @dataclass(frozen=True)
 class PdfCandidate:
     id_cpro: str
-    folder: str
+    folder: str | None
 
 
 @dataclass
 class PdfSelection:
     candidates: dict[str, PdfCandidate] = field(default_factory=dict)
-    header_missing: list[str] = field(default_factory=list)
-    xml_ids: set[str] = field(default_factory=set)
-    all_ids: set[str] = field(default_factory=set)
 
 
 def parse_folder_id(folder: str) -> str | None:
@@ -39,63 +36,45 @@ def parse_folder_id(folder: str) -> str | None:
     return match.group(1)
 
 
-def _existing_headers(ids: list[str]) -> set[str]:
-    if not ids:
-        return set()
+def _eligible_ids() -> set[str]:
+    """Factures CPRO sans aucune ligne gold, donc sans source d'éclatement."""
     rows = execute_sql(
-        text("SELECT identifiant_chorus_pro FROM gesec_facture WHERE identifiant_chorus_pro = ANY(:ids)"),
-        {"ids": ids},
+        text(
+            "SELECT f.identifiant_chorus_pro FROM gesec_facture f "
+            "WHERE NOT EXISTS (SELECT 1 FROM gesec_facture_ligne l WHERE l.id_cpro = f.identifiant_chorus_pro)"
+        )
     )
     return {row.identifiant_chorus_pro for row in rows}
 
 
 def scan_inventory() -> PdfSelection:
-    """Parcourt le storage une fois et classe les factures sans XML.
+    """Recense les factures éligibles à l'OCR et résout leur dossier storage.
 
-    La sélection du PDF à extraire est laissée aux travailleurs : elle nécessite
-    de télécharger et parser `PivotS.xml`, ce qui ne doit être fait que pour les
-    factures effectivement traitées.
+    L'éligibilité vient du gold : toute facture de `gesec_facture` dépourvue de
+    ligne dans `gesec_facture_ligne` mérite une extraction PDF, qu'un pivot XML
+    ou un Factur-X soit présent ou non (les profils `minimum` n'ont pas de
+    lignes). Le storage ne sert qu'à associer chaque facture à son dossier
+    `facture_<id_cpro>` ; une facture éligible sans dossier devient candidate
+    avec `folder=None`, traitée `no_pdf`.
     """
-    folder_files: dict[str, list[str]] = {}
+    id_folders: dict[str, str] = {}
     scan_pattern = re.compile(rf"^{re.escape(UNZIPPED_PREFIX)}/[^/]+/")
     for path in find_files(UNZIPPED_PREFIX, scan_pattern):
         parts = path.split("/")
         if len(parts) < 4:
             continue
-        folder_files.setdefault(parts[2], []).append(path)
-
-    folder_has_xml: set[str] = set()
-    all_ids: set[str] = set()
-    id_folders: dict[str, list[str]] = {}
-
-    for folder in sorted(folder_files):
+        folder = parts[2]
         id_cpro = parse_folder_id(folder)
         if id_cpro is None:
             continue
-        all_ids.add(id_cpro)
-        id_folders.setdefault(id_cpro, []).append(folder)
-        for path in folder_files[folder]:
-            parts = path.split("/")
-            if len(parts) >= 5 and parts[3] == "pivot" and parts[-1].endswith(".xml"):
-                folder_has_xml.add(folder)
-
-    xml_ids: set[str] = set()
-    for folder in folder_has_xml:
-        folder_id = parse_folder_id(folder)
-        if folder_id is not None:
-            xml_ids.add(folder_id)
-    extractible_ids = sorted(all_ids - xml_ids)
-    headers = _existing_headers(extractible_ids)
-
-    selection = PdfSelection(xml_ids=xml_ids, all_ids=all_ids)
-    for id_cpro in extractible_ids:
-        if id_cpro not in headers:
-            selection.header_missing.append(id_cpro)
+        if id_cpro in id_folders:
+            logger.warning("Plusieurs dossiers pour la facture %s, choix de %s", id_cpro, id_folders[id_cpro])
             continue
+        id_folders[id_cpro] = folder
 
-        folders = id_folders.get(id_cpro, [])
-        if len(folders) > 1:
-            logger.warning("Plusieurs dossiers pour la facture %s, choix de %s", id_cpro, folders[0])
-        selection.candidates[id_cpro] = PdfCandidate(id_cpro=id_cpro, folder=folders[0])
-
+    eligible_ids = _eligible_ids()
+    selection = PdfSelection()
+    selection.candidates = {
+        id_cpro: PdfCandidate(id_cpro=id_cpro, folder=id_folders.get(id_cpro)) for id_cpro in sorted(eligible_ids)
+    }
     return selection

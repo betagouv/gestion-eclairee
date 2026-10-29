@@ -247,14 +247,14 @@ def _put(s3_client, key: str, body: bytes | str) -> None:
     s3_client.Bucket("test-depec").put_object(Key=key, Body=body)
 
 
-def test_scan_inventory_selects_pdf_and_skips_xml(
-    s3_client, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
+def test_scan_inventory_selects_factures_without_gold_lines(
+    s3_client, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest, gold_tables: None
 ):
     prefix = f"test-extract-pdf/{request.node.name}"
     monkeypatch.setattr("gesec.data.extract_pdf.selection.UNZIPPED_PREFIX", prefix)
-    monkeypatch.setattr(
-        "gesec.data.extract_pdf.selection._existing_headers",
-        lambda ids: set(ids) - {"444444444"},
+    _seed_gold(
+        factures=["111111111", "222222222", "333333333", "444444444", "555555555"],
+        lignes=["222222222"],
     )
 
     _put(
@@ -268,7 +268,7 @@ def test_scan_inventory_selects_pdf_and_skips_xml(
         f"{prefix}/facture_222222222/PivotS.xml",
         _pivot_xml("222222222", [(1, "facture.pdf", "Facture PDF")]),
     )
-    _put(s3_client, f"{prefix}/facture_222222222/pivot/facture.xml", b"xml")
+    _put(s3_client, f"{prefix}/facture_222222222/pivot/facture.factur-x.xml", b"xml")
     _put(s3_client, f"{prefix}/facture_222222222/pivot/facture.pdf", b"pdf")
     _put(
         s3_client,
@@ -284,10 +284,10 @@ def test_scan_inventory_selects_pdf_and_skips_xml(
 
     selection = scan_inventory()
 
-    assert sorted(selection.candidates) == ["111111111", "333333333"]
+    assert sorted(selection.candidates) == ["111111111", "333333333", "444444444", "555555555"]
     assert selection.candidates["111111111"].folder == "facture_111111111"
-    assert selection.header_missing == ["444444444"]
-    assert selection.xml_ids == {"222222222"}
+    assert selection.candidates["333333333"].folder == "facture_333333333"
+    assert selection.candidates["555555555"].folder is None
 
 
 def test_resolve_pdf_chooses_first_pdf_by_num_ordre_and_duplicate_suffix(
@@ -329,6 +329,10 @@ def test_resolve_pdf_returns_none_without_facture_pdf(
     assert resolve_pdf(PdfCandidate(id_cpro="666666666", folder="facture_666666666")) is None
 
 
+def test_resolve_pdf_returns_none_without_folder():
+    assert resolve_pdf(PdfCandidate(id_cpro="777777777", folder=None)) is None
+
+
 def test_resolve_pdf_raises_on_unreadable_pivot(
     s3_client, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest
 ):
@@ -365,23 +369,53 @@ def bronze_table(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     connection.close()
 
 
+def _seed_gold(*, factures: list[str], lignes: list[str]) -> None:
+    from psycopg import sql
+
+    from gesec.data.classify_gm.db import get_database_url
+
+    connection = psycopg.connect(get_database_url())
+    with connection.cursor() as cur:
+        for table in ("gesec_facture", "gesec_facture_ligne"):
+            cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(table)))
+        cur.execute("CREATE TABLE gesec_facture (identifiant_chorus_pro text)")
+        cur.execute("CREATE TABLE gesec_facture_ligne (id_cpro text)")
+        cur.executemany("INSERT INTO gesec_facture VALUES (%s)", [(id_cpro,) for id_cpro in factures])
+        cur.executemany("INSERT INTO gesec_facture_ligne VALUES (%s)", [(id_cpro,) for id_cpro in lignes])
+    connection.commit()
+    connection.close()
+
+
+@pytest.fixture
+def gold_tables(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    from psycopg import sql
+
+    from gesec.data.classify_gm.db import get_database_url
+
+    monkeypatch.setenv("DATABASE_URL", get_database_url())
+    yield
+    connection = psycopg.connect(get_database_url())
+    with connection.cursor() as cur:
+        for table in ("gesec_facture", "gesec_facture_ligne"):
+            cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(table)))
+    connection.commit()
+    connection.close()
+
+
 @pytest.mark.django_db(transaction=True)
-def test_select_targets_ecarte_les_factures_avec_xml(bronze_table: None):
+def test_select_targets_respecte_les_modes(bronze_table: None):
     upsert(BronzeExtractPdf(id_cpro="1", status="failed", error_type="llm"))
     upsert(BronzeExtractPdf(id_cpro="2", status="success"))
     selection = PdfSelection(
         candidates={id_cpro: _candidate(id_cpro) for id_cpro in ("1", "2", "5", "9")},
-        header_missing=[],
-        xml_ids={"9"},
-        all_ids={"1", "2", "5", "9"},
     )
 
-    assert select_targets(selection, mode="new") == (["5"], 0)
-    assert select_targets(selection, mode="retry") == (["1"], 0)
-    assert select_targets(selection, mode="reprocess") == (["1", "2"], 0)
-    assert select_targets(selection, mode="all") == (["1", "2", "5"], 0)
-    assert select_targets(selection, mode="new", id_filter=["9"]) == ([], 1)
-    assert select_targets(selection, mode="all", id_filter=["5", "9"]) == (["5"], 1)
+    assert select_targets(selection, mode="new") == ["5"]
+    assert select_targets(selection, mode="retry") == ["1"]
+    assert select_targets(selection, mode="reprocess") == ["1", "2"]
+    assert select_targets(selection, mode="all") == ["1", "2", "5", "9"]
+    assert select_targets(selection, mode="new", id_filter=["9"]) == ["9"]
+    assert select_targets(selection, mode="all", id_filter=["5", "9"]) == ["5", "9"]
 
 
 def _ligne(**overrides) -> ExtractedLigne:
@@ -457,33 +491,25 @@ def test_transform_to_silver_reports_incomplete_amounts():
 def test_run_extract_dry_run_counts_statuses_without_writes(bronze_table: None):
     selection = PdfSelection(
         candidates={"1": _candidate("1")},
-        header_missing=["2"],
-        xml_ids=set(),
-        all_ids={"1", "2"},
     )
 
     summary = run_extract(selection=selection, mode="new", dry_run=True)
 
-    assert summary.selected == 2
+    assert summary.selected == 1
     assert summary.pending == 1
-    assert summary.header_missing == 1
     assert summary.success == 0
 
 
 @pytest.mark.django_db(transaction=True)
-def test_run_extract_limit_borne_les_candidats_pas_les_non_candidats(bronze_table: None):
+def test_run_extract_limit_borne_les_candidats(bronze_table: None):
     selection = PdfSelection(
         candidates={id_cpro: _candidate(id_cpro) for id_cpro in ("1", "2", "3")},
-        header_missing=["4"],
-        xml_ids=set(),
-        all_ids={"1", "2", "3", "4"},
     )
 
     summary = run_extract(selection=selection, mode="new", limit=2, dry_run=True)
 
-    assert summary.selected == 4
+    assert summary.selected == 3
     assert summary.pending == 2
-    assert summary.header_missing == 1
 
 
 def test_process_candidates_borne_les_taches_en_vol(monkeypatch: pytest.MonkeyPatch):

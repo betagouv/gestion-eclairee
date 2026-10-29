@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 
 TABLE_NAME = "gesec_facture"
 
+INDEXES: list[tuple[str, str]] = [("gesec_facture_identifiant_chorus_pro", "(identifiant_chorus_pro)")]
+
 
 def load_silver_ej_to_gm_mapping(silver_table_name: str) -> dict[str, list[str]]:
     engine = create_engine()
@@ -143,5 +145,9 @@ def process_silver_to_gold(
                 silver_pdf_facture_table_name,
             )
         )
+
+    with create_engine().begin() as conn:
+        for index_name, columns in INDEXES:
+            conn.execute(text(f"CREATE INDEX IF NOT EXISTS {index_name} ON {TABLE_NAME} {columns}"))
 
     logger.info(f"Process silver_to_gold terminé avec succès : {writer.written} lignes dans {TABLE_NAME}")

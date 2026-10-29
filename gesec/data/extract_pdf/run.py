@@ -52,11 +52,9 @@ class ExtractSummary:
     selected: int = 0
     success: int = 0
     failed: int = 0
-    header_missing: int = 0
     no_pdf: int = 0
     no_lines: int = 0
     too_large: int = 0
-    skipped_xml: int = 0
     pending: int = 0
 
 
@@ -76,8 +74,8 @@ def select_targets(
     mode: ExtractionMode,
     error_types: Sequence[str] | None = None,
     id_filter: Sequence[str] | None = None,
-) -> tuple[list[str], int]:
-    inventory_ids = set(selection.candidates) | set(selection.header_missing)
+) -> list[str]:
+    inventory_ids = set(selection.candidates)
 
     targets = select_target_ids(
         list(inventory_ids),
@@ -86,17 +84,19 @@ def select_targets(
         id_filter=id_filter,
     )
     targets &= inventory_ids
-    skipped_xml = len(set(id_filter or ()) & selection.xml_ids)
-    targets -= selection.xml_ids
-    return sorted(targets), skipped_xml
+    return sorted(targets)
 
 
 def resolve_pdf(candidate: PdfCandidate) -> tuple[str, str] | None:
     """Détermine le PDF à extraire depuis `PivotS.xml`.
 
-    Retourne `(pdf_path, pdf_filename)` ou `None` si la facture n'expose aucun
-    PDF de catégorie facture. Lève si le PivotS est absent ou illisible.
+    Retourne `(pdf_path, pdf_filename)`, ou `None` si la facture n'a pas de
+    dossier storage ou n'expose aucun PDF de catégorie facture. Lève si le
+    PivotS est absent ou illisible.
     """
+    if candidate.folder is None:
+        return None
+
     pivot_path = f"{UNZIPPED_PREFIX}/{candidate.folder}/PivotS.xml"
     if not default_storage.exists(pivot_path):
         raise ValueError(f"PivotS.xml absent pour {candidate.folder}")
@@ -149,10 +149,6 @@ def _candidate_row(
         error_type=error_type,
         error=error,
     )
-
-
-def _status_row(id_cpro: str, status: PdfExtractionStatus) -> BronzeExtractPdf:
-    return BronzeExtractPdf(id_cpro=id_cpro, status=status)
 
 
 def _failed_markdown(candidate: PdfCandidate, error: str, error_type: PdfErrorType) -> BronzeExtractPdf:
@@ -270,13 +266,11 @@ def _increment(summary: ExtractSummary, status: PdfExtractionStatus) -> None:
         summary.success += 1
     elif status == "failed":
         summary.failed += 1
-    elif status == "header_missing":
-        summary.header_missing += 1
     elif status == "no_pdf":
         summary.no_pdf += 1
     elif status == "no_lines":
         summary.no_lines += 1
-    else:
+    elif status == "too_large":
         summary.too_large += 1
 
 
@@ -391,14 +385,14 @@ def run_extract(
     force_refresh: bool = False,
     dry_run: bool = False,
 ) -> ExtractSummary:
-    targets, skipped_xml = select_targets(
+    targets = select_targets(
         selection,
         mode=mode,
         error_types=error_types,
         id_filter=id_filter,
     )
 
-    summary = ExtractSummary(mode=mode, dry_run=dry_run, skipped_xml=skipped_xml)
+    summary = ExtractSummary(mode=mode, dry_run=dry_run)
     candidate_ids = [id_cpro for id_cpro in targets if id_cpro in selection.candidates]
     if limit is not None:
         candidate_ids = candidate_ids[: max(0, limit)]
@@ -411,13 +405,8 @@ def run_extract(
 
     for id_cpro in targets:
         candidate = selection.candidates.get(id_cpro)
-        if candidate is not None:
-            if id_cpro in selected_ids:
-                candidates.append(candidate)
-        elif id_cpro in selection.header_missing:
-            summary.header_missing += 1
-            if not dry_run:
-                upsert(_status_row(id_cpro, "header_missing"), ensure=False)
+        if candidate is not None and id_cpro in selected_ids:
+            candidates.append(candidate)
 
     if dry_run:
         summary.pending = len(candidates)

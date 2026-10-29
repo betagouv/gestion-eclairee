@@ -105,7 +105,5 @@ class Command(BaseCommand):
         self.stdout.write(
             f"mode={summary.mode} dry_run={summary.dry_run} sélectionnées={summary.selected} "
             f"en_attente={summary.pending} succès={summary.success} échecs={summary.failed} "
-            f"header_missing={summary.header_missing} no_pdf={summary.no_pdf} "
-            f"no_lines={summary.no_lines} too_large={summary.too_large} "
-            f"ignorées_xml={summary.skipped_xml}"
+            f"no_pdf={summary.no_pdf} no_lines={summary.no_lines} too_large={summary.too_large}"
         )
