@@ -18,6 +18,7 @@ import pymupdf4llm
 from pymupdf4llm.helpers import utils as pdf4llm_utils
 
 from gesec.data.extract_pdf.ocr_lighton import LightonOcrClient, OpenWeightOcrClient
+from gesec.data.extract_pdf.orchestration import pdf4llm_slot
 from gesec.data.extract_pdf.paths import (
     OCR_LLM_TIMEOUT,
     OCR_MODEL,
@@ -103,7 +104,8 @@ def extract_invoice_pdf4llm_markdown_lighton(
                 text = client.ocr_image_data_uri(_page_png_data_uri(page)).rstrip()
                 parts.append(f"--- page {page_number} ---\n{text}")
             else:
-                parts.append(_markdown_for_page_native(doc, page_index))
+                with pdf4llm_slot():
+                    parts.append(_markdown_for_page_native(doc, page_index))
     return "\n\n".join(parts)
 
 

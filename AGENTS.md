@@ -17,10 +17,11 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
   Sans `--n`, classe tout le périmètre éligible ; `--batch-size` borne les lots lus/écrits.
 - Méta-table BUDAT : `uv run ./manage.py build_meta_budat`
   (rejoue `gold.meta_budat` seul ; à lancer après `classify_gm` pour propager les prédictions)
-- Extraction PDF non DEMAT : `uv run ./manage.py extract_pdf [--mode new|retry|reprocess|all] [--error-type <type>]... [--limit N] [--workers 5] [--md-workers N] [--max-pages 50] [--id-cpro ID]... [--force-ocr] [--dry-run]`
+- Extraction PDF non DEMAT : `uv run ./manage.py extract_pdf [--mode new|retry|reprocess|all] [--error-type <type>]... [--limit N] [--workers-md 5] [--workers-extract 5] [--concurrency-pdf4llm 1] [--max-pages 50] [--id-cpro ID]... [--force-ocr] [--dry-run]`
   (PDF4LLM + routage OCR pymupdf4llm ; défaut LightOn `openweight-ocr` ;
   `new` ne reprend que les factures jamais tentées, `retry` les erreurs (`--error-type` répétable),
-  `reprocess` toutes les lignes existantes ; `--workers` borne Albert, `--md-workers` le parallélisme markdown ;
+  `reprocess` toutes les lignes existantes ; `--workers-md` borne les workers Markdown,
+  `--workers-extract` les appels LLM d'extraction, `--concurrency-pdf4llm` les extractions natives CPU ;
   PDF au-delà de `--max-pages` marqués `too_large` et ignorés)
   (bronze persistant `bronze_extract_pdf` ; Markdown mis en cache sous
   `cpro/extract_pdf/facture_{id_cpro}/{nom_pdf}.md` dans le storage configuré)

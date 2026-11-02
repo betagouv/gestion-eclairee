@@ -3,10 +3,11 @@ from typing import get_args
 from django.core.management.base import BaseCommand, CommandError
 
 from gesec.data.extract_pdf.paths import (
-    DEFAULT_MAX_WORKERS,
+    DEFAULT_CONCURRENCY_PDF4LLM,
+    DEFAULT_WORKERS_EXTRACT,
+    DEFAULT_WORKERS_MD,
     EXTRACTION_MODEL,
     MAX_PAGES,
-    PDF4LLM_MD_MAX_WORKERS,
 )
 from gesec.data.extract_pdf.run import run_extract
 from gesec.data.extract_pdf.schemas import ERROR_STATUSES, PdfErrorType
@@ -60,18 +61,22 @@ class Command(BaseCommand):
             help="Compte les factures par statut sans appel OCR/LLM ni écriture",
         )
         parser.add_argument(
-            "--workers",
+            "--workers-md",
             type=int,
-            default=DEFAULT_MAX_WORKERS,
-            help="Parallélisme LLM Albert (défaut : 5)",
+            default=DEFAULT_WORKERS_MD,
+            help="Parallélisme des workers Markdown (défaut : 5)",
         )
         parser.add_argument(
-            "--md-workers",
-            "--pdf4llm-md-workers",
-            dest="md_workers",
+            "--workers-extract",
             type=int,
-            default=PDF4LLM_MD_MAX_WORKERS,
-            help="Parallélisme markdown PDF4LLM (défaut : min(4, CPU))",
+            default=DEFAULT_WORKERS_EXTRACT,
+            help="Parallélisme des appels LLM d'extraction (défaut : 5)",
+        )
+        parser.add_argument(
+            "--concurrency-pdf4llm",
+            type=int,
+            default=DEFAULT_CONCURRENCY_PDF4LLM,
+            help="Parallélisme des extractions PDF4LLM natives, CPU-bound (défaut : 1)",
         )
         parser.add_argument(
             "--extraction-model",
@@ -92,8 +97,9 @@ class Command(BaseCommand):
                 error_types=options["error_type"],
                 id_filter=options["id_cpro"],
                 limit=options["limit"],
-                max_workers=options["workers"],
-                pdf4llm_md_workers=options["md_workers"],
+                workers_md=options["workers_md"],
+                workers_extract=options["workers_extract"],
+                concurrency_pdf4llm=options["concurrency_pdf4llm"],
                 extraction_model=options["extraction_model"],
                 max_pages=options["max_pages"],
                 force_refresh=options["force_ocr"] or mode in ("reprocess", "all"),

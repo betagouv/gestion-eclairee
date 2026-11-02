@@ -16,15 +16,16 @@ from django.core.files.storage import default_storage
 from tqdm import tqdm
 
 from gesec.data.classify_gm.llm import LLMClient
-from gesec.data.extract_pdf.api_semaphore import init_api_semaphore, reset_api_semaphore
 from gesec.data.extract_pdf.extract_llm import extract_lignes_from_text
 from gesec.data.extract_pdf.ocr_lighton import LightonOcrClient
+from gesec.data.extract_pdf.orchestration import init_pdf4llm_semaphore, reset_pdf4llm_semaphore
 from gesec.data.extract_pdf.paths import (
-    DEFAULT_MAX_WORKERS,
+    DEFAULT_CONCURRENCY_PDF4LLM,
+    DEFAULT_WORKERS_EXTRACT,
+    DEFAULT_WORKERS_MD,
     EXTRACTION_LLM_TIMEOUT,
     EXTRACTION_MODEL,
     MAX_PAGES,
-    PDF4LLM_MD_MAX_WORKERS,
     PROMPT_VERSION,
     UNZIPPED_PREFIX,
 )
@@ -282,18 +283,18 @@ def _process_candidates(
     ocr_client: LightonOcrClient,
     force_refresh: bool,
     max_pages: int,
-    workers: int,
-    md_workers: int,
+    workers_md: int,
+    workers_extract: int,
     extraction_model: str,
 ) -> None:
     """Traite les candidats avec des fenêtres de tâches en vol bornées.
 
-    Au plus `md_workers` préparations Markdown et `workers` extractions LLM sont
-    en vol simultanément, plus `workers` Markdown prêts en attente d'un créneau
-    LLM : la RAM suit ces bornes, pas le nombre de candidats.
+    Au plus `workers_md` préparations Markdown et `workers_extract` extractions
+    LLM sont en vol simultanément, plus `workers_extract` Markdown prêts en
+    attente d'un créneau LLM : la RAM suit ces bornes, pas le nombre de candidats.
     """
     candidate_iter = iter(candidates)
-    backlog_limit = workers
+    backlog_limit = workers_extract
     ensure_table()
 
     def record(result: BronzeExtractPdf) -> None:
@@ -333,9 +334,12 @@ def _process_candidates(
     pending_llm: deque[tuple[PdfCandidate, PdfMarkdownResult]] = deque()
 
     with tqdm(total=len(candidates), desc="extract_pdf markdown") as md_progress:
-        with ThreadPoolExecutor(max_workers=md_workers) as md_pool, ThreadPoolExecutor(max_workers=workers) as llm_pool:
+        with (
+            ThreadPoolExecutor(max_workers=workers_md) as md_pool,
+            ThreadPoolExecutor(max_workers=workers_extract) as llm_pool,
+        ):
             while True:
-                while len(md_futures) < md_workers and submit_markdown(md_pool):
+                while len(md_futures) < workers_md and submit_markdown(md_pool):
                     pass
                 if not (md_futures or llm_futures or pending_llm):
                     break
@@ -344,7 +348,7 @@ def _process_candidates(
                     llm_futures.pop(future)
                     record(future.result())
 
-                while len(llm_futures) < workers and pending_llm:
+                while len(llm_futures) < workers_extract and pending_llm:
                     candidate, markdown = pending_llm.popleft()
                     submit_llm(llm_pool, candidate, markdown)
 
@@ -378,8 +382,9 @@ def run_extract(
     error_types: Sequence[str] | None = None,
     id_filter: Sequence[str] | None = None,
     limit: int | None = None,
-    max_workers: int = DEFAULT_MAX_WORKERS,
-    pdf4llm_md_workers: int | None = None,
+    workers_md: int = DEFAULT_WORKERS_MD,
+    workers_extract: int = DEFAULT_WORKERS_EXTRACT,
+    concurrency_pdf4llm: int = DEFAULT_CONCURRENCY_PDF4LLM,
     extraction_model: str = EXTRACTION_MODEL,
     max_pages: int = MAX_PAGES,
     force_refresh: bool = False,
@@ -415,11 +420,11 @@ def run_extract(
     if not candidates:
         return summary
 
-    workers = max(1, max_workers)
-    md_workers = max(1, pdf4llm_md_workers or PDF4LLM_MD_MAX_WORKERS)
+    resolved_workers_md = max(1, workers_md)
+    resolved_workers_extract = max(1, workers_extract)
     llm_client = build_llm_client(extraction_model=extraction_model)
     ocr_client = build_lighton_ocr_client()
-    init_api_semaphore(workers)
+    init_pdf4llm_semaphore(concurrency_pdf4llm)
     try:
         _process_candidates(
             candidates,
@@ -428,11 +433,11 @@ def run_extract(
             ocr_client=ocr_client,
             force_refresh=force_refresh,
             max_pages=max_pages,
-            workers=workers,
-            md_workers=md_workers,
+            workers_md=resolved_workers_md,
+            workers_extract=resolved_workers_extract,
             extraction_model=extraction_model,
         )
     finally:
-        reset_api_semaphore()
+        reset_pdf4llm_semaphore()
 
     return summary

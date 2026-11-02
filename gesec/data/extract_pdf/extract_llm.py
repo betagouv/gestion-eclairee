@@ -7,7 +7,6 @@ from typing import Any
 
 from gesec.data.classify_gm.llm import LLMClient
 from gesec.data.classify_gm.prompt import parse_llm_content
-from gesec.data.extract_pdf.api_semaphore import api_slot
 from gesec.data.extract_pdf.paths import EXTRACTION_MODEL
 from gesec.data.extract_pdf.prompt import (
     SYSTEM_PROMPT_EXTRACTION,
@@ -47,19 +46,18 @@ def extract_lignes_from_text(
     content_kind: str = "texte extrait du PDF",
     model: str = EXTRACTION_MODEL,
 ) -> tuple[dict[str, Any], dict[str, int] | None]:
-    with api_slot():
-        result = llm_client.ask_llm(
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT_EXTRACTION},
-                {
-                    "role": "user",
-                    "content": build_text_user_prompt(id_cpro=id_cpro, content=text, content_kind=content_kind),
-                },
-            ],
-            model=model,
-            response_format=response_format_lignes(),
-            temperature=0.0,
-        )
+    result = llm_client.ask_llm(
+        messages=[
+            {"role": "system", "content": SYSTEM_PROMPT_EXTRACTION},
+            {
+                "role": "user",
+                "content": build_text_user_prompt(id_cpro=id_cpro, content=text, content_kind=content_kind),
+            },
+        ],
+        model=model,
+        response_format=response_format_lignes(),
+        temperature=0.0,
+    )
     data = parse_llm_content(result.content)
     if not isinstance(data, dict):
         raise ValueError("Réponse LLM invalide : objet JSON attendu")

@@ -586,8 +586,8 @@ def test_process_candidates_borne_les_taches_en_vol(monkeypatch: pytest.MonkeyPa
         ocr_client=cast("LightonOcrClient", object()),
         force_refresh=False,
         max_pages=50,
-        workers=3,
-        md_workers=2,
+        workers_md=2,
+        workers_extract=3,
         extraction_model="test",
     )
 
