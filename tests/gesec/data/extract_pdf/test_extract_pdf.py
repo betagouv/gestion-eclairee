@@ -248,12 +248,16 @@ def _put(s3_client, key: str, body: bytes | str) -> None:
 
 
 def test_scan_inventory_selects_factures_without_gold_lines(
-    s3_client, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest, gold_tables: None
+    s3_client,
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+    gold_tables: None,
+    caplog: pytest.LogCaptureFixture,
 ):
     prefix = f"test-extract-pdf/{request.node.name}"
     monkeypatch.setattr("gesec.data.extract_pdf.selection.UNZIPPED_PREFIX", prefix)
     _seed_gold(
-        factures=["111111111", "222222222", "333333333", "444444444", "555555555"],
+        factures=["111111111", "222222222", "333333333", "444444444", "555555555", "666666666"],
         lignes=["222222222"],
     )
 
@@ -280,14 +284,27 @@ def test_scan_inventory_selects_factures_without_gold_lines(
         f"{prefix}/facture_444444444/PivotS.xml",
         _pivot_xml("444444444", [(1, "facture.pdf", "Facture PDF")]),
     )
+    _put(
+        s3_client,
+        f"{prefix}/facture_444444444/34305956400959_8F0000077047/PJ01FAC.pdf",
+        b"pdf",
+    )
     _put(s3_client, f"{prefix}/facture_444444444/pivot/facture.pdf", b"pdf")
+    _put(s3_client, f"{prefix}/facture_444444444/pivot/facture.pdf.factur-x.xml", b"xml")
+    _put(s3_client, f"{prefix}/facture_555555555_abcd/PivotS.xml", _pivot_xml("555555555", []))
+    _put(s3_client, f"{prefix}/facture_666666666-abcd/PivotS.xml", _pivot_xml("666666666", []))
+    _put(s3_client, f"{prefix}/archive_divers/PivotS.xml", _pivot_xml("777777777", []))
 
     selection = scan_inventory()
 
-    assert sorted(selection.candidates) == ["111111111", "333333333", "444444444", "555555555"]
+    assert sorted(selection.candidates) == ["111111111", "333333333", "444444444", "555555555", "666666666"]
     assert selection.candidates["111111111"].folder == "facture_111111111"
     assert selection.candidates["333333333"].folder == "facture_333333333"
+    assert selection.candidates["444444444"].folder == "facture_444444444"
     assert selection.candidates["555555555"].folder is None
+    assert selection.candidates["666666666"].folder is None
+    assert "Plusieurs dossiers" not in caplog.text
+    assert "inattendu" not in caplog.text
 
 
 def test_resolve_pdf_chooses_first_pdf_by_num_ordre_and_duplicate_suffix(

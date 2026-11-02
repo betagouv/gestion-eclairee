@@ -14,7 +14,7 @@ from gesec.storage import find_files
 
 logger = logging.getLogger(__name__)
 
-FOLDER_RE = re.compile(r"^facture_(\d+)(?:_.*)?$")
+FOLDER_RE = re.compile(r"^facture_(\d+)$")
 
 
 @dataclass(frozen=True)
@@ -30,10 +30,7 @@ class PdfSelection:
 
 def parse_folder_id(folder: str) -> str | None:
     match = FOLDER_RE.match(folder)
-    if match is None:
-        logger.warning("Nom de dossier inattendu, ignoré : %s", folder)
-        return None
-    return match.group(1)
+    return match.group(1) if match else None
 
 
 def _eligible_ids() -> set[str]:
@@ -54,8 +51,8 @@ def scan_inventory() -> PdfSelection:
     ligne dans `gesec_facture_ligne` mérite une extraction PDF, qu'un pivot XML
     ou un Factur-X soit présent ou non (les profils `minimum` n'ont pas de
     lignes). Le storage ne sert qu'à associer chaque facture à son dossier
-    `facture_<id_cpro>` ; une facture éligible sans dossier devient candidate
-    avec `folder=None`, traitée `no_pdf`.
+    canonique `facture_<id_cpro>`. Une facture éligible sans dossier canonique devient
+    candidate avec `folder=None`, traitée `no_pdf`.
     """
     id_folders: dict[str, str] = {}
     scan_pattern = re.compile(rf"^{re.escape(UNZIPPED_PREFIX)}/[^/]+/")
@@ -65,10 +62,7 @@ def scan_inventory() -> PdfSelection:
             continue
         folder = parts[2]
         id_cpro = parse_folder_id(folder)
-        if id_cpro is None:
-            continue
-        if id_cpro in id_folders:
-            logger.warning("Plusieurs dossiers pour la facture %s, choix de %s", id_cpro, id_folders[id_cpro])
+        if id_cpro is None or id_cpro in id_folders:
             continue
         id_folders[id_cpro] = folder
 
