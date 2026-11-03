@@ -24,7 +24,9 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
   `--workers-extract` les appels LLM d'extraction, `--concurrency-pdf4llm` les extractions natives CPU ;
   PDF au-delà de `--max-pages` marqués `too_large` et ignorés)
   (bronze persistant `bronze_extract_pdf` ; Markdown mis en cache sous
-  `cpro/extract_pdf/facture_{id_cpro}/{nom_pdf}.md` dans le storage configuré)
+  `cpro/extract_pdf/facture_{id_cpro}/{nom_pdf}.md` dans le storage configuré ;
+  le run affiche en continu l'état de la file via le postfix tqdm :
+  queue_size et compteurs par statut)
 - Extraction XML : `uv run python -m gesec.data.processors.cpro.pivots_xml -i <in> -o <out>`
 - Synthèse BUDAT (lecture seule, JSON) : `uv run python scripts/synthese_budat.py <ENV_VAR> <annee>`
   (`<ENV_VAR>` nomme la variable d'env portant l'URL de la base, ex. `PROD_DB_URL` ;

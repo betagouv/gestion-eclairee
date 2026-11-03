@@ -19,7 +19,14 @@ from gesec.data.extract_pdf.pdf4llm_extract import (
 from gesec.data.extract_pdf.pdf_utils import page_count, pdf_within_page_limit
 from gesec.data.extract_pdf.prompt import response_format_lignes
 from gesec.data.extract_pdf.result_table import TABLE_NAME, upsert
-from gesec.data.extract_pdf.run import ExtractSummary, _process_candidates, resolve_pdf, run_extract, select_targets
+from gesec.data.extract_pdf.run import (
+    ExtractSummary,
+    _process_candidates,
+    _queue_postfix,
+    resolve_pdf,
+    run_extract,
+    select_targets,
+)
 from gesec.data.extract_pdf.schemas import BronzeExtractPdf, ExtractedFacture, ExtractedLigne
 from gesec.data.extract_pdf.selection import PdfCandidate, PdfSelection, scan_inventory
 from gesec.data.pipeline.layer_2_silver.extract_pdf_ligne import transform_to_silver
@@ -594,3 +601,80 @@ def test_process_candidates_borne_les_taches_en_vol(monkeypatch: pytest.MonkeyPa
     assert max_md <= 2
     assert max_llm <= 3
     assert summary.success == 20
+
+
+def test_queue_postfix_derive_les_statuts():
+    summary = ExtractSummary(mode="new", dry_run=False, success=2, failed=1, no_pdf=1, too_large=1)
+
+    postfix = _queue_postfix(queue_size=1, summary=summary)
+
+    assert postfix["queue_size"] == 1
+    assert postfix["ok"] == 2
+    assert postfix["ko"] == 1
+    assert postfix["no_pdf"] == 1
+    assert postfix["no_lines"] == 0
+    assert postfix["too_large"] == 1
+    assert "done" not in postfix
+
+
+def test_process_candidates_met_a_jour_le_postfix_de_la_file(monkeypatch: pytest.MonkeyPatch):
+    from gesec.data.extract_pdf import run as run_module
+    from gesec.data.extract_pdf.pdf4llm_extract import PdfMarkdownResult
+    from gesec.data.extract_pdf.schemas import BronzeExtractPdf
+
+    snapshots: list[dict[str, int]] = []
+
+    class FakeProgress:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def update(self, count):
+            pass
+
+        def set_postfix(self, values, refresh=True):
+            snapshots.append(dict(values))
+
+    def fake_markdown(candidate, *, ocr_client, force_refresh, max_pages):
+        return PdfMarkdownResult(
+            markdown="texte",
+            duration_s=0.0,
+            page_count=1,
+            pdf_sha256=None,
+            markdown_sha256=None,
+            markdown_cached=False,
+            markdown_path="",
+        )
+
+    def fake_llm(candidate, markdown, *, llm_client, extraction_model):
+        return BronzeExtractPdf(id_cpro=candidate.id_cpro, status="success")
+
+    monkeypatch.setattr(run_module, "tqdm", FakeProgress)
+    monkeypatch.setattr(run_module, "_safe_markdown", fake_markdown)
+    monkeypatch.setattr(run_module, "_run_llm", fake_llm)
+    monkeypatch.setattr(run_module, "ensure_table", lambda: None)
+    monkeypatch.setattr(run_module, "upsert", lambda result, *, ensure=True: None)
+
+    candidates = [_candidate(str(index)) for index in range(6)]
+    summary = ExtractSummary(mode="new", dry_run=False)
+
+    _process_candidates(
+        candidates,
+        summary=summary,
+        llm_client=cast("LLMClient", object()),
+        ocr_client=cast("LightonOcrClient", object()),
+        force_refresh=False,
+        max_pages=50,
+        workers_md=2,
+        workers_extract=2,
+        extraction_model="test",
+    )
+
+    assert snapshots
+    assert snapshots[-1]["ok"] == 6
+    assert summary.success == 6

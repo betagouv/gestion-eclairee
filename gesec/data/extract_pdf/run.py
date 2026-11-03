@@ -275,6 +275,17 @@ def _increment(summary: ExtractSummary, status: PdfExtractionStatus) -> None:
         summary.too_large += 1
 
 
+def _queue_postfix(*, queue_size: int, summary: ExtractSummary) -> dict[str, int]:
+    return {
+        "queue_size": queue_size,
+        "ok": summary.success,
+        "ko": summary.failed,
+        "no_pdf": summary.no_pdf,
+        "no_lines": summary.no_lines,
+        "too_large": summary.too_large,
+    }
+
+
 def _process_candidates(
     candidates: Sequence[PdfCandidate],
     *,
@@ -334,6 +345,17 @@ def _process_candidates(
     pending_llm: deque[tuple[PdfCandidate, PdfMarkdownResult]] = deque()
 
     with tqdm(total=len(candidates), desc="extract_pdf markdown") as md_progress:
+
+        def refresh_queue() -> None:
+            md_progress.set_postfix(
+                _queue_postfix(
+                    queue_size=len(pending_llm),
+                    summary=summary,
+                ),
+                refresh=True,
+            )
+
+        refresh_queue()
         with (
             ThreadPoolExecutor(max_workers=workers_md) as md_pool,
             ThreadPoolExecutor(max_workers=workers_extract) as llm_pool,
@@ -341,16 +363,19 @@ def _process_candidates(
             while True:
                 while len(md_futures) < workers_md and submit_markdown(md_pool):
                     pass
+                refresh_queue()
                 if not (md_futures or llm_futures or pending_llm):
                     break
 
                 for future in [f for f in llm_futures if f.done()]:
                     llm_futures.pop(future)
                     record(future.result())
+                refresh_queue()
 
                 while len(llm_futures) < workers_extract and pending_llm:
                     candidate, markdown = pending_llm.popleft()
                     submit_llm(llm_pool, candidate, markdown)
+                refresh_queue()
 
                 if md_futures:
                     done, _ = wait(md_futures, return_when=FIRST_COMPLETED)
@@ -370,9 +395,11 @@ def _process_candidates(
                             )
                         else:
                             pending_llm.append((candidate, markdown))
+                    refresh_queue()
                     continue
 
                 wait(llm_futures, return_when=FIRST_COMPLETED)
+                refresh_queue()
 
 
 def run_extract(
