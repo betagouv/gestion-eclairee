@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     # External apps
     "mozilla_django_oidc",
     "rest_framework",
+    "django_filters",
     # Internal apps
     "gesec",
     # Après "gesec" pour que ses templates priment (ex. oauth2_provider/authorize.html)
@@ -369,5 +370,9 @@ REST_FRAMEWORK = {
         "gesec.front.api.auth.LoggingOAuth2Authentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.OrderingFilter",
+    ],
     "UNAUTHENTICATED_USER": None,
 }

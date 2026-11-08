@@ -125,6 +125,84 @@ def auth_healthcheck(ctx: Context) -> dict[str, Any]:
     }
 
 
+def api_get(ctx: Context, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    base_url = os.environ.get("MCP_BASE_API_URL")
+    if not base_url:
+        return {"ok": False, "error": "MCP_BASE_API_URL est absent"}
+
+    try:
+        authorization = forward_authorization(ctx)
+    except McpAuthError as e:
+        return {"ok": False, "error": str(e)}
+
+    url = base_url.rstrip("/") + path
+    started = time.perf_counter()
+    try:
+        response = httpx.get(url, headers={"Authorization": authorization}, params=params, timeout=DEFAULT_TIMEOUT)
+    except httpx.HTTPError as e:
+        return {
+            "ok": False,
+            "url": url,
+            "error": f"{type(e).__name__}: {e}",
+            "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+        }
+
+    body: Any = None
+    if response.is_success:
+        try:
+            body = response.json()
+        except ValueError:
+            body = None
+
+    return {
+        "ok": response.is_success,
+        "status_code": response.status_code,
+        "body": body,
+        "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+    }
+
+
+@mcp.tool(
+    description=(
+        "Interroge la méta-table BUDAT (lignes de dépenses). Sans group_by/agg : renvoie des lignes "
+        "(au plus 100). Avec group_by et/ou agg : renvoie des lignes agrégées (au plus 100). "
+        "filters : annee, cas, source, ministere, segment, domaine, gm, service, fournisseur_in_fine_siren, "
+        "id_cpro (égalité), fournisseur_budat, fournisseur_in_fine_designation (icontains), "
+        "montant_min/montant_max, facture_date_after/facture_date_before. "
+        "group_by : champs séparés par des virgules. agg : liste de 'func:champ' "
+        "(func ∈ sum, avg, count, min, max ; champ numérique ou '*' pour count). "
+        "ordering : champs séparés par des virgules, préfixe - pour desc ; en mode agrégat, accepte les "
+        "champs de group_by et les noms d'agrégats (ex. -sum_montant). "
+        "Exemples : top 10 fournisseurs d'un segment -> filters={segment: '<segment>'}, "
+        "group_by='fournisseur_budat', agg=['sum:montant'], ordering='-sum_montant' ; "
+        "top ministères par dépense chez un fournisseur -> filters={fournisseur_budat: '<fournisseur>'}, "
+        "group_by='ministere', agg=['sum:montant'], ordering='-sum_montant'."
+    )
+)
+def meta_budat_query(
+    ctx: Context,
+    filters: dict[str, str] | None = None,
+    group_by: str | None = None,
+    agg: list[str] | None = None,
+    ordering: str | None = None,
+) -> dict[str, Any]:
+    params: dict[str, Any] = dict(filters or {})
+    if group_by:
+        params["group_by"] = group_by
+    if agg:
+        params["agg"] = agg
+    if ordering:
+        params["ordering"] = ordering
+    return api_get(ctx, "/api/meta-budat/", params=params)
+
+
+@mcp.tool(
+    description="Décrit le schéma exposé de la méta-table BUDAT (champs filtrables, groupables, numériques, agrégats)."
+)
+def meta_budat_schema(ctx: Context) -> dict[str, Any]:
+    return api_get(ctx, "/api/meta-budat/schema/")
+
+
 def build_www_authenticate() -> str:
     """Challenge RFC 9728 : pointe vers le document de métadonnées de la ressource
     servi par Django (PUBLIC_BASE_URL), source de vérité unique."""

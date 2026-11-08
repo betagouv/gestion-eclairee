@@ -1,6 +1,8 @@
 import asyncio
+from typing import cast
 
 import pytest
+from mcp.server.mcpserver import Context
 
 from mcpserver.server import McpAuthError, ResourceMetadataMiddleware, build_www_authenticate, forward_authorization
 
@@ -102,3 +104,87 @@ def test_middleware_ignores_non_http_scopes():
 
     assert app.called
     assert sent[0]["status"] == 200
+
+
+class FakeResponse:
+    def __init__(self, status_code=200, payload=None):
+        self.status_code = status_code
+        self.is_success = 200 <= status_code < 300
+        self._payload = payload
+
+    def json(self):
+        return self._payload
+
+
+def make_api_get(monkeypatch, payload, status_code=200, captured=None):
+    import mcpserver.server as server
+
+    def fake_get(url, headers=None, params=None, timeout=None):
+        if captured is not None:
+            captured.append({"url": url, "headers": headers, "params": params})
+        return FakeResponse(status_code, payload)
+
+    monkeypatch.setattr(server.httpx, "get", fake_get)
+    monkeypatch.setenv("MCP_BASE_API_URL", "https://app.example.gouv.fr")
+
+
+def test_meta_budat_query_forwards_bearer_and_params(monkeypatch):
+    captured = []
+    make_api_get(monkeypatch, [{"facture": "F1"}], captured=captured)
+
+    from mcpserver.server import meta_budat_query
+
+    ctx = cast(Context, FakeContext({"authorization": "Bearer tok123"}))
+    result = meta_budat_query(ctx, filters={"annee": "2025"}, ordering="-montant")
+
+    assert result["ok"] is True
+    assert result["body"] == [{"facture": "F1"}]
+    assert captured[0]["url"] == "https://app.example.gouv.fr/api/meta-budat/"
+    assert captured[0]["headers"] == {"Authorization": "Bearer tok123"}
+    assert captured[0]["params"] == {"annee": "2025", "ordering": "-montant"}
+
+
+def test_meta_budat_query_sends_group_by_agg_and_ordering(monkeypatch):
+    captured = []
+    make_api_get(monkeypatch, [{"ministere": "MINA", "sum_montant": 100.0}], captured=captured)
+
+    from mcpserver.server import meta_budat_query
+
+    ctx = cast(Context, FakeContext({"authorization": "Bearer tok123"}))
+    result = meta_budat_query(
+        ctx,
+        filters={"fournisseur_budat": "Fournisseur X"},
+        group_by="ministere",
+        agg=["sum:montant", "count:*"],
+        ordering="-sum_montant",
+    )
+
+    assert result["ok"] is True
+    assert captured[0]["url"].endswith("/api/meta-budat/")
+    assert captured[0]["params"]["group_by"] == "ministere"
+    assert captured[0]["params"]["agg"] == ["sum:montant", "count:*"]
+    assert captured[0]["params"]["ordering"] == "-sum_montant"
+    assert captured[0]["params"]["fournisseur_budat"] == "Fournisseur X"
+
+
+def test_meta_budat_schema_calls_schema_endpoint(monkeypatch):
+    captured = []
+    make_api_get(monkeypatch, {"filterable": ["annee"], "max_rows": 100}, captured=captured)
+
+    from mcpserver.server import meta_budat_schema
+
+    result = meta_budat_schema(cast(Context, FakeContext({"authorization": "Bearer tok123"})))
+
+    assert result["ok"] is True
+    assert captured[0]["url"].endswith("/api/meta-budat/schema/")
+
+
+def test_meta_budat_tool_without_token_returns_error(monkeypatch):
+    make_api_get(monkeypatch, None)
+
+    from mcpserver.server import meta_budat_query
+
+    result = meta_budat_query(cast(Context, FakeContext({})))
+
+    assert result["ok"] is False
+    assert "Authorization" in result["error"]

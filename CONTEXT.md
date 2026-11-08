@@ -220,3 +220,14 @@ flux authorization code ; `plain` est rejeté.
 Jeton opaque émis par l'AS (scope unique `data`), transmis par l'agent
 en `Authorization: Bearer`, forwardé tel quel par le serveur MCP vers `/api/`
 et vérifié en ligne par Django (utilisateur inactif rejeté). Hashé au repos.
+
+**API de données meta_budat** :
+Lecture seule de la méta-table `gesec_meta_budat` par l'agent via
+`/api/meta-budat/` (route unique : lignes, ou agrégats si `group_by`/`agg`
+présent, tri possible sur les agrégats ex. `-sum_montant`) et
+`/api/meta-budat/schema/` (allowlists). Permission `gesec.api_access`
+(globale, déclarée dans `User.Meta.permissions`) ; plafond dur de 100 lignes
+(listes et agrégats) ; 400 sur champ, fonction ou terme de tri inconnu.
+Voir ADR 0009.
+_Dans les sources_ : table `gesec_meta_budat`
+_Éviter_ : endpoint meta_budat sans préfixe /api/

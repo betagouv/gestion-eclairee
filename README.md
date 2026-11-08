@@ -110,4 +110,25 @@ Variables d'environnement :
 - `OAUTH_ACCESS_TOKEN_TTL` : durée de vie d'un access token OAuth en secondes
   (défaut `3600`).
 
+## API de données meta_budat
+
+La méta-table BUDAT est exposée en lecture seule (voir
+`docs/adr/0009-api-meta-budat.md`) ; l'agent y accède via les outils MCP
+`meta_budat_query` / `meta_budat_schema`, qui forwardent son Bearer vers :
+
+- `GET /api/meta-budat/` : route unique. Sans `group_by`/`agg` : liste des
+  lignes (filtres `annee`, `ministere`, `fournisseur_budat`/
+  `fournisseur_in_fine_designation` en `icontains`, `montant_min`/
+  `montant_max`, `facture_date_after`/`facture_date_before`, `ordering=...`).
+  Avec `group_by` et/ou `agg` : lignes agrégées, ex.
+  `?segment=<segment>&group_by=fournisseur_budat&agg=sum:montant&ordering=-sum_montant`
+  (top fournisseurs du segment). **Plafond dur de 100 lignes** dans les deux
+  modes ; 400 si champ, fonction ou terme de tri inconnu. En mode agrégat,
+  `ordering` accepte les champs de `group_by` et les noms d'agrégats
+  (`sum_montant`, `count_all`, ...).
+- `GET /api/meta-budat/schema/` : allowlists exposées (filtrable, groupable,
+  numérique, fonctions d'agrégation, règle du déclencheur d'agrégat, `max_rows`).
+
+Permission requise : `gesec.api_access` (globale, sur `User`).
+
 

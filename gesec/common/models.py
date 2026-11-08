@@ -114,6 +114,10 @@ class User(auth_models.AbstractBaseUser, auth_models.PermissionsMixin, BaseModel
     USERNAME_FIELD = "admin_email"
     REQUIRED_FIELDS = []
 
+    class Meta:
+        abstract = False
+        permissions = [("api_access", "Accède à l'API de données")]
+
     def __str__(self):
         return self.email or self.admin_email or str(self.pk)
 

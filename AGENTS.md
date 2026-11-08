@@ -56,7 +56,14 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - `gesec/front/` : vues, auth OIDC, rate limiting, templates DSFR
 - `gesec/front/oauth.py` : validateur OAuth (audience RFC 8707 + utilisateurs inactifs),
   rate limiting `/oauth/` ; le modèle client `OAuthApplication` est dans `gesec/common/models.py`
-- `gesec/front/api/` : routes `/api` authentifiées par jeton OAuth2 (Bearer)
+- `gesec/front/api/` : routes `/api` authentifiées par jeton OAuth2 (Bearer) ;
+  `GET /api/meta-budat/` (route unique : lignes, ou agrégats si `group_by`/`agg`
+  présent — filtres django-filter, tri, plafond dur 100 lignes, 400 si champ
+  inconnu ; en mode agrégat `ordering` accepte les agrégats ex. `-sum_montant`),
+  `GET /api/meta-budat/schema/` (allowlists) — permission `gesec.api_access`
+  (globale, déclarée dans `User.Meta.permissions`), modèle non géré `MetaBudat` ;
+  exposés aux agents via les outils MCP `meta_budat_query` /
+  `meta_budat_schema`. Voir `docs/adr/0009`.
 - `gesec/common/models.py` : `BaseModel` ; `gesec/models.py` ré-exporte les modèles
 - `mcpserver/` : serveur MCP streamable-HTTP, membre du workspace uv
 - `tests/` : miroir de `gesec/` ; factories dans `tests/factories/`
