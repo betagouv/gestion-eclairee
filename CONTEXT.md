@@ -196,3 +196,27 @@ _Dans les sources_ : « État courant » (Chorus Pro)
 État d'une facture validée et transmise au paiement dans Chorus Pro. Le
 périmètre analysé ne s'y limite pas : le recoupement avec BUDAT fait entrer
 des factures dans d'autres états.
+
+### Accès MCP
+
+**Serveur d'autorisation (AS)** :
+Rôle OAuth2 joué par Django (django-oauth-toolkit) : `/oauth/authorize`,
+`/oauth/token`, métadonnées `/.well-known/oauth-authorization-server` et
+`/.well-known/oauth-protected-resource`. Voir ADR 0008.
+
+**Client MCP pré-enregistré** :
+Application OAuth créée manuellement par un admin dans l'admin Django
+(`OAuthApplication`, `registration_source="manual"`, `user=None` pour un client
+partagé) : client public, grant authorization code, redirect URI de boucle
+locale (`http(s)://127.0.0.1[:port]` / `http(s)://[::1][:port]`). Pas de DCR :
+`/oauth/register` répond 404. L'agent utilise le `client_id` public
+(`oauth.client_id`, aucun secret).
+
+**PKCE** :
+Proof Key for Code Exchange (RFC 7636) : méthode `S256` obligatoire pour le
+flux authorization code ; `plain` est rejeté.
+
+**Access token MCP** :
+Jeton opaque émis par l'AS (scope unique `data`), transmis par l'agent
+en `Authorization: Bearer`, forwardé tel quel par le serveur MCP vers `/api/`
+et vérifié en ligne par Django (utilisateur inactif rejeté). Hashé au repos.

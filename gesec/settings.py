@@ -68,8 +68,11 @@ INSTALLED_APPS = [
     "django.forms",  # django.forms must be after dsfr
     # External apps
     "mozilla_django_oidc",
+    "rest_framework",
     # Internal apps
     "gesec",
+    # Après "gesec" pour que ses templates priment (ex. oauth2_provider/authorize.html)
+    "oauth2_provider",
 ]
 
 MIDDLEWARE = [
@@ -82,6 +85,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "gesec.front.oauth.OAuthRateLimitMiddleware",
 ]
 
 ROOT_URLCONF = "gesec.front.urls"
@@ -337,3 +341,33 @@ ALBERT_RATE_PER_MINUTE_BY_MODEL = {
     "mistral-ocr-2512": 98,
 }
 ALBERT_RATE_PER_MINUTE_DEFAULT = config.int("ALBERT_RATE_PER_MINUTE", default=100)
+
+PUBLIC_BASE_URL = config.str("PUBLIC_BASE_URL", default="http://127.0.0.1:8000")
+MCP_PUBLIC_URL = config.str("MCP_PUBLIC_URL", default="http://127.0.0.1:9000/mcp")
+
+OAUTH2_PROVIDER_APPLICATION_MODEL = "gesec.OAuthApplication"
+OAUTH2_PROVIDER = {
+    "PKCE_REQUIRED": True,
+    "COMPLIANT_BCP_RFC9700_PKCE_METHOD": True,
+    "COMPLIANT_BCP_RFC9700_TOKEN_STORAGE": True,
+    "SCOPES": {"data": "Accéder aux données"},
+    "DEFAULT_SCOPES": ["data"],
+    "ACCESS_TOKEN_EXPIRE_SECONDS": config.int("OAUTH_ACCESS_TOKEN_TTL", default=3600),
+    "REFRESH_TOKEN_EXPIRE_SECONDS": 30 * 24 * 3600,
+    "ROTATE_REFRESH_TOKEN": True,
+    "REFRESH_TOKEN_REUSE_PROTECTION": True,
+    "OAUTH2_PROTECTED_RESOURCE_IDENTIFIER": MCP_PUBLIC_URL,
+    "OAUTH2_PROTECTED_RESOURCE_AUTHORIZATION_SERVERS": [PUBLIC_BASE_URL],
+    "OAUTH2_PROTECTED_RESOURCE_NAME": "Dépenses — MCP",
+    "OIDC_ISS_ENDPOINT": PUBLIC_BASE_URL,
+    "OAUTH2_VALIDATOR_CLASS": "gesec.front.oauth.GesecOAuth2Validator",
+    "RESOURCE_SERVER_TOKEN_RESOURCE_VALIDATOR": "gesec.front.oauth.validate_token_resource",
+}
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "gesec.front.api.auth.LoggingOAuth2Authentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "UNAUTHENTICATED_USER": None,
+}

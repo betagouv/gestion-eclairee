@@ -21,13 +21,22 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 
 from lasuite.oidc_login.urls import urlpatterns as oidc_urls
+from oauth2_provider.urls import base_urlpatterns, metadata_urlpatterns
 
 from . import views
+from .auth.views import CustomOIDCBackChannelLogoutView
+
+OAUTH2_EXPOSED_ROUTES = {"authorize", "token", "revoke-token"}
+oauth2_urlpatterns = [pattern for pattern in base_urlpatterns if pattern.name in OAUTH2_EXPOSED_ROUTES]
 
 urlpatterns = [
     path("", views.home, name="home"),
     path("login", TemplateView.as_view(template_name="gesec/auth/login.html"), name="login"),
+    path("oidc/backchannel-logout/", CustomOIDCBackChannelLogoutView.as_view(), name="oidc_backchannel_logout"),
     path("oidc/", include(oidc_urls)),
+    path("oauth/", include((oauth2_urlpatterns, "oauth2_provider"), namespace="oauth2_provider")),
+    path("", include((metadata_urlpatterns, "oauth2_provider"), namespace="oauth2_metadata")),
+    path("api/", include("gesec.front.api.urls")),
     path("s3/<path:path>", views.s3_file, name="s3_file"),
 ]
 

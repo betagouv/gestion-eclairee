@@ -34,7 +34,12 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
   de tableaux)
 - Serveur MCP (HTTP local) : `MCP_BASE_API_URL=<url> MCP_PORT=9000 uv run --package mcpserver python -m mcpserver.server`
   (`MCP_PORT` défaut `9000` ; en prod, process `mcp` du Procfile, port via `MCP_PORT`)
+  Authentification : OAuth2 — Django fait serveur d'autorisation (DOT, PKCE S256,
+  scope `data`, pas de DCR : clients pré-enregistrés créés dans l'admin Django) ; le
+  process `mcp` forwarde le Bearer tel quel vers `/api/` (permissions Django standard :
+  `IsAuthenticated` par défaut). Voir `docs/adr/0008`.
 - Inspection MCP : `npx @modelcontextprotocol/inspector --url http://127.0.0.1:9000/mcp`
+  (flux OAuth : discovery RFC 9728/8414 → authorize + PKCE avec client pré-enregistré)
 - Recette de bout en bout : `./test_recette.sh` (ENV_FILE=../gesec-recette.env)
 
 ## Architecture
@@ -49,6 +54,9 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - `gesec/data/processors/cpro/` : lecture Factur-X / pivots XML
 - `gesec/data/sync/` : listes et téléchargement des exports CPRO
 - `gesec/front/` : vues, auth OIDC, rate limiting, templates DSFR
+- `gesec/front/oauth.py` : validateur OAuth (audience RFC 8707 + utilisateurs inactifs),
+  rate limiting `/oauth/` ; le modèle client `OAuthApplication` est dans `gesec/common/models.py`
+- `gesec/front/api/` : routes `/api` authentifiées par jeton OAuth2 (Bearer)
 - `gesec/common/models.py` : `BaseModel` ; `gesec/models.py` ré-exporte les modèles
 - `mcpserver/` : serveur MCP streamable-HTTP, membre du workspace uv
 - `tests/` : miroir de `gesec/` ; factories dans `tests/factories/`

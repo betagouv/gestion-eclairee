@@ -68,7 +68,10 @@ Inspection interactive :
 npx @modelcontextprotocol/inspector --url http://127.0.0.1:9000/mcp
 ```
 
-Config opencode (mode remote) :
+Config opencode (mode remote) : l'agent fait lui-même la découverte OAuth
+(RFC 9728 → RFC 8414 → Authorization Code + PKCE S256) avec un client
+pré-enregistré par l'admin Django (pas de DCR) ; seul le `client_id` (public,
+non secret) est à renseigner :
 
 ```json
 {
@@ -77,19 +80,34 @@ Config opencode (mode remote) :
     "depenses": {
       "type": "remote",
       "url": "http://127.0.0.1:9000/mcp",
-      "enabled": true
+      "enabled": true,
+      "oauth": { "client_id": "<client_id créé dans l'admin Django>" }
     }
   }
 }
 ```
 
+Authentification : OAuth2. Le serveur MCP est un passe-plat sans état qui
+forwarde le `Bearer` reçu vers l'API Django ; c'est Django qui joue le rôle de
+serveur d'autorisation (django-oauth-toolkit, clients créés dans l'admin
+Django uniquement, redirect URIs de boucle locale uniquement, clients publics
++ PKCE S256, scope unique `data`). L'API `/api/` exige une authentification
+(permissions Django standard : `IsAuthenticated` par défaut,
+`DjangoModelPermissions` par ressource). Voir `docs/adr/0008-as-oauth-mcp.md`.
+
 Variables d'environnement :
 
+- `PUBLIC_BASE_URL` : URL publique de l'application Django, issuer OAuth
+  (ex. `https://app.example.gouv.fr`).
+- `MCP_PUBLIC_URL` : URL publique du MCP vue par les agents (ressource OAuth,
+  ex. `https://mcp.example.gouv.fr/mcp`).
 - `MCP_BASE_API_URL` : URL de base de l'API interrogée par le MCP.
 - `MCP_HOST` : interface d'écoute (défaut `127.0.0.1`).
 - `MCP_PORT` : port d'écoute (défaut `9000`).
 - `MCP_ALLOWED_HOST` : hôte autorisé pour la protection anti-DNS-rebinding. Le
   port fait partie du `Host` reçu : utiliser `<hôte>:*` si le client inclut un
   port (sinon le serveur répond `421 Misdirected Request`).
+- `OAUTH_ACCESS_TOKEN_TTL` : durée de vie d'un access token OAuth en secondes
+  (défaut `3600`).
 
 

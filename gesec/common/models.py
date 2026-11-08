@@ -1,8 +1,12 @@
 from typing import override
+from urllib.parse import urlsplit
 
 from django.contrib.auth import models as auth_models
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+
+from oauth2_provider.models import AbstractApplication
 
 
 class BaseModel(models.Model):
@@ -112,3 +116,55 @@ class User(auth_models.AbstractBaseUser, auth_models.PermissionsMixin, BaseModel
 
     def __str__(self):
         return self.email or self.admin_email or str(self.pk)
+
+
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1"})
+
+
+def is_loopback_redirect_uri(uri: str) -> bool:
+    try:
+        parsed = urlsplit(uri)
+    except ValueError:
+        return False
+    return parsed.scheme in ("http", "https") and (parsed.hostname or "").lower() in LOOPBACK_HOSTS
+
+
+class OAuthApplication(AbstractApplication):
+    """Application OAuth de l'AS : client public, flux authorization code, redirect loopback."""
+
+    class Meta(AbstractApplication.Meta):
+        swappable = "OAUTH2_PROVIDER_APPLICATION_MODEL"
+
+    def clean(self) -> None:
+        super().clean()
+        if self.client_type != self.CLIENT_PUBLIC:
+            raise ValidationError(
+                {"client_type": _("Seuls les clients publics (token_endpoint_auth_method=none) sont autorisés.")}
+            )
+        if self.authorization_grant_type != self.GRANT_AUTHORIZATION_CODE:
+            raise ValidationError({"authorization_grant_type": _("Seul le flux authorization code est autorisé.")})
+        redirect_errors = [
+            ValidationError(
+                _(
+                    "L'URI de redirection %(uri)s doit être une boucle locale "
+                    "http(s)://127.0.0.1[:port][/chemin] ou http(s)://[::1][:port][/chemin]."
+                ),
+                params={"uri": uri},
+            )
+            for uri in self.redirect_uris.strip().split()
+            if not is_loopback_redirect_uri(uri)
+        ]
+        if redirect_errors:
+            raise ValidationError({"redirect_uris": redirect_errors})
+
+    @override
+    def redirect_uri_allowed(self, uri: str) -> bool:
+        """Refuse toute URI non loopback, puis délègue le match exact à DOT.
+
+        Le port reste libre pour les IP loopback en http (RFC 8252 §7.3) ; le
+        chemin et la query doivent correspondre exactement à une URI enregistrée.
+        Le code d'autorisation reste protégé par le PKCE S256 obligatoire.
+        """
+        if not is_loopback_redirect_uri(uri):
+            return False
+        return super().redirect_uri_allowed(uri)

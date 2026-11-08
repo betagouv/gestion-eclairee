@@ -1,0 +1,37 @@
+{% extends "gesec/base.html" %}
+
+{% load i18n %}
+
+{% block content %}
+  {% if not error %}
+    <h1 class="fr-h1">{% trans "Autoriser" %} {{ application.name }}&nbsp;?</h1>
+
+    <form id="authorizationForm" method="post">
+      {% csrf_token %}
+
+      {% for field in form %}
+        {% if field.is_hidden %}
+          {{ field }}
+        {% endif %}
+      {% endfor %}
+
+      <p>{% trans "L'application demande les permissions suivantes" %} :</p>
+      <ul class="fr-mb-4w">
+        {% for scope in scopes_descriptions %}
+          <li>{{ scope }}</li>
+        {% endfor %}
+      </ul>
+
+      {{ form.errors }}
+      {{ form.non_field_errors }}
+
+      <div class="fr-btns-group fr-btns-group--inline">
+        <input type="submit" class="fr-btn fr-btn--secondary" value="{% trans 'Annuler' %}"/>
+        <input type="submit" class="fr-btn" name="allow" value="{% trans 'Autoriser' %}"/>
+      </div>
+    </form>
+  {% else %}
+    <h1 class="fr-h1">Erreur : {{ error.error }}</h1>
+    <p>{{ error.description }}</p>
+  {% endif %}
+{% endblock %}
