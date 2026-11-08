@@ -9,12 +9,15 @@ from __future__ import annotations
 import logging
 from datetime import date
 from pathlib import Path
+from typing import LiteralString
 
 from django.conf import settings
 
+import psycopg
+from psycopg import sql
+
 from gesec.data.classify_gm.classify import DEFAULT_BATCH_SIZE, DEFAULT_MAX_WORKERS, ClassifyMode, read_identifiants_csv
 from gesec.data.classify_gm.classify_hierarchy import run_classify_hierarchical
-from gesec.data.classify_gm.db import ensure_result_table, get_connection
 from gesec.data.classify_gm.llm import LLMClient
 from gesec.data.classify_gm.paths import (
     DEFAULT_LLM_TIMEOUT,
@@ -22,10 +25,18 @@ from gesec.data.classify_gm.paths import (
     DEFAULT_REASONING_EFFORT,
     load_ddl,
 )
+from gesec.data.db import get_connection
 
 logger = logging.getLogger(__name__)
 
 TABLE_NAME = "gesec_facture_gm_pred"
+
+
+def _ensure_result_table(conn: psycopg.Connection, ddl: LiteralString) -> None:
+    """Crée la table de résultats si absente (idempotent)."""
+    with conn.cursor() as cur:
+        cur.execute(sql.SQL(ddl))
+    conn.commit()
 
 
 def build_llm_client() -> LLMClient:
@@ -59,7 +70,7 @@ def process_to_gold(
     llm = llm_client or build_llm_client()
     identifiants = read_identifiants_csv(identifiants_csv) if identifiants_csv else None
     with get_connection() as conn:
-        ensure_result_table(conn, load_ddl())
+        _ensure_result_table(conn, load_ddl())
         return run_classify_hierarchical(
             conn,
             llm,

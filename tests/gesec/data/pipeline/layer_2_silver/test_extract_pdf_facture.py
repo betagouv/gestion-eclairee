@@ -6,7 +6,7 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from gesec.data.classify_gm.db import get_database_url
+from gesec.data.db import get_data_database_url
 from gesec.data.extract_pdf.result_table import TABLE_NAME as BRONZE_TABLE_NAME
 from gesec.data.extract_pdf.result_table import upsert
 from gesec.data.extract_pdf.schemas import BronzeExtractPdf, ExtractedFacture, ExtractedLigne
@@ -19,21 +19,20 @@ from gesec.data.pipeline.layer_2_silver.extract_pdf_ligne import (
 )
 from gesec.data.pipeline.layer_2_silver.extract_pdf_ligne import derive_amounts, transform_to_silver
 
-pytestmark = pytest.mark.django_db(transaction=True)
+pytestmark = pytest.mark.django_db(transaction=True, databases="__all__")
 
 TABLES = (BRONZE_TABLE_NAME, FACTURE_TABLE_NAME, LIGNE_TABLE_NAME)
 
 
 @pytest.fixture
-def tables(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setenv("DATABASE_URL", get_database_url())
-    connection = psycopg.connect(get_database_url())
+def tables() -> Iterator[None]:
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         _drop_tables(cur)
     connection.commit()
     connection.close()
     yield
-    connection = psycopg.connect(get_database_url())
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         _drop_tables(cur)
     connection.commit()
@@ -92,7 +91,7 @@ def test_process_to_silver_writes_factures_and_lignes(tables: None) -> None:
 
     process_to_silver()
 
-    connection = psycopg.connect(get_database_url())
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         cur.execute(
             sql.SQL("SELECT id_cpro, status, objet_facture, error_type FROM {} ORDER BY id_cpro").format(

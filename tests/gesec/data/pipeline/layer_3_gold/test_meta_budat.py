@@ -3,25 +3,21 @@ from datetime import date
 from decimal import Decimal
 from typing import Any, Iterator, Sequence
 
-from django.conf import settings
-
 import pytest
-import sqlalchemy
 from pydantic import BaseModel
 from sqlalchemy import Engine, text
-from sqlalchemy.engine import URL
 
 import pandas as pd
 
 from gesec.data.classify_gm.paths import load_ddl
-from gesec.data.pipeline.db import pydantic_model_to_table
+from gesec.data.pipeline.db import create_engine, pydantic_model_to_table
 from gesec.data.pipeline.layer_1_bronze.schemas import BronzeBudatExportAugdt
 from gesec.data.pipeline.layer_2_silver.schemas import SilverService
 from gesec.data.pipeline.layer_3_gold.constants import UGAP_SIREN
 from gesec.data.pipeline.layer_3_gold.meta_budat import TABLE_NAME, process_to_gold
 from gesec.data.pipeline.layer_3_gold.schemas import GoldCproExportFactureLigne, GoldFacture, GoldFournisseurInFine
 
-pytestmark = pytest.mark.django_db(transaction=True)
+pytestmark = pytest.mark.django_db(transaction=True, databases="__all__")
 
 FOURNISSEUR_IN_FINE_TABLE = "gesec_facture_ligne_fournisseur_in_fine"
 FACTURE_TABLE = "gesec_facture"
@@ -37,19 +33,6 @@ RAW_TABLES = [
 ]
 
 
-def build_engine() -> Engine:
-    database = settings.DATABASES["default"]
-    url = URL.create(
-        "postgresql+psycopg",
-        username=database["USER"] or None,
-        password=database["PASSWORD"] or None,
-        host=database["HOST"] or None,
-        port=database["PORT"] or None,
-        database=database["NAME"],
-    )
-    return sqlalchemy.create_engine(url)
-
-
 def drop_raw_tables(engine: Engine) -> None:
     with engine.begin() as conn:
         for table in RAW_TABLES:
@@ -58,7 +41,7 @@ def drop_raw_tables(engine: Engine) -> None:
 
 @pytest.fixture
 def engine() -> Iterator[Engine]:
-    test_engine = build_engine()
+    test_engine = create_engine()
     drop_raw_tables(test_engine)
     create_empty_table(test_engine, FACTURE_TABLE, GoldFacture)
     create_empty_table(test_engine, "gesec_facture_ligne", GoldCproExportFactureLigne)

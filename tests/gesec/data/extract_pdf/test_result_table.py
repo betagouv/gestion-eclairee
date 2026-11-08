@@ -5,23 +5,22 @@ import pytest
 from psycopg import sql
 from sqlalchemy import text
 
-from gesec.data.classify_gm.db import get_database_url
+from gesec.data.db import get_data_database_url
 from gesec.data.extract_pdf.result_table import TABLE_NAME, select_target_ids, upsert
 from gesec.data.extract_pdf.schemas import BronzeExtractPdf
 from gesec.data.pipeline.db import execute_sql
 
-pytestmark = pytest.mark.django_db(transaction=True)
+pytestmark = pytest.mark.django_db(transaction=True, databases="__all__")
 
 
 @pytest.fixture
-def bronze_table(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setenv("DATABASE_URL", get_database_url())
-    connection = psycopg.connect(get_database_url())
+def bronze_table() -> Iterator[None]:
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(TABLE_NAME)))
     connection.commit()
     yield
-    connection = psycopg.connect(get_database_url())
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(TABLE_NAME)))
     connection.commit()

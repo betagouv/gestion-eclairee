@@ -115,7 +115,13 @@ WSGI_APPLICATION = "gesec.front.wsgi.application"
 
 DATABASES = {
     "default": config.db("DATABASE_URL"),
+    # Base dédiée aux données du pipeline (bronze/silver/gold), distincte de la
+    # base applicative de l'API. Par défaut (dev/test sans DATA_DATABASE_URL),
+    # retombe sur DATABASE_URL : les deux alias pointent alors vers la même base.
+    "data": config.db("DATA_DATABASE_URL", default=config.str("DATABASE_URL")),
 }
+
+DATABASE_ROUTERS = ["gesec.routers.DataRouter"]
 
 
 # Password validation

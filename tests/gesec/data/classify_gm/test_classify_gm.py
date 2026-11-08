@@ -8,12 +8,12 @@ from psycopg import sql
 
 from gesec.data.classify_gm.classify import count_samples, iter_samples, read_identifiants_csv
 from gesec.data.classify_gm.classify_hierarchy import run_classify_hierarchical
-from gesec.data.classify_gm.db import get_database_url
 from gesec.data.classify_gm.gold import TABLE_NAME
 from gesec.data.classify_gm.llm import LLMAskResult
 from gesec.data.classify_gm.paths import load_ddl
+from gesec.data.db import get_data_database_url
 
-pytestmark = pytest.mark.django_db(transaction=True)
+pytestmark = pytest.mark.django_db(transaction=True, databases="__all__")
 
 
 class FakeLLM:
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS gesec_facture_ligne (
 
 @pytest.fixture
 def conn() -> Iterator[psycopg.Connection]:
-    connection = psycopg.connect(get_database_url())
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(TABLE_NAME)))
         cur.execute(load_ddl())

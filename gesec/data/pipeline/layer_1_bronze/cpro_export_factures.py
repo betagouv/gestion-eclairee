@@ -506,7 +506,7 @@ def parse_args():
         usage="%prog [options] DIRECTORY",
         description="Export CSV files matching pattern <num_ej>_<service>_<start>_<end>.csv to a database table. "
         "DIRECTORY is required and should contain the CSV files to process. "
-        "DATABASE_URL is loaded from .env file or environment variable.",
+        "DATA_DATABASE_URL is loaded from .env file or environment variable.",
     )
     parser.add_option(
         "--table-name",

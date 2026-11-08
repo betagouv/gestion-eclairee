@@ -1,6 +1,5 @@
 import datetime
 import logging
-import os
 from collections.abc import Iterable, Iterator
 from decimal import Decimal
 from typing import Any, Literal, Optional, Sequence, Type, TypeVar, Union, get_args, get_origin
@@ -12,6 +11,8 @@ from sqlalchemy import ARRAY, Column, Engine, Executable, MetaData, Row, Table, 
 from sqlalchemy.dialects.postgresql import HSTORE, JSONB
 from sqlalchemy.engine.interfaces import _CoreAnyExecuteParams
 from sqlalchemy.sql.sqltypes import TypeEngine
+
+from gesec.data.db import get_data_database_url
 
 logger = logging.getLogger(__name__)
 
@@ -39,10 +40,7 @@ _TYPE_MAPPING: dict[Any, type[TypeEngine]] = {
 
 
 def create_engine() -> Engine:
-    # Get database URL from environment
-    db_url = os.environ.get("DATABASE_URL")
-    if db_url is None:
-        raise ValueError("DATABASE_URL environment variable is required")
+    db_url = get_data_database_url()
     if db_url.startswith("postgres://"):
         db_url = "postgresql+psycopg://" + db_url.removeprefix("postgres://")
     elif db_url.startswith("postgresql://"):

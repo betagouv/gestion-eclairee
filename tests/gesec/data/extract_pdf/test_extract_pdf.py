@@ -254,6 +254,7 @@ def _put(s3_client, key: str, body: bytes | str) -> None:
     s3_client.Bucket("test-depec").put_object(Key=key, Body=body)
 
 
+@pytest.mark.django_db(transaction=True, databases="__all__")
 def test_scan_inventory_selects_factures_without_gold_lines(
     s3_client,
     monkeypatch: pytest.MonkeyPatch,
@@ -374,19 +375,18 @@ def _candidate(id_cpro: str) -> PdfCandidate:
 
 
 @pytest.fixture
-def bronze_table(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def bronze_table() -> Iterator[None]:
     from psycopg import sql
 
-    from gesec.data.classify_gm.db import get_database_url
+    from gesec.data.db import get_data_database_url
 
-    monkeypatch.setenv("DATABASE_URL", get_database_url())
-    connection = psycopg.connect(get_database_url())
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(TABLE_NAME)))
     connection.commit()
     connection.close()
     yield
-    connection = psycopg.connect(get_database_url())
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(TABLE_NAME)))
     connection.commit()
@@ -396,9 +396,9 @@ def bronze_table(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 def _seed_gold(*, factures: list[str], lignes: list[str]) -> None:
     from psycopg import sql
 
-    from gesec.data.classify_gm.db import get_database_url
+    from gesec.data.db import get_data_database_url
 
-    connection = psycopg.connect(get_database_url())
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         for table in ("gesec_facture", "gesec_facture_ligne"):
             cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(table)))
@@ -411,14 +411,13 @@ def _seed_gold(*, factures: list[str], lignes: list[str]) -> None:
 
 
 @pytest.fixture
-def gold_tables(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def gold_tables() -> Iterator[None]:
     from psycopg import sql
 
-    from gesec.data.classify_gm.db import get_database_url
+    from gesec.data.db import get_data_database_url
 
-    monkeypatch.setenv("DATABASE_URL", get_database_url())
     yield
-    connection = psycopg.connect(get_database_url())
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         for table in ("gesec_facture", "gesec_facture_ligne"):
             cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(table)))
@@ -426,7 +425,7 @@ def gold_tables(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     connection.close()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases="__all__")
 def test_select_targets_respecte_les_modes(bronze_table: None):
     upsert(BronzeExtractPdf(id_cpro="1", status="failed", error_type="llm"))
     upsert(BronzeExtractPdf(id_cpro="2", status="success"))
@@ -511,7 +510,7 @@ def test_transform_to_silver_reports_incomplete_amounts():
     assert lignes[0].line_amount_vat is None
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases="__all__")
 def test_run_extract_dry_run_counts_statuses_without_writes(bronze_table: None):
     selection = PdfSelection(
         candidates={"1": _candidate("1")},
@@ -524,7 +523,7 @@ def test_run_extract_dry_run_counts_statuses_without_writes(bronze_table: None):
     assert summary.success == 0
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases="__all__")
 def test_run_extract_limit_borne_les_candidats(bronze_table: None):
     selection = PdfSelection(
         candidates={id_cpro: _candidate(id_cpro) for id_cpro in ("1", "2", "3")},

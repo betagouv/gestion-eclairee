@@ -157,6 +157,11 @@ La contrainte unique sur gm échouait sur les factures sans engagement.
 ## Environnement
 
 - `ENV_FILE` force l'env chargé ; défaut `../gesec.env`.
+- Deux bases configurées (voir `docs/adr/0010-deux-bases-de-donnees.md`) :
+  `DATABASE_URL` = base applicative de l'API Django (alias `default`, users,
+  OAuth, sessions) ; `DATA_DATABASE_URL` = base des données du pipeline
+  (alias `data`, bronze/silver/gold) — repli sur `DATABASE_URL` si absent
+  (dev/test). Le pipeline (SQLAlchemy/psycopg) cible toujours `data`.
 - `STORAGE_BACKEND=fs|s3` ; entrées pipeline attendues sous la racine du storage
   (`cpro/exports`, `cpro/factures_unzipped`, `oda/...`, `budat/...`).
 - `ALBERT_API_KEY` / `ALBERT_BASE_URL` pour le LLM.

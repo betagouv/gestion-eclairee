@@ -2,14 +2,14 @@ from datetime import date
 from decimal import Decimal
 
 from django.contrib.auth.models import Permission
-from django.db import connection
+from django.db import connections
 
 import pytest
 
 from gesec.front.api.models import MetaBudat
 from tests.gesec.front.oauth.helpers import make_access_token, make_mcp_user
 
-pytestmark = pytest.mark.django_db(transaction=True)
+pytestmark = pytest.mark.django_db(transaction=True, databases="__all__")
 
 ALL_FIELDS = [
     "source",
@@ -136,11 +136,12 @@ def make_row(**overrides) -> dict:
 
 @pytest.fixture
 def meta_budat_table():
-    if MetaBudat._meta.db_table not in connection.introspection.table_names():
-        with connection.schema_editor() as editor:
+    data_connection = connections["data"]
+    if MetaBudat._meta.db_table not in data_connection.introspection.table_names():
+        with data_connection.schema_editor() as editor:
             editor.create_model(MetaBudat)
     yield
-    with connection.schema_editor() as editor:
+    with data_connection.schema_editor() as editor:
         editor.delete_model(MetaBudat)
 
 

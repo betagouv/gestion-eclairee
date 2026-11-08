@@ -5,7 +5,7 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from gesec.data.classify_gm.db import get_database_url
+from gesec.data.db import get_data_database_url
 from gesec.data.pipeline.db import TableWriter
 from gesec.data.pipeline.layer_2_silver.extract_pdf_ligne import DEFAULT_TABLE_NAME as SILVER_PDF_LIGNE_TABLE_NAME
 from gesec.data.pipeline.layer_2_silver.schemas import SilverExtractPdfLigne
@@ -13,7 +13,7 @@ from gesec.data.pipeline.layer_3_gold.extract_pdf import transform_to_gold
 from gesec.data.pipeline.layer_3_gold.facture import transform_silver_to_gold
 from tests.gesec.data.pipeline.layer_3_gold.test_facture_ligne import silver_facture
 
-pytestmark = pytest.mark.django_db(transaction=True)
+pytestmark = pytest.mark.django_db(transaction=True, databases="__all__")
 
 _FACTURE_DDL = """
 CREATE TABLE gesec_facture (
@@ -26,9 +26,8 @@ CREATE TABLE gesec_facture (
 
 
 @pytest.fixture
-def tables(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    monkeypatch.setenv("DATABASE_URL", get_database_url())
-    connection = psycopg.connect(get_database_url())
+def tables() -> Iterator[None]:
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         for table in ("gesec_facture", SILVER_PDF_LIGNE_TABLE_NAME, "silver_extract_pdf_facture"):
             cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(table)))
@@ -37,7 +36,7 @@ def tables(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     connection.commit()
     connection.close()
     yield
-    connection = psycopg.connect(get_database_url())
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         for table in ("gesec_facture", SILVER_PDF_LIGNE_TABLE_NAME, "silver_extract_pdf_facture"):
             cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier(table)))
@@ -129,7 +128,7 @@ def test_transform_to_gold_ecarte_facture_sans_en_tete(tables: None) -> None:
 
 
 def test_transform_silver_to_gold_reprend_objet_pdf(tables: None) -> None:
-    connection = psycopg.connect(get_database_url())
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         cur.execute("CREATE TABLE silver_extract_pdf_facture (id_cpro TEXT, objet_facture TEXT)")
         cur.execute("INSERT INTO silver_extract_pdf_facture VALUES ('cpro-1', 'Objet PDF')")
@@ -145,7 +144,7 @@ def test_transform_silver_to_gold_reprend_objet_pdf(tables: None) -> None:
 
     assert [facture.objet_facture for facture in factures] == ["Objet PDF"]
 
-    connection = psycopg.connect(get_database_url())
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier("silver_extract_pdf_facture")))
     connection.commit()
@@ -153,7 +152,7 @@ def test_transform_silver_to_gold_reprend_objet_pdf(tables: None) -> None:
 
 
 def test_transform_silver_to_gold_lit_les_objets_par_fenetre(tables: None) -> None:
-    connection = psycopg.connect(get_database_url())
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         cur.execute("CREATE TABLE silver_extract_pdf_facture (id_cpro TEXT, objet_facture TEXT)")
         cur.execute(
@@ -173,7 +172,7 @@ def test_transform_silver_to_gold_lit_les_objets_par_fenetre(tables: None) -> No
 
     assert [facture.objet_facture for facture in factures] == ["Objet 1", "Objet 2", "Objet 3"]
 
-    connection = psycopg.connect(get_database_url())
+    connection = psycopg.connect(get_data_database_url())
     with connection.cursor() as cur:
         cur.execute(sql.SQL("DROP TABLE IF EXISTS {}").format(sql.Identifier("silver_extract_pdf_facture")))
     connection.commit()
