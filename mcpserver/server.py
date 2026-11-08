@@ -164,7 +164,9 @@ def api_get(ctx: Context, path: str, params: dict[str, Any] | None = None) -> di
 
 @mcp.tool(
     description=(
-        "Interroge la méta-table BUDAT (lignes de dépenses). Sans group_by/agg : renvoie des lignes "
+        "Interroge la méta-table BUDAT (lignes de dépenses). Commencer par appeler meta_budat_schema "
+        "pour connaître les champs filtrables/groupables/numériques exacts et les fonctions d'agrégation. "
+        "Sans group_by/agg : renvoie des lignes "
         "(au plus 100). Avec group_by et/ou agg : renvoie des lignes agrégées (au plus 100). "
         "filters : annee, cas, source, ministere, segment, domaine, gm, service, fournisseur_in_fine_siren, "
         "id_cpro (égalité), fournisseur_budat, fournisseur_in_fine_designation (icontains), "
