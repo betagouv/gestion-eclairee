@@ -68,6 +68,10 @@ Inspection interactive :
 npx @modelcontextprotocol/inspector --url http://127.0.0.1:9000/mcp
 ```
 
+Protocole de test de bout en bout en local (Django + MCP + client OpenCode,
+flux OAuth via ProConnect de l'intégration) :
+`docs/test-mcp-opencode-local.md`.
+
 Config opencode (mode remote) : l'agent fait lui-même la découverte OAuth
 (RFC 9728 → RFC 8414 → Authorization Code + PKCE S256) avec un client
 pré-enregistré par l'admin Django (pas de DCR) ; seul le `client_id` (public,
