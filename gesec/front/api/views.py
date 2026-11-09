@@ -3,7 +3,6 @@ from django.db.models.expressions import Combinable
 
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import BasePermission
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -21,12 +20,6 @@ class HealthcheckView(APIView):
         user = request.user
         assert isinstance(user, User)
         return Response({"ok": True, "username": user.email})
-
-
-class ApiAccessPermission(BasePermission):
-    def has_permission(self, request: Request, view: viewsets.ViewSet) -> bool:
-        user = request.user
-        return bool(user and user.is_authenticated and user.has_perm("gesec.api_access"))
 
 
 def parse_agg(specs: list[str]) -> tuple[dict[str, Combinable] | None, str | None]:
@@ -51,7 +44,6 @@ def parse_agg(specs: list[str]) -> tuple[dict[str, Combinable] | None, str | Non
 class MetaBudatViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     queryset = MetaBudat.objects.all()
     serializer_class = MetaBudatSerializer
-    permission_classes = [ApiAccessPermission]
     filterset_class = MetaBudatFilter
     ordering_fields = sorted(MetaBudat.ORDERABLE)
     ordering = ["-facture_date"]

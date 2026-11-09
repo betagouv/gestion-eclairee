@@ -36,8 +36,8 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
   (`MCP_PORT` défaut `9000` ; en prod, process `mcp` du Procfile, port via `MCP_PORT`)
   Authentification : OAuth2 — Django fait serveur d'autorisation (DOT, PKCE S256,
   scope `data`, pas de DCR : clients pré-enregistrés créés dans l'admin Django) ; le
-  process `mcp` forwarde le Bearer tel quel vers `/api/` (permissions Django standard :
-  `IsAuthenticated` par défaut). Voir `docs/adr/0008`.
+   process `mcp` forwarde le Bearer tel quel vers `/api/` (permission par défaut :
+   `gesec.api_access`). Voir `docs/adr/0008`.
 - Inspection MCP : `npx @modelcontextprotocol/inspector --url http://127.0.0.1:9000/mcp`
   (flux OAuth : discovery RFC 9728/8414 → authorize + PKCE avec client pré-enregistré)
 - Test de bout en bout du MCP avec un client OpenCode local (Django + MCP + flux OAuth
@@ -58,14 +58,16 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
 - `gesec/front/` : vues, auth OIDC, rate limiting, templates DSFR
 - `gesec/front/oauth.py` : validateur OAuth (audience RFC 8707 + utilisateurs inactifs),
   rate limiting `/oauth/` ; le modèle client `OAuthApplication` est dans `gesec/common/models.py`
-- `gesec/front/api/` : routes `/api` authentifiées par jeton OAuth2 (Bearer) ;
+- `gesec/front/api/` : routes `/api` authentifiées par jeton OAuth2 (Bearer),
+  permission par défaut `gesec.api_access` (globale, déclarée dans
+  `User.Meta.permissions` ; 401 sans jeton, 403 sans la permission) sur toutes les
+  routes `/api/` dont `/api/healthcheck` ;
   `GET /api/meta-budat/` (route unique : lignes, ou agrégats si `group_by`/`agg`
   présent — filtres django-filter, tri, plafond dur 25 lignes, 400 si champ
   inconnu ; en mode agrégat `ordering` accepte les agrégats ex. `-sum_montant`),
   rate limit global 200 requêtes/jour sur toutes les routes `/api/` (429 +
   `Retry-After`, `ApiRateLimitMiddleware`),
-  `GET /api/meta-budat/schema/` (allowlists) — permission `gesec.api_access`
-  (globale, déclarée dans `User.Meta.permissions`), modèle non géré `MetaBudat` ;
+  `GET /api/meta-budat/schema/` (allowlists) — modèle non géré `MetaBudat` ;
   exposés aux agents via les outils MCP `meta_budat_query` /
   `meta_budat_schema`. Voir `docs/adr/0009`.
 - `gesec/common/models.py` : `BaseModel` ; `gesec/models.py` ré-exporte les modèles

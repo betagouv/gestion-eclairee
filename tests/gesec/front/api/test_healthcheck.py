@@ -1,5 +1,6 @@
 import pytest
 
+from tests.factories.users import UserFactory
 from tests.gesec.front.oauth.helpers import make_access_token, make_application, make_mcp_user
 
 
@@ -30,6 +31,16 @@ def test_healthcheck_requires_authorization(client):
 
     assert response.status_code == 401
     assert "resource_metadata" in response.headers["WWW-Authenticate"]
+
+
+@pytest.mark.django_db
+def test_healthcheck_requires_api_access_permission(client):
+    user = UserFactory.create()
+    access_token = make_access_token(user)
+
+    response = client.get("/api/healthcheck", headers={"Authorization": f"Bearer {access_token}"})
+
+    assert response.status_code == 403
 
 
 @pytest.mark.django_db

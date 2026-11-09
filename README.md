@@ -95,9 +95,9 @@ Authentification : OAuth2. Le serveur MCP est un passe-plat sans état qui
 forwarde le `Bearer` reçu vers l'API Django ; c'est Django qui joue le rôle de
 serveur d'autorisation (django-oauth-toolkit, clients créés dans l'admin
 Django uniquement, redirect URIs de boucle locale uniquement, clients publics
-+ PKCE S256, scope unique `data`). L'API `/api/` exige une authentification
-(permissions Django standard : `IsAuthenticated` par défaut,
-`DjangoModelPermissions` par ressource). Voir `docs/adr/0008-as-oauth-mcp.md`.
++ PKCE S256, scope unique `data`). L'API `/api/` exige la permission Django
+globale `gesec.api_access` (par défaut DRF sur toutes les routes `/api/`,
+401 sans jeton, 403 sans la permission). Voir `docs/adr/0008-as-oauth-mcp.md`.
 
 Variables d'environnement :
 

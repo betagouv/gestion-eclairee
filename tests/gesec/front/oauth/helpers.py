@@ -1,6 +1,7 @@
 import secrets
 from datetime import timedelta
 
+from django.contrib.auth.models import Permission
 from django.utils import timezone
 
 from oauth2_provider.models import get_access_token_model, set_token_value
@@ -13,7 +14,12 @@ DEFAULT_REDIRECT_URI = "http://127.0.0.1:8080/callback"
 
 
 def make_mcp_user(**kwargs):
-    return UserFactory.create(**kwargs)
+    user = UserFactory.create(**kwargs)
+    permission = Permission.objects.get(
+        content_type__app_label="gesec", content_type__model="user", codename="api_access"
+    )
+    user.user_permissions.add(permission)
+    return user
 
 
 def make_application(user=None, **kwargs) -> OAuthApplication:

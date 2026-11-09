@@ -1,12 +1,12 @@
 from datetime import date
 from decimal import Decimal
 
-from django.contrib.auth.models import Permission
 from django.db import connections
 
 import pytest
 
 from gesec.front.api.models import MetaBudat
+from tests.factories.users import UserFactory
 from tests.gesec.front.oauth.helpers import make_access_token, make_mcp_user
 
 pytestmark = pytest.mark.django_db(transaction=True, databases="__all__")
@@ -147,12 +147,7 @@ def meta_budat_table():
 
 @pytest.fixture
 def api_user():
-    user = make_mcp_user()
-    permission = Permission.objects.get(
-        content_type__app_label="gesec", content_type__model="user", codename="api_access"
-    )
-    user.user_permissions.add(permission)
-    return user
+    return make_mcp_user()
 
 
 def auth_headers(user) -> dict[str, str]:
@@ -165,7 +160,7 @@ def test_list_requires_token(client, meta_budat_table):
 
 
 def test_list_requires_api_access_permission(client, meta_budat_table):
-    user = make_mcp_user()
+    user = UserFactory.create()
     response = client.get("/api/meta-budat/", headers=auth_headers(user))
     assert response.status_code == 403
 
@@ -299,7 +294,7 @@ def test_aggregate_rejects_unknown_group_by_and_agg(client, meta_budat_table, ap
 
 
 def test_aggregate_requires_permission(client, meta_budat_table):
-    user = make_mcp_user()
+    user = UserFactory.create()
     response = client.get("/api/meta-budat/?agg=count:*", headers=auth_headers(user))
     assert response.status_code == 403
 
