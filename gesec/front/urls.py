@@ -41,4 +41,6 @@ urlpatterns = [
 ]
 
 if settings.ADMIN_BASE_URL_PATH:
+    admin_base_path = settings.ADMIN_BASE_URL_PATH.rstrip("/")
+    urlpatterns.append(path(f"{admin_base_path}/login/", views.admin_login_redirect))
     urlpatterns.append(path(settings.ADMIN_BASE_URL_PATH, admin.site.urls))

@@ -146,7 +146,6 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_USER_MODEL = "gesec.User"
 AUTHENTICATION_BACKENDS = [
     "gesec.front.auth.backends.CustomOIDCBackend",
-    "django.contrib.auth.backends.ModelBackend",
 ]
 
 LOGIN_URL = reverse_lazy("login")
