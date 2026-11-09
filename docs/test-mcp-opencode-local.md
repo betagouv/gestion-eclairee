@@ -15,8 +15,9 @@ les demander à l'utilisateur (environnement d'intégration uniquement).
   l'utilisateur qui va se connecter via ProConnect (sinon
   `meta_budat_query` / `meta_budat_schema` répondent 403).
 - Un client OAuth pré-enregistré dans l'admin Django (voir ADR 0008) : client
-  public, flux authorization code, redirect URI de boucle locale
-  `http://127.0.0.1/callback` (le port est libre, le chemin doit correspondre
+  public, flux authorization code, redirect URIs de boucle locale
+  `http://127.0.0.1/callback` et `http://127.0.0.1/mcp/oauth/callback` (callback
+  par défaut d'OpenCode ; le port est libre, le chemin doit correspondre
   exactement). Noter son `client_id` (public, non secret).
 - Le serveur Django doit tourner avec l'OIDC de l'intégration ProConnect :
   `OIDC_RP_DOMAIN=fca.integ01.dev-agentconnect.fr` (+ `OIDC_RP_CLIENT_ID` /
