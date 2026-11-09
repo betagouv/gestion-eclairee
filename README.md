@@ -111,8 +111,6 @@ Variables d'environnement :
 - `MCP_ALLOWED_HOST` : hôte autorisé pour la protection anti-DNS-rebinding. Le
   port fait partie du `Host` reçu : utiliser `<hôte>:*` si le client inclut un
   port (sinon le serveur répond `421 Misdirected Request`).
-- `OAUTH_ACCESS_TOKEN_TTL` : durée de vie d'un access token OAuth en secondes
-  (défaut `3600`).
 
 ## API de données meta_budat
 

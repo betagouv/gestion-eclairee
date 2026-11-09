@@ -114,8 +114,8 @@ reste du ressort de `/api/`.
 - `PUBLIC_BASE_URL` : URL publique de Django, issuer OAuth.
 - `MCP_PUBLIC_URL` : URL publique du MCP (audience RFC 8707 / ressource RFC
   9728) — doit être exactement l'URL appelée par l'agent pour `/mcp`.
-- `OAUTH_ACCESS_TOKEN_TTL` : TTL des access tokens en secondes (défaut 3600) ;
-  les refresh tokens durent 30 jours avec rotation et protection anti-rejeu.
+- TTL des jetons en dur dans `gesec/settings.py` : access token 1 h,
+  refresh token 10 h avec rotation et protection anti-rejeu.
 
 ## Déploiement
 
