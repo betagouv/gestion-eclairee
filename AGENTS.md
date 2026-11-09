@@ -40,6 +40,8 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
   `IsAuthenticated` par défaut). Voir `docs/adr/0008`.
 - Inspection MCP : `npx @modelcontextprotocol/inspector --url http://127.0.0.1:9000/mcp`
   (flux OAuth : discovery RFC 9728/8414 → authorize + PKCE avec client pré-enregistré)
+- Test de bout en bout du MCP avec un client OpenCode local (Django + MCP + flux OAuth
+  complet) : suivre `docs/test-mcp-opencode-local.md`
 - Recette de bout en bout : `./test_recette.sh` (ENV_FILE=../gesec-recette.env)
 
 ## Architecture
