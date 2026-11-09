@@ -62,33 +62,10 @@ def forward_authorization(ctx: HeadersCarrier) -> str:
     return f"Bearer {value}"
 
 
-@mcp.tool(description="Vérifie la connectivité avec l'API partenaire (GET sur l'URL de base, sans authentification).")
-def healthcheck() -> dict[str, Any]:
-    target = os.environ.get("MCP_BASE_API_URL")
-    if not target:
-        return {"ok": False, "error": "MCP_BASE_API_URL est absent"}
-
-    started = time.perf_counter()
-    try:
-        response = httpx.get(target, timeout=DEFAULT_TIMEOUT)
-    except httpx.HTTPError as e:
-        return {
-            "ok": False,
-            "url": target,
-            "error": f"{type(e).__name__}: {e}",
-            "latency_ms": round((time.perf_counter() - started) * 1000, 1),
-        }
-
-    return {
-        "ok": response.is_success,
-        "url": target,
-        "status_code": response.status_code,
-        "latency_ms": round((time.perf_counter() - started) * 1000, 1),
-    }
-
-
-@mcp.tool(description="Vérifie l'authentification utilisateur auprès de l'API (Bearer OAuth requis).")
-def auth_healthcheck(ctx: Context) -> dict[str, Any]:
+@mcp.tool(
+    description=("Vérifie en un seul appel que l'API partenaire est joignable et que l'authentification fonctionne.")
+)
+def healthcheck(ctx: Context) -> dict[str, Any]:
     base_url = os.environ.get("MCP_BASE_API_URL")
     if not base_url:
         return {"ok": False, "error": "MCP_BASE_API_URL est absent"}
@@ -96,7 +73,7 @@ def auth_healthcheck(ctx: Context) -> dict[str, Any]:
     try:
         authorization = forward_authorization(ctx)
     except McpAuthError as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "api_reachable": None, "auth_ok": False, "error": str(e)}
 
     url = base_url.rstrip("/") + "/api/healthcheck"
     started = time.perf_counter()
@@ -105,6 +82,8 @@ def auth_healthcheck(ctx: Context) -> dict[str, Any]:
     except httpx.HTTPError as e:
         return {
             "ok": False,
+            "api_reachable": False,
+            "auth_ok": None,
             "url": url,
             "error": f"{type(e).__name__}: {e}",
             "latency_ms": round((time.perf_counter() - started) * 1000, 1),
@@ -119,6 +98,9 @@ def auth_healthcheck(ctx: Context) -> dict[str, Any]:
 
     return {
         "ok": response.is_success,
+        "api_reachable": True,
+        "auth_ok": response.is_success,
+        "url": url,
         "status_code": response.status_code,
         "body": body,
         "latency_ms": round((time.perf_counter() - started) * 1000, 1),
