@@ -87,6 +87,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "gesec.front.oauth.OAuthRateLimitMiddleware",
+    "gesec.front.api.ratelimit.ApiRateLimitMiddleware",
 ]
 
 ROOT_URLCONF = "gesec.front.urls"

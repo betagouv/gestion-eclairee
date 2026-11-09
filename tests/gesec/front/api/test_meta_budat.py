@@ -225,7 +225,7 @@ def test_list_ordering(client, meta_budat_table, api_user):
     assert response.status_code == 200
 
 
-def test_list_capped_at_100_rows(client, meta_budat_table, api_user):
+def test_list_capped_at_max_rows(client, meta_budat_table, api_user):
     MetaBudat.objects.bulk_create(
         MetaBudat(**make_row(facture=f"F{i}", source_idx=i, montant=Decimal(i))) for i in range(150)
     )
@@ -233,7 +233,7 @@ def test_list_capped_at_100_rows(client, meta_budat_table, api_user):
     response = client.get("/api/meta-budat/", headers=auth_headers(api_user))
 
     assert response.status_code == 200
-    assert len(response.json()) == 100
+    assert len(response.json()) == 25
 
 
 def test_aggregate_group_by(client, meta_budat_table, api_user):
@@ -281,7 +281,7 @@ def test_aggregate_applies_filters_and_cap(client, meta_budat_table, api_user):
     )
     response = client.get("/api/meta-budat/?group_by=segment&agg=count:*", headers=auth_headers(api_user))
     assert response.status_code == 200
-    assert len(response.json()) == 100
+    assert len(response.json()) == 25
 
 
 def test_aggregate_rejects_unknown_group_by_and_agg(client, meta_budat_table, api_user):
@@ -313,7 +313,7 @@ def test_schema(client, meta_budat_table, api_user):
     assert body["groupable"] == sorted(MetaBudat.GROUPABLE)
     assert body["numeric"] == sorted(MetaBudat.NUMERIC)
     assert body["agg_funcs"] == sorted(MetaBudat.AGG_FUNCS)
-    assert body["max_rows"] == 100
+    assert body["max_rows"] == 25
 
 
 def test_detail_route_not_exposed(client, meta_budat_table, api_user):

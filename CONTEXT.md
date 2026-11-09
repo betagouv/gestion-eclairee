@@ -226,8 +226,9 @@ Lecture seule de la méta-table `gesec_meta_budat` par l'agent via
 `/api/meta-budat/` (route unique : lignes, ou agrégats si `group_by`/`agg`
 présent, tri possible sur les agrégats ex. `-sum_montant`) et
 `/api/meta-budat/schema/` (allowlists). Permission `gesec.api_access`
-(globale, déclarée dans `User.Meta.permissions`) ; plafond dur de 100 lignes
-(listes et agrégats) ; 400 sur champ, fonction ou terme de tri inconnu.
+(globale, déclarée dans `User.Meta.permissions`) ; plafond dur de 25 lignes
+(listes et agrégats) ; rate limit global 200 requêtes/jour sur `/api/` ;
+400 sur champ, fonction ou terme de tri inconnu.
 Voir ADR 0009.
 _Dans les sources_ : table `gesec_meta_budat`
 _Éviter_ : endpoint meta_budat sans préfixe /api/

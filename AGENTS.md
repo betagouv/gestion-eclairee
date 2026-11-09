@@ -60,8 +60,10 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
   rate limiting `/oauth/` ; le modèle client `OAuthApplication` est dans `gesec/common/models.py`
 - `gesec/front/api/` : routes `/api` authentifiées par jeton OAuth2 (Bearer) ;
   `GET /api/meta-budat/` (route unique : lignes, ou agrégats si `group_by`/`agg`
-  présent — filtres django-filter, tri, plafond dur 100 lignes, 400 si champ
+  présent — filtres django-filter, tri, plafond dur 25 lignes, 400 si champ
   inconnu ; en mode agrégat `ordering` accepte les agrégats ex. `-sum_montant`),
+  rate limit global 200 requêtes/jour sur toutes les routes `/api/` (429 +
+  `Retry-After`, `ApiRateLimitMiddleware`),
   `GET /api/meta-budat/schema/` (allowlists) — permission `gesec.api_access`
   (globale, déclarée dans `User.Meta.permissions`), modèle non géré `MetaBudat` ;
   exposés aux agents via les outils MCP `meta_budat_query` /

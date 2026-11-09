@@ -13,7 +13,7 @@ from gesec.front.api.filters import MetaBudatFilter
 from gesec.front.api.models import MetaBudat
 from gesec.front.api.serializers import MetaBudatSerializer
 
-MAX_ROWS = 100
+MAX_ROWS = 25
 
 
 class HealthcheckView(APIView):

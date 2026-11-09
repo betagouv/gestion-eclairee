@@ -126,7 +126,7 @@ La méta-table BUDAT est exposée en lecture seule (voir
   `montant_max`, `facture_date_after`/`facture_date_before`, `ordering=...`).
   Avec `group_by` et/ou `agg` : lignes agrégées, ex.
   `?segment=<segment>&group_by=fournisseur_budat&agg=sum:montant&ordering=-sum_montant`
-  (top fournisseurs du segment). **Plafond dur de 100 lignes** dans les deux
+   (top fournisseurs du segment). **Plafond dur de 25 lignes** dans les deux
   modes ; 400 si champ, fonction ou terme de tri inconnu. En mode agrégat,
   `ordering` accepte les champs de `group_by` et les noms d'agrégats
   (`sum_montant`, `count_all`, ...).

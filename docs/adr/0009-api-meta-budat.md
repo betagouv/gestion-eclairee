@@ -24,8 +24,11 @@ agent MCP --Bearer--> mcpserver (passe-plat) --Bearer--> Django /api/meta-budat/
   automatiquement par le signal `post_migrate` `create_permissions` ; vérifiée
   par `ApiAccessPermission` (`user.has_perm`). Aucun scoping par ministère en
   v1 ; `get_queryset` reste le point d'ancrage pour un futur périmètre.
-- **Plafond dur de 100 lignes** (`MAX_ROWS`), appliqué aux listes **et** aux
+- **Plafond dur de 25 lignes** (`MAX_ROWS`), appliqué aux listes **et** aux
   agrégats — jamais plus, sans pagination par page.
+- **Rate limit global de 200 requêtes/jour** sur toutes les routes `/api/`
+  (`ApiRateLimitMiddleware`, clé globale `api` dans `RateLimitCount`, 429 +
+  `Retry-After`) — le MCP forwardant vers `/api/` est ainsi borné aussi.
 - **Filtres** : `django-filter` (`MetaBudatFilter`) — égalité sur les champs
   de `MetaBudat.FILTERABLE`, `icontains` sur `fournisseur_budat` et
   `fournisseur_in_fine_designation`, `RangeFilter` sur `montant`
@@ -67,7 +70,7 @@ route unique (fournisseur et segment anonymisés) :
    → `?fournisseur_budat=<fournisseur>&group_by=ministere&agg=sum:montant&ordering=-sum_montant`
 
 Le tri sur l'agrégat (`ordering=-sum_montant`) est ce qui rend ces « top N »
-possibles ; le plafond de 100 lignes borne le résultat.
+ possibles ; le plafond de 25 lignes borne le résultat.
 
 ## Options écartées
 
@@ -80,7 +83,7 @@ possibles ; le plafond de 100 lignes borne le résultat.
 - Ordre par défaut en mode agrégat (ex. première annotation décroissante) :
   écarté — l'agent passe explicitement `ordering`, l'API n'impose rien.
 - Pagination par pages (`PageNumberPagination`) : écartée — un plafond dur
-  opaque de 100 lignes suffit et ne donne pas de paramètre à abuser.
+  opaque de 25 lignes suffit et ne donne pas de paramètre à abuser.
 - `retrieve` par identifiant : écarté, pas de PK stable sur la méta-table.
 - GraphQL : écarté — la table est plate, le DSL GET (filtres + group_by/agg)
   suffit et l'ORM fait le travail d'agrégation dans les deux cas.
