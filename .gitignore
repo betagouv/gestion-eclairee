@@ -15,3 +15,15 @@ __pycache__/
 .agent-vm
 /plans/
 
+*.swp
+*.swo
+*.swn
+*.swm
+*.o
+*.lo
+.idea/
+.~lock*
+
+**/.claude/settings.local.json
+/secrets/
+
