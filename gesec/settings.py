@@ -52,6 +52,8 @@ ENV = config.str("ENV", default="dev")
 
 ADMIN_BASE_URL_PATH = config.str("DJANGO_ADMIN_BASE_URL_PATH", default="")
 
+API_ENABLED = config.bool("API_ENABLED", default=False)
+
 # Application definition
 
 INSTALLED_APPS = [

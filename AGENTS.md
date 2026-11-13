@@ -171,6 +171,9 @@ La contrainte unique sur gm échouait sur les factures sans engagement.
 - `STORAGE_BACKEND=fs|s3` ; entrées pipeline attendues sous la racine du storage
   (`cpro/exports`, `cpro/factures_unzipped`, `oda/...`, `budat/...`).
 - `ALBERT_API_KEY` / `ALBERT_BASE_URL` pour le LLM.
+- `API_ENABLED` (défaut `false`) : `true` monte les routes `/api/` et OAuth2
+  (`/oauth/`, `/.well-known/oauth-*`) ; sinon 404. Le process MCP, qui proxy
+  vers `/api/`, doit être arrêté séparément quand l'API est désactivée.
 - `PROD_DB_URL` : accès optionnel à la base de production pour investiguer
   bugs et choix de conception. Lecture seule : ne jamais écrire en prod, et
   toujours borner les requêtes SQL (`LIMIT`) vu le volume de données.

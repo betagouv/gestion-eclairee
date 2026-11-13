@@ -34,11 +34,13 @@ urlpatterns = [
     path("login", TemplateView.as_view(template_name="gesec/auth/login.html"), name="login"),
     path("oidc/backchannel-logout/", CustomOIDCBackChannelLogoutView.as_view(), name="oidc_backchannel_logout"),
     path("oidc/", include(oidc_urls)),
-    path("oauth/", include((oauth2_urlpatterns, "oauth2_provider"), namespace="oauth2_provider")),
-    path("", include((metadata_urlpatterns, "oauth2_provider"), namespace="oauth2_metadata")),
-    path("api/", include("gesec.front.api.urls")),
     path("s3/<path:path>", views.s3_file, name="s3_file"),
 ]
+
+if settings.API_ENABLED:
+    urlpatterns.append(path("oauth/", include((oauth2_urlpatterns, "oauth2_provider"), namespace="oauth2_provider")))
+    urlpatterns.append(path("", include((metadata_urlpatterns, "oauth2_provider"), namespace="oauth2_metadata")))
+    urlpatterns.append(path("api/", include("gesec.front.api.urls")))
 
 if settings.ADMIN_BASE_URL_PATH:
     admin_base_path = settings.ADMIN_BASE_URL_PATH.rstrip("/")
