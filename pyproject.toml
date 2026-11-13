@@ -15,6 +15,7 @@ dependencies = [
     "djangorestframework>=3.17.1",
     "gunicorn>=26.0.0",
     "ipython>=9.14.1",
+    "joserfc>=1.4.0",
     "mozilla-django-oidc>=5.0.2",
     "openpyxl>=3.1.5",
     "openai>=2.0.0",

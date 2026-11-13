@@ -6,7 +6,7 @@ from gesec.models import User
 
 
 class UserFactory(factory.django.DjangoModelFactory[User]):
-    class Meta:
+    class Meta:  # ty: ignore[incompatible-attribute-override]
         model = User
 
     email = factory.Sequence(lambda n: f"user{n}@test.local")
@@ -16,7 +16,7 @@ class UserFactory(factory.django.DjangoModelFactory[User]):
 
 
 class GroupFactory(factory.django.DjangoModelFactory[Group]):
-    class Meta:
+    class Meta:  # ty: ignore[incompatible-attribute-override]
         model = Group
 
     name = factory.Sequence(lambda n: f"group_{n}")

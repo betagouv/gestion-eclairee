@@ -5,8 +5,9 @@ extract_pdf, classify_gm, sync) passent par `get_data_database_url` pour l'URL
 et par `get_connection` pour une connexion psycopg.
 """
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Iterator
+from typing import Any
 from urllib.parse import quote
 
 from django.conf import settings
@@ -34,7 +35,7 @@ def connect(database_url: str | None = None) -> psycopg.Connection:
 
 
 @contextmanager
-def get_connection(database_url: str | None = None) -> Iterator[psycopg.Connection]:
+def get_connection(database_url: str | None = None) -> Generator[psycopg.Connection, None, None]:
     conn = connect(database_url)
     try:
         yield conn
