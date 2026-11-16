@@ -14,6 +14,7 @@ import argparse
 import json
 import os
 import sys
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
@@ -21,6 +22,16 @@ import sqlalchemy
 from sqlalchemy import Engine, inspect, text
 
 Tableau = list[list[Any]]
+
+LINE_TOLERANCE = Decimal("0.02")
+TOTAL_TOLERANCE = Decimal("0.005")
+
+
+@dataclass(frozen=True)
+class TotauxFacture:
+    mt_ht: Decimal
+    mt_ttc: Decimal
+    montant_tva: Decimal
 
 
 def create_engine(env_var: str) -> Engine:
@@ -309,11 +320,27 @@ def enrichissement_ugap(engine: Engine, annee: str) -> dict[str, Any]:
     return {"tableau": tableau, "reliquat": reliquat_tableau}
 
 
+def montant_factures(engine: Engine, annee: str) -> dict[str, float]:
+    rows = fetch_all(
+        engine,
+        """
+        select id_cpro, sum(montant) as montant
+        from gesec_meta_budat
+        where annee = :annee
+        group by id_cpro
+        """,
+        {"annee": annee},
+    )
+    return {r["id_cpro"]: round(float(r["montant"] or 0), 2) for r in rows}
+
+
 def extraction_pdf(engine: Engine, annee: str) -> dict[str, Any]:
     empty: dict[str, Any] = {
-        "statuts": [["statut", "factures", "part", "pages", "page_moy"]],
+        "statuts": [["statut", "factures", "part", "pages", "page_moy", "montant"]],
         "reconciliation": {"extractions_reussies": 0, "extractions_en_gold": 0, "rejetees": 0},
-        "echecs": [["error_type", "factures", "part"]],
+        "echecs": [["error_type", "factures", "part", "montant"]],
+        "echecs_silver": [["motif", "factures", "montant"]],
+        "rejets_gold": [["motif", "factures", "part", "montant"]],
     }
     if not table_exists(engine, "bronze_extract_pdf"):
         return empty
@@ -325,14 +352,26 @@ def extraction_pdf(engine: Engine, annee: str) -> dict[str, Any]:
             select distinct p.id_cpro, p.status, p.page_count
             from bronze_extract_pdf p
             join gesec_meta_budat b on b.id_cpro = p.id_cpro and b.annee = :annee
+        ),
+        fm as (
+            select id_cpro, sum(montant) as montant
+            from gesec_meta_budat where annee = :annee group by id_cpro
+        ),
+        montants as (
+            select t.status, sum(f.montant) as montant
+            from (select distinct id_cpro, status from tentatives) t
+            join fm f on f.id_cpro = t.id_cpro
+            group by t.status
         )
         select
-            status,
+            t.status,
             count(*) as factures,
-            coalesce(sum(page_count), 0) as pages,
-            count(page_count) as factures_avec_pages
-        from tentatives
-        group by status
+            coalesce(sum(t.page_count), 0) as pages,
+            count(t.page_count) as factures_avec_pages,
+            coalesce(m.montant, 0) as montant
+        from tentatives t
+        left join montants m on m.status = t.status
+        group by t.status, m.montant
         order by count(*) desc
         """,
         {"annee": annee},
@@ -340,7 +379,8 @@ def extraction_pdf(engine: Engine, annee: str) -> dict[str, Any]:
     total_f = sum(r["factures"] for r in statuts)
     total_pages = sum(r["pages"] for r in statuts)
     total_avec_pages = sum(r["factures_avec_pages"] for r in statuts)
-    statuts_tableau: Tableau = [["statut", "factures", "part", "pages", "page_moy"]]
+    total_montant = sum(float(r["montant"]) for r in statuts)
+    statuts_tableau: Tableau = [["statut", "factures", "part", "pages", "page_moy", "montant"]]
     for r in statuts:
         statuts_tableau.append(
             [
@@ -349,6 +389,7 @@ def extraction_pdf(engine: Engine, annee: str) -> dict[str, Any]:
                 pct(r["factures"], total_f),
                 r["pages"],
                 round(float(r["pages"]) / float(r["factures_avec_pages"]), 1) if r["factures_avec_pages"] else 0.0,
+                round(float(r["montant"]), 2),
             ]
         )
     statuts_tableau.append(
@@ -358,6 +399,7 @@ def extraction_pdf(engine: Engine, annee: str) -> dict[str, Any]:
             100.0,
             total_pages,
             round(float(total_pages) / total_avec_pages, 1) if total_avec_pages else 0.0,
+            round(total_montant, 2),
         ]
     )
 
@@ -388,18 +430,28 @@ def extraction_pdf(engine: Engine, annee: str) -> dict[str, Any]:
             from bronze_extract_pdf p
             join gesec_meta_budat b on b.id_cpro = p.id_cpro and b.annee = :annee
             where p.status = 'failed'
+        ),
+        fm as (
+            select id_cpro, sum(montant) as montant
+            from gesec_meta_budat where annee = :annee group by id_cpro
         )
-        select error_type, count(*) as factures
-        from tentatives
-        group by error_type
+        select
+            t.error_type,
+            count(*) as factures,
+            coalesce(sum(f.montant), 0) as montant
+        from tentatives t
+        left join fm f on f.id_cpro = t.id_cpro
+        group by t.error_type
         order by count(*) desc
         """,
         {"annee": annee},
     )
     total_echecs = sum(r["factures"] for r in echecs)
-    echecs_tableau: Tableau = [["error_type", "factures", "part"]]
+    echecs_tableau: Tableau = [["error_type", "factures", "part", "montant"]]
     for r in echecs:
-        echecs_tableau.append([r["error_type"], r["factures"], pct(r["factures"], total_echecs)])
+        echecs_tableau.append(
+            [r["error_type"], r["factures"], pct(r["factures"], total_echecs), round(float(r["montant"]), 2)]
+        )
 
     return {
         "statuts": statuts_tableau,
@@ -409,7 +461,168 @@ def extraction_pdf(engine: Engine, annee: str) -> dict[str, Any]:
             "rejetees": reconciliation["succes"] - reconciliation["succes_en_gold"],
         },
         "echecs": echecs_tableau,
+        "echecs_silver": echecs_silver(engine, annee),
+        "rejets_gold": rejets_gold(engine, annee),
     }
+
+
+def echecs_silver(engine: Engine, annee: str) -> Tableau:
+    tableau: Tableau = [["motif", "factures", "montant"]]
+    if not table_exists(engine, "silver_extract_pdf_facture"):
+        return tableau
+    rows = fetch_all(
+        engine,
+        """
+        with sf as (
+            select
+                s.id_cpro,
+                case
+                    when bool_or(
+                        s.error_type = 'validation' and s.error ilike '%ht%tva%ttc%'
+                    ) then 'HT + TVA != TTC ligne'
+                    when bool_or(
+                        s.error_type = 'validation'
+                        and (s.error ilike '%dupliqu%' or s.error ilike '%line_id%')
+                    ) then 'line_id dupliqué'
+                    when bool_or(s.error_type = 'validation') then 'validation autre'
+                    else min(s.error_type)
+                end as motif
+            from silver_extract_pdf_facture s
+            join gesec_meta_budat b on b.id_cpro = s.id_cpro and b.annee = :annee
+            where s.status = 'failed'
+            group by s.id_cpro
+        ),
+        fm as (
+            select id_cpro, sum(montant) as montant
+            from gesec_meta_budat where annee = :annee group by id_cpro
+        )
+        select
+            sf.motif,
+            count(*) as factures,
+            coalesce(sum(f.montant), 0) as montant
+        from sf
+        left join fm f on f.id_cpro = sf.id_cpro
+        group by sf.motif
+        order by count(*) desc
+        """,
+        {"annee": annee},
+    )
+    for r in rows:
+        tableau.append([r["motif"], r["factures"], round(float(r["montant"]), 2)])
+    return tableau
+
+
+def derive_montants(
+    ht: Decimal | None,
+    ttc: Decimal | None,
+    tva: Decimal | None,
+    totals: TotauxFacture,
+) -> tuple[Decimal, Decimal, Decimal] | None:
+    tva_rate = totals.montant_tva / totals.mt_ht if totals.mt_ht else None
+    ttc_rate = totals.mt_ttc / totals.mt_ht if totals.mt_ht else None
+    if tva is None and ht is not None and tva_rate is not None:
+        tva = ht * tva_rate
+        if ttc is None:
+            ttc = ht + tva
+    if ttc is None and ht is not None and ttc_rate is not None:
+        ttc = ht * ttc_rate
+        if tva is None:
+            tva = ttc - ht
+    if ht is None or ttc is None or tva is None:
+        return None
+    return ht, ttc, tva
+
+
+def within_tolerance(total: Decimal, expected: Decimal) -> bool:
+    return abs(total - expected) <= abs(expected) * TOTAL_TOLERANCE
+
+
+def _motif_rejet(lignes: list[dict[str, Any]], totals: TotauxFacture) -> str:
+    sum_ht = Decimal("0")
+    sum_ttc = Decimal("0")
+    for ligne in lignes:
+        amounts = derive_montants(
+            ligne["line_amount_excl_tax"],
+            ligne["line_amount_incl_tax"],
+            ligne["line_amount_vat"],
+            totals,
+        )
+        if amounts is None:
+            return "Montants incomplets"
+        ht, ttc, tva = amounts
+        if abs(ht + tva - ttc) > LINE_TOLERANCE:
+            return "HT + TVA != TTC ligne"
+        sum_ht += ht
+        sum_ttc += ttc
+    if not within_tolerance(sum_ht, totals.mt_ht) or not within_tolerance(sum_ttc, totals.mt_ttc):
+        return "Totaux PDF hors tolérance"
+    return "autre"
+
+
+def rejets_gold(engine: Engine, annee: str) -> Tableau:
+    tableau: Tableau = [["motif", "factures", "part", "montant"]]
+    if not table_exists(engine, "silver_extract_pdf_facture"):
+        return tableau
+    succes = fetch_all(
+        engine,
+        """
+        select distinct s.id_cpro
+        from silver_extract_pdf_facture s
+        join gesec_meta_budat b on b.id_cpro = s.id_cpro and b.annee = :annee
+        where s.status = 'success'
+        """,
+        {"annee": annee},
+    )
+    en_gold = {
+        r["id_cpro"]
+        for r in fetch_all(engine, "select distinct id_cpro from gesec_facture_ligne where source like 'extract_pdf:%'")
+    }
+    rejetes = [r["id_cpro"] for r in succes if r["id_cpro"] not in en_gold]
+    if not rejetes:
+        return tableau
+    montants = montant_factures(engine, annee)
+    lignes_rows = fetch_all(
+        engine,
+        """
+        select id_cpro, line_amount_excl_tax, line_amount_incl_tax, line_amount_vat
+        from silver_extract_pdf_ligne
+        where id_cpro = any(:ids)
+        """,
+        {"ids": rejetes},
+    )
+    lignes: dict[str, list[dict[str, Any]]] = {}
+    for row in lignes_rows:
+        lignes.setdefault(row["id_cpro"], []).append(row)
+    fact_rows = fetch_all(
+        engine,
+        """
+        select identifiant_chorus_pro, mt_ht, mt_ttc, montant_tva
+        from gesec_facture
+        where identifiant_chorus_pro = any(:ids)
+        """,
+        {"ids": rejetes},
+    )
+    factures = {
+        r["identifiant_chorus_pro"]: TotauxFacture(mt_ht=r["mt_ht"], mt_ttc=r["mt_ttc"], montant_tva=r["montant_tva"])
+        for r in fact_rows
+    }
+    compteurs: dict[str, list[float]] = {}
+    for id_cpro in rejetes:
+        totals = factures.get(id_cpro)
+        lignes_facture = lignes.get(id_cpro, [])
+        if totals is None:
+            motif = "en-tête absent"
+        elif not lignes_facture:
+            motif = "sans lignes silver"
+        else:
+            motif = _motif_rejet(lignes_facture, totals)
+        entry = compteurs.setdefault(motif, [0.0, 0.0])
+        entry[0] += 1
+        entry[1] += montants.get(id_cpro, 0.0)
+    total = sum(v[0] for v in compteurs.values())
+    for motif, (n, m) in sorted(compteurs.items(), key=lambda kv: kv[1][0], reverse=True):
+        tableau.append([motif, int(n), pct(n, total), round(m, 2)])
+    return tableau
 
 
 def gm(engine: Engine, annee: str) -> dict[str, Any]:
