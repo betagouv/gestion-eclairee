@@ -1,9 +1,8 @@
 {
   "jobs": [
     {
-      "name": "ingest-sftp",
-      "command": "uv run ./manage.py ingest_sftp",
-      "schedule": "0 3 * * *"
+      "command": "0 3 * * * python manage.py ingest_sftp",
+      "size": "XL"
     }
   ]
 }
