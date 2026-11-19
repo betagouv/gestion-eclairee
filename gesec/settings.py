@@ -246,6 +246,15 @@ elif STORAGE_BACKEND == "fs":
     }
 
 
+# Bucket S3 dédié alimenté par SFTP (ingestion nocturne, voir ingest_sftp)
+SFTP_S3_ENDPOINT_URL = config.str("SFTP_S3_ENDPOINT_URL", default="")
+SFTP_S3_REGION_NAME = config.str("SFTP_S3_REGION_NAME", default="")
+SFTP_S3_ACCESS_KEY_ID = config.str("SFTP_S3_ACCESS_KEY_ID", default="")
+SFTP_S3_SECRET_ACCESS_KEY = config.str("SFTP_S3_SECRET_ACCESS_KEY", default="")
+SFTP_S3_BUCKET_NAME = config.str("SFTP_S3_BUCKET_NAME", default="")
+SFTP_INGEST_PREFIX = config.str("SFTP_INGEST_PREFIX", default="metabase/")
+
+
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
