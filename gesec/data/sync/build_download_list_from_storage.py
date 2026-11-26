@@ -54,6 +54,8 @@ def build_download_list(output: str = OUTPUT_DEFAULT) -> str:
     couples = df.groupby(["EJ", "SEDP"])["DATE_MIN"].min().reset_index().rename(columns={"SEDP": "SERVICES"})
     couples = couples.sort_values(["DATE_MIN", "EJ", "SERVICES"]).reset_index(drop=True)
 
+    parent = os.path.dirname(os.path.abspath(output))
+    os.makedirs(parent, exist_ok=True)
     couples[["EJ", "SERVICES"]].to_csv(output, index=False, header=True)
     logger.info("%d couples (EJ, SERVICES) écrits dans %s", len(couples), output)
     return output
