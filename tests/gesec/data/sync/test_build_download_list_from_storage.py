@@ -16,10 +16,10 @@ def test_builds_list_sorted_by_date(s3_client, tmp_path):
         s3_client,
         "budat/export_augdt_20260814.csv",
         [
-            {"EJ": "EJ2", "SEDP": "S2", "DATE": "15/03/2024", "LIBELLE": "Crédits °"},
-            {"EJ": "EJ1", "SEDP": "S1", "DATE": "01/02/2023", "LIBELLE": "Crédits °"},
-            {"EJ": "EJ1", "SEDP": "S1", "DATE": "10/01/2023", "LIBELLE": "Crédits °"},
-            {"EJ": "EJ2", "SEDP": "S2", "DATE": "15/03/2024", "LIBELLE": "Crédits °"},
+            {"EJ": "EJ2", "SEDP": "S2", "DATE_PY": "20240315", "LIBELLE": "Crédits °"},
+            {"EJ": "EJ1", "SEDP": "S1", "DATE_PY": "20230201", "LIBELLE": "Crédits °"},
+            {"EJ": "EJ1", "SEDP": "S1", "DATE_PY": "20230110", "LIBELLE": "Crédits °"},
+            {"EJ": "EJ2", "SEDP": "S2", "DATE_PY": "20240315", "LIBELLE": "Crédits °"},
         ],
     )
 
@@ -33,8 +33,8 @@ def test_builds_list_sorted_by_date(s3_client, tmp_path):
 
 
 def test_uses_latest_augdt(s3_client, tmp_path):
-    put_augdt(s3_client, "budat/export_augdt_20260101.csv", [{"EJ": "OLD", "SEDP": "S", "DATE": "01/01/2024"}])
-    put_augdt(s3_client, "budat/export_augdt_20260814.csv", [{"EJ": "NEW", "SEDP": "S", "DATE": "01/01/2024"}])
+    put_augdt(s3_client, "budat/export_augdt_20260101.csv", [{"EJ": "OLD", "SEDP": "S", "DATE_PY": "20240101"}])
+    put_augdt(s3_client, "budat/export_augdt_20260814.csv", [{"EJ": "NEW", "SEDP": "S", "DATE_PY": "20240101"}])
 
     output = str(tmp_path / "liste.csv")
     module.build_download_list(output=output)

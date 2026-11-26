@@ -1,7 +1,7 @@
 """Construit la liste de téléchargement (EJ, SERVICES) depuis l'augdt du storage.
 
 Repère le `budat/export_augdt_*.csv` le plus récent dans le storage, en extrait
-les couples (EJ, SEDP) uniques et les trie par date minimale (colonne `DATE`),
+les couples (EJ, SEDP) uniques et les trie par date de paiement minimale (colonne `DATE_PY`),
 puis par EJ et service, pour un traitement des plus anciennes factures d'abord.
 Le fichier de sortie est déterministe : tant que l'augdt n'est pas modifié, la
 liste produite est identique.
@@ -50,7 +50,7 @@ def build_download_list(output: str = OUTPUT_DEFAULT) -> str:
     df = pd.read_csv(io.StringIO(content), delimiter=";", dtype="str")
 
     df = df.dropna(subset=["EJ", "SEDP"])
-    df["DATE_MIN"] = pd.to_datetime(df["DATE"], dayfirst=True, errors="coerce")
+    df["DATE_MIN"] = pd.to_datetime(df["DATE_PY"], format="%Y%m%d", errors="coerce")
     couples = df.groupby(["EJ", "SEDP"])["DATE_MIN"].min().reset_index().rename(columns={"SEDP": "SERVICES"})
     couples = couples.sort_values(["DATE_MIN", "EJ", "SERVICES"]).reset_index(drop=True)
 
