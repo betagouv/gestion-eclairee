@@ -16,10 +16,10 @@ def test_builds_list_sorted_by_date(s3_client, tmp_path):
         s3_client,
         "budat/export_augdt_20260814.csv",
         [
-            {"EJ": "EJ2", "SEDP": "S2", "DATE": "15/03/2024"},
-            {"EJ": "EJ1", "SEDP": "S1", "DATE": "01/02/2023"},
-            {"EJ": "EJ1", "SEDP": "S1", "DATE": "10/01/2023"},
-            {"EJ": "EJ2", "SEDP": "S2", "DATE": "15/03/2024"},
+            {"EJ": "EJ2", "SEDP": "S2", "DATE": "15/03/2024", "LIBELLE": "Crédits °"},
+            {"EJ": "EJ1", "SEDP": "S1", "DATE": "01/02/2023", "LIBELLE": "Crédits °"},
+            {"EJ": "EJ1", "SEDP": "S1", "DATE": "10/01/2023", "LIBELLE": "Crédits °"},
+            {"EJ": "EJ2", "SEDP": "S2", "DATE": "15/03/2024", "LIBELLE": "Crédits °"},
         ],
     )
 

@@ -12,6 +12,7 @@ Usage :
 """
 
 import argparse
+import io
 import logging
 import os
 import re
@@ -45,7 +46,8 @@ def build_download_list(output: str = OUTPUT_DEFAULT) -> str:
     logger.info("Augdt utilisé : %s", key)
 
     with default_storage.open(key, "rb") as f:
-        df = pd.read_csv(f, encoding="iso-8859-3", delimiter=";", dtype="str")
+        content = f.read().decode("iso-8859-3")
+    df = pd.read_csv(io.StringIO(content), delimiter=";", dtype="str")
 
     df = df.dropna(subset=["EJ", "SEDP"])
     df["DATE_MIN"] = pd.to_datetime(df["DATE"], dayfirst=True, errors="coerce")
