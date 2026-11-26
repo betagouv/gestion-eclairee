@@ -799,6 +799,7 @@ def download_export_csv(page, params: SearchParams) -> tuple[str, set[str], bool
             download.delete()
         except Exception as e:
             logger.warning(f"Failed to delete temp export download: {e}")
+        close_extra_pages(page)
 
     return filepath, ids, changed
 
@@ -951,9 +952,10 @@ if __name__ == "__main__":
 
         def log_stats(prefix: str) -> None:
             logger.info(
-                "%s : %s",
+                "%s : %s, pages=%d",
                 prefix,
                 ", ".join(f"{key}={value}" for key, value in stats_total.items()),
+                len(page.context.pages),
             )
 
         for idx, (num_ej, service, facture_num, facture_montant) in enumerate(tuples, 1):
@@ -981,11 +983,13 @@ if __name__ == "__main__":
                 ignore_payment_state=options.ignore_payment_state,
             )
 
-            # Search and download with retry logic (3 attempts max). Any failure
-            # resets the page before retrying: replaying on a page left broken by a
-            # failed download keeps failing identically.
+            # Search and download with retry logic (3 attempts max). Every attempt
+            # starts on a fresh page: a page left broken by a failed download (pending
+            # popup or navigation) would keep failing identically on retry, and a long
+            # run on a single page accumulates state until the service modal stalls.
             result = None
             for attempt in range(3):
+                page = reset_page(ctx, page)
                 start_time = time.perf_counter()
                 try:
                     result = search_and_download(page, params, downloaded_ids)
@@ -1000,7 +1004,6 @@ if __name__ == "__main__":
                         f"search_and_download attempt {attempt + 1}/3 failed "
                         f"({type(e).__name__}) in {duration:.2f}: {e} {params.to_log_string()}"
                     )
-                    page = reset_page(ctx, page)
                     if attempt < 2:
                         logger.info("Retrying search_and_download on a fresh page...")
                     else:

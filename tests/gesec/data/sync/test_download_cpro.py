@@ -52,12 +52,30 @@ class FakePage:
     def __init__(self, path):
         self._path = path
         self.clicked = False
+        self.context = FakeContext([self])
 
     def expect_download(self, timeout):
         return FakeDownloadInfo(self._path)
 
     def click(self, selector):
         self.clicked = True
+
+
+class FakeExtraPage:
+    def __init__(self):
+        self.closed = False
+
+    def close(self):
+        self.closed = True
+
+
+class FakeContext:
+    def __init__(self, pages):
+        self._pages = pages
+
+    @property
+    def pages(self):
+        return [p for p in self._pages if not getattr(p, "closed", False)]
 
 
 def write_export(tmp_path, content: str = EXPORT_CSV):
@@ -102,6 +120,19 @@ def test_download_export_csv_saves_then_skips_unchanged(s3_client, tmp_path, mon
 
     _, _, changed_again = module.download_export_csv(FakePage(path), params)
     assert changed_again is False
+
+
+def test_download_export_csv_closes_extra_pages(s3_client, tmp_path, monkeypatch):
+    path = write_export(tmp_path)
+    page = FakePage(path)
+    extra = FakeExtraPage()
+    page.context._pages.append(extra)
+
+    monkeypatch.setattr(module, "default_storage", default_storage)
+    module.download_export_csv(page, make_params())
+
+    assert extra.closed
+    assert page.context.pages == [page]
 
 
 def test_search_and_download_skips_loop_when_all_zips_present(s3_client, monkeypatch):
