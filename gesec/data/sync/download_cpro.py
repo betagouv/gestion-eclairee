@@ -1,4 +1,5 @@
 import csv
+import hashlib
 import logging
 import optparse
 import os
@@ -12,8 +13,12 @@ from typing import Optional
 
 from django.core.files.storage import default_storage
 
+from botocore.exceptions import ClientError
 from cloakbrowser import launch_context
 from playwright._impl._errors import Error as PlaywrightError
+from storages.utils import clean_name
+
+from gesec.storage import find_files
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +31,83 @@ SELECT_ALL_MODIFIER = "Meta" if platform.system() == "Darwin" else "Control"
 FRENCH_NUMBER_PATTERN = re.compile(r"^\d+(,\d{1,2})?$")
 
 DOWNLOAD_WAIT_MARKER = 'waiting for event "download"'
+
+IDENTIFIANT_CHORUS_PRO_COLUMN = "Identifiant Chorus Pro"
+FACTURES_PREFIX = "cpro/factures"
+ZIP_ID_PATTERN = re.compile(r"^(?:.*/)?facture_(\d+)(?:_[A-Za-z0-9]+)?\.zip$")
+
+
+def compute_md5(filepath: str) -> str:
+    digest = hashlib.md5()
+    with open(filepath, "rb") as f:
+        for chunk in iter(lambda: f.read(8192), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def read_export_ids(filepath: str) -> set[str]:
+    """Extrait les `Identifiant Chorus Pro` non vides d'un CSV d'export."""
+    ids: set[str] = set()
+    with open(filepath, "r", newline="", encoding="utf-8-sig") as csvfile:
+        reader = csv.DictReader(csvfile, delimiter=";")
+        for row in reader:
+            id_chorus = (row.get(IDENTIFIANT_CHORUS_PRO_COLUMN) or "").strip()
+            if id_chorus:
+                ids.add(id_chorus)
+    return ids
+
+
+def remote_content_md5(filepath: str) -> str | None:
+    """Md5 hex du fichier distant, via l'ETag S3 (head_object) si possible.
+
+    Renvoie None si le fichier n'existe pas ou si l'ETag n'est pas un md5
+    (upload multipart : ETag en `<md5>-<n>`). En backend fs, lit le fichier.
+    """
+    storage = default_storage
+    connection = getattr(storage, "connection", None)
+    bucket = getattr(storage, "bucket_name", None)
+    if connection is not None and bucket:
+        location = str(getattr(storage, "location", "") or "")
+        key = f"{location}/{clean_name(filepath)}" if location else clean_name(filepath)
+        try:
+            head = connection.meta.client.head_object(Bucket=bucket, Key=key)
+        except ClientError:
+            return None
+        etag = head.get("ETag", "").strip('"')
+        return None if "-" in etag else etag
+    if storage.exists(filepath):
+        with storage.open(filepath, "rb") as f:
+            return hashlib.md5(f.read()).hexdigest()
+    return None
+
+
+STATS_KEYS = ("processed", "no_result", "skipped", "export_csv_updated", "files", "download", "skip", "error")
+
+
+def new_stats() -> dict[str, int]:
+    return {key: 0 for key in STATS_KEYS}
+
+
+def accumulate_stats(stats: dict[str, int], result: dict | None) -> None:
+    """Agrège le résultat d'un `search_and_download` dans les compteurs cumulés."""
+    stats["processed"] += 1
+    if result is None:
+        stats["no_result"] += 1
+        return
+    if result.get("skipped"):
+        stats["skipped"] += 1
+    for key in ("export_csv_updated", "files", "download", "skip", "error"):
+        stats[key] += int(result.get(key, 0))
+
+
+def load_downloaded_ids(prefix: str = FACTURES_PREFIX) -> set[str]:
+    """Ids des factures dont une archive `cpro/factures/facture_<id>.zip` existe déjà dans le storage."""
+    ids: set[str] = set()
+    for path in find_files(prefix, re.compile(r"^.*/facture_\d+(?:_[A-Za-z0-9]+)?\.zip$")):
+        match = ZIP_ID_PATTERN.match(path)
+        if match is not None:
+            ids.add(match.group(1))
+    return ids
 
 
 class DirtyDownloadStateError(Exception):
@@ -679,28 +761,24 @@ def build_export_filename(params: SearchParams) -> str:
     return f"cpro/exports/{filename}"
 
 
-def download_export_csv(page, params: SearchParams) -> str:
+def download_export_csv(page, params: SearchParams) -> tuple[str, set[str], bool]:
     """Download the export CSV file after search.
 
-    Clicks on the export button and saves the result.
+    The export is always downloaded (it may contain new invoices since the last
+    run). It is saved to the storage only when its md5 differs from the remote
+    ETag, so unchanged exports are not rewritten.
 
     Args:
         page: The Playwright page object
         params: SearchParams containing all search criteria
 
     Returns:
-        The path where the file was saved
+        A tuple (storage path, set of Identifiant Chorus Pro, changed)
     """
     logger.info("Downloading export CSV...")
 
-    # Build filename
     filepath = build_export_filename(params)
 
-    if default_storage.exists(filepath):
-        logger.info(f"Export file {filepath} already exists, skipping download")
-        return filepath
-
-    # Click the export button and wait for download
     with page.expect_download(timeout=60 * 1000) as download_info:
         page.click("#GFR_RechercheFactureEtatAcompteRecus_Resultats_BoutonExporter")
 
@@ -708,24 +786,36 @@ def download_export_csv(page, params: SearchParams) -> str:
     assert download_info.is_done(), "Download should be done."
     download_path = download.path()
     try:
-        with open(download_path, "rb") as src:
-            default_storage.save(filepath, src)
+        local_md5 = compute_md5(download_path)
+        ids = read_export_ids(download_path)
+        changed = remote_content_md5(filepath) != local_md5
+        if changed:
+            with open(download_path, "rb") as src:
+                default_storage.save(filepath, src)
+            logger.info(f"Export CSV saved as {filepath}")
+        else:
+            logger.info(f"Export CSV {filepath} unchanged (md5 match), not re-saved")
     finally:
         try:
             download.delete()
         except Exception as e:
             logger.warning(f"Failed to delete temp export download: {e}")
 
-    logger.info(f"Export CSV saved as {filepath}")
-    return filepath
+    return filepath, ids, changed
 
 
-def search_and_download(page, params: SearchParams):
+def search_and_download(page, params: SearchParams, downloaded_ids: set[str] | None = None):
     """Search for invoices based on the provided parameters and download all results.
 
     Args:
         page: The Playwright page object
         params: SearchParams containing all search criteria
+        downloaded_ids: ids with an existing zip in the storage. When given and all
+            export ids are in it, the whole zip download loop is skipped.
+
+    Returns:
+        None if no result was found, {"skipped": True} if the zip download loop was
+        skipped, otherwise the aggregated download_items stats.
     """
     logger.info(f"Starting search and download with params: {params}")
 
@@ -759,17 +849,31 @@ def search_and_download(page, params: SearchParams):
     logger.info(f"Starting download for {params.to_log_string()}")
     if not submit_form(page):
         logger.info("No results found.")
-        return
+        return None
 
     # Download export CSV
-    download_export_csv(page, params)
+    _, ids, changed = download_export_csv(page, params)
+
+    if downloaded_ids is not None and ids and ids.issubset(downloaded_ids):
+        logger.info(
+            "All %d zip(s) already present for %s, skipping download loop",
+            len(ids),
+            params.to_log_string(),
+        )
+        return {"skipped": True, "export_csv_updated": changed, "ids": len(ids)}
 
     # Download all pages
+    total: dict[str, int] = {"files": 0, "download": 0, "skip": 0, "error": 0}
     while True:
         stats = download_items(page, params)
         logger.info("Downloads: %s", stats)
+        for key, value in stats.items():
+            total[key] += value
         if not go_next_page(page):
             break
+    total["export_csv_updated"] = int(changed)
+    total["ids"] = len(ids)
+    return total
 
 
 if __name__ == "__main__":
@@ -834,6 +938,8 @@ if __name__ == "__main__":
 
     ctx = None
     try:
+        downloaded_ids = load_downloaded_ids()
+        logger.info("%d facture zip(s) already in the storage", len(downloaded_ids))
         ctx, page = init_context(headless=not options.headed)
 
         # Process each (num_ej, service, facture_num, facture_montant) tuple
@@ -841,6 +947,15 @@ if __name__ == "__main__":
         skip_count = options.skip_tuples
         if skip_count > 0:
             logger.info(f"Skipping first {skip_count} tuple(s) as requested")
+
+        stats_total = new_stats()
+
+        def log_stats(prefix: str) -> None:
+            logger.info(
+                "%s : %s",
+                prefix,
+                ", ".join(f"{key}={value}" for key, value in stats_total.items()),
+            )
 
         for idx, (num_ej, service, facture_num, facture_montant) in enumerate(tuples, 1):
             if idx <= skip_count:
@@ -870,10 +985,11 @@ if __name__ == "__main__":
             # Search and download with retry logic (3 attempts max). Any failure
             # resets the page before retrying: replaying on a page left broken by a
             # failed download keeps failing identically.
+            result = None
             for attempt in range(3):
                 start_time = time.perf_counter()
                 try:
-                    search_and_download(page, params)
+                    result = search_and_download(page, params, downloaded_ids)
                     duration = time.perf_counter() - start_time
                     logger.info(
                         f"Processing completed in {duration:.2f}s ({idx}/{total_tuples}) {params.to_log_string()}"
@@ -890,6 +1006,13 @@ if __name__ == "__main__":
                         logger.info("Retrying search_and_download on a fresh page...")
                     else:
                         logger.error(f"Max retries reached ({type(e).__name__}), skipping {params.to_log_string()}")
+
+            accumulate_stats(stats_total, result)
+
+            if stats_total["processed"] % 500 == 0:
+                log_stats(f"Stats après {stats_total['processed']}/{total_tuples} couples")
+
+        log_stats(f"Stats finales ({stats_total['processed']}/{total_tuples} couples traités)")
 
         if options.headed:
             input("Press any key to quit...")

@@ -27,3 +27,4 @@ __pycache__/
 **/.claude/settings.local.json
 /secrets/
 
+scalingo_download.sh

@@ -28,6 +28,11 @@ Chorus Pro (CPRO), ODA et BUDAT. Pipeline ETL bronze/silver/gold + front DSFR.
   le run affiche en continu l'état de la file via le postfix tqdm :
   queue_size et compteurs par statut)
 - Extraction XML : `uv run python -m gesec.data.processors.cpro.pivots_xml -i <in> -o <out>`
+- Téléchargement CPRO en masse (prod, via `scalingo_download.sh <jsessionid>`) :
+  `build_download_list_from_storage` construit la liste (EJ, SERVICES) triée par date
+  depuis le dernier `budat/export_augdt_*.csv` du storage, puis `download_cpro` la télécharge
+  (export CSV toujours retéléchargé, re-sauvegardé seulement si le md5 diffère de l'ETag S3 ;
+  boucle de zips sautée quand tous les `facture_<id>.zip` de l'export sont déjà présents)
 - Synthèse BUDAT (lecture seule, JSON) : `uv run python scripts/synthese_budat.py <ENV_VAR> <annee>`
   (`<ENV_VAR>` nomme la variable d'env portant l'URL de la base, ex. `PROD_DB_URL` ;
   `<annee>` sélectionne l'année BUDAT ; sortie JSON sur stdout, tableaux en tableaux
