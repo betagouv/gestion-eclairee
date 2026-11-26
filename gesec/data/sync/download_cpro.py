@@ -395,7 +395,6 @@ def submit_form(page) -> bool:
 
     # Check if table with "Résultats de la recherche" caption exists (indicates results were found)
     if page.query_selector("table caption:has-text('Résultats de la recherche')") is None:
-        logger.info("No results found.")
         return False
     return True
 
