@@ -216,6 +216,18 @@ def parse_args():
         default=0,
         help="Number of initial tuples to skip (for resuming interrupted processing)",
     )
+    parser.add_option(
+        "--recycle-context-every",
+        dest="recycle_context_every",
+        type="int",
+        default=100,
+        help=(
+            "Recreate the browser context every N processed tuples: the Playwright node driver "
+            "retains memory for its whole lifetime and eventually runs out of heap on long runs. "
+            "Closing the context stops the driver process (cloakbrowser patches close), resetting "
+            "its heap. 0 disables recycling."
+        ),
+    )
     options, args = parser.parse_args()
     return options
 
@@ -911,6 +923,8 @@ if __name__ == "__main__":
     # Validate skip_tuples
     if options.skip_tuples < 0:
         raise ValueError("--skip-tuples must be a non-negative integer")
+    if options.recycle_context_every < 0:
+        raise ValueError("--recycle-context-every must be a non-negative integer")
 
     # Validate compatibility: --input-file is not compatible with --service or --num-ej
     if use_input_file:
@@ -941,6 +955,7 @@ if __name__ == "__main__":
         downloaded_ids = load_downloaded_ids()
         logger.info("%d facture zip(s) already in the storage", len(downloaded_ids))
         ctx, page = init_context(headless=not options.headed)
+        since_recycle = 0
 
         # Process each (num_ej, service, facture_num, facture_montant) tuple
         total_tuples = len(tuples)
@@ -970,6 +985,19 @@ if __name__ == "__main__":
                 f"Processing tuple: EJ={num_ej}, Service={service}, Facture={facture_num}, "
                 f"Montant={facture_montant} ({idx}/{total_tuples})"
             )
+
+            # Recycle the whole context periodically: the Playwright node driver leaks
+            # memory for its entire lifetime (it survives page.close()), and a long run
+            # on a single driver ends in a node heap OOM. ctx.close() also stops the
+            # driver process (cloakbrowser patches close), so the heap resets to zero.
+            if options.recycle_context_every and since_recycle >= options.recycle_context_every:
+                logger.info(
+                    f"Recycling browser context after {since_recycle} tuples to free driver memory "
+                    f"({idx}/{total_tuples})"
+                )
+                ctx.close()
+                ctx, page = init_context(headless=not options.headed)
+                since_recycle = 0
 
             # Create search parameters for this tuple
             params = SearchParams(
@@ -1010,6 +1038,7 @@ if __name__ == "__main__":
                         logger.error(f"Max retries reached ({type(e).__name__}), skipping {params.to_log_string()}")
 
             accumulate_stats(stats_total, result)
+            since_recycle += 1
 
             if stats_total["processed"] % 500 == 0:
                 log_stats(f"Stats après {stats_total['processed']}/{total_tuples} couples")
@@ -1023,5 +1052,8 @@ if __name__ == "__main__":
     finally:
         if ctx is not None:
             logger.info("Closing context...")
-            ctx.close()
+            try:
+                ctx.close()
+            except PlaywrightError as e:
+                logger.warning(f"Failed to close context cleanly (driver may already be dead): {e}")
             logger.info("Context closed.")
