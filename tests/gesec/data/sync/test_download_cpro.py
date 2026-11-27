@@ -1,6 +1,7 @@
 """Tests for the export CSV md5 handling and the zip-presence skip in download_cpro."""
 
 import hashlib
+import zipfile
 from datetime import date
 
 from django.core.files.storage import default_storage
@@ -215,3 +216,169 @@ def test_load_downloaded_ids(s3_client):
     bucket.put_object(Key="cpro/factures/autre.zip", Body=b"x")
 
     assert module.load_downloaded_ids() == {"111111111", "222222222"}
+
+
+class FakeKeyboard:
+    def press(self, key):
+        pass
+
+    def type(self, text):
+        pass
+
+
+class FakeItemButton:
+    def __init__(self, page, id_chorus):
+        self.page = page
+        self.id_chorus = id_chorus
+
+    def get_attribute(self, name):
+        return self.id_chorus if name == "data-value" else None
+
+    def click(self):
+        self.page.clicks.append("Synthese_Btn_TelechargerUnitaire")
+
+
+class FakeLocator:
+    def __init__(self, page, selector):
+        self.page = page
+        self.selector = selector
+
+    def get_attribute(self, name):
+        if name == "aria-expanded":
+            return "true"
+        if name == "disabled":
+            return "disabled"
+        return None
+
+    def click(self):
+        self.page.clicks.append(self.selector)
+
+    def scroll_into_view_if_needed(self):
+        pass
+
+    def count(self):
+        return len(self.page.site.download_ids)
+
+    def nth(self, i):
+        return FakeItemButton(self.page, self.page.site.download_ids[i])
+
+
+class FakeSite:
+    """Simule le site CPRO : file des téléchargements et ids des factures trouvées."""
+
+    def __init__(self, downloads, download_ids):
+        self.downloads = list(downloads)
+        self.download_ids = download_ids
+        self.visited_urls = []
+
+    def next_download(self):
+        return self.downloads.pop(0)
+
+
+class FakeBrowserPage:
+    def __init__(self, context, site):
+        self.context = context
+        self.site = site
+        self.closed = False
+        self.clicks = []
+        self.fills = []
+        self.keyboard = FakeKeyboard()
+
+    def goto(self, url, wait_until=None, timeout=None):
+        self.site.visited_urls.append(url)
+
+    def select_option(self, selector, value=None):
+        pass
+
+    def locator(self, selector):
+        return FakeLocator(self, selector)
+
+    def click(self, selector):
+        self.clicks.append(selector)
+
+    def fill(self, selector, value):
+        self.fills.append((selector, value))
+
+    def query_selector(self, selector):
+        if "Résultats de la recherche" in selector:
+            return object()
+        return None
+
+    def wait_for_load_state(self, state=None):
+        pass
+
+    def expect_download(self, timeout):
+        return FakeDownloadInfo(self.site.next_download())
+
+    def close(self):
+        self.closed = True
+        if self in self.context.pages:
+            self.context.pages.remove(self)
+
+
+class FakeBrowserContext:
+    def __init__(self, site):
+        self.site = site
+        self.pages = []
+        self.cookies = []
+        self.close_count = 0
+
+    def add_cookies(self, cookies):
+        self.cookies.extend(cookies)
+
+    def new_page(self):
+        page = FakeBrowserPage(self, self.site)
+        self.pages.append(page)
+        return page
+
+    def close(self):
+        self.close_count += 1
+
+
+def make_facture_zip(path, id_cpro):
+    with zipfile.ZipFile(path, "w") as z:
+        z.writestr("PivotS.xml", f"<PivotS><IdCPRO>{id_cpro}</IdCPRO></PivotS>")
+    return str(path)
+
+
+def test_main_golden_path(s3_client, tmp_path, monkeypatch):
+    monkeypatch.setenv("JSESSIONID", "fake-jsessionid")
+    monkeypatch.setattr(module, "default_storage", default_storage)
+
+    input_csv = tmp_path / "input.csv"
+    input_csv.write_text("EJ,SERVICES,FACTURE_NUM,FACTURE_MONTANT\n1512933394,FAC9420075,,\n", encoding="utf-8")
+    export_csv = tmp_path / "export.csv"
+    export_csv.write_text("Identifiant Chorus Pro;Numéro\n333333333;F1\n444444444;F2\n", encoding="utf-8")
+    zip_1 = make_facture_zip(tmp_path / "facture_1.zip", "333333333")
+    zip_2 = make_facture_zip(tmp_path / "facture_2.zip", "444444444")
+
+    site = FakeSite(downloads=[str(export_csv), zip_1, zip_2], download_ids=["333333333", "444444444"])
+    contexts = []
+
+    def fake_launch_context(headless=True, locale=None):
+        ctx = FakeBrowserContext(site)
+        contexts.append(ctx)
+        return ctx
+
+    monkeypatch.setattr(module, "launch_context", fake_launch_context)
+
+    module.main(["--input-file", str(input_csv), "--start", "2026-01-01", "--end", "2026-12-31"])
+
+    assert len(contexts) == 1
+    assert contexts[0].close_count == 1
+    assert contexts[0].cookies == [
+        {"name": "JSESSIONID", "value": "fake-jsessionid", "domain": "cpro.chorus-pro.gouv.fr", "path": "/cpp"}
+    ]
+    assert site.visited_urls == ["https://cpro.chorus-pro.gouv.fr/cpp/rechercheFactures"]
+    page = contexts[0].pages[0]
+    assert ("input[name='listeServices.critere.code']", "FAC9420075") in page.fills
+    assert ("input[name='listeResultats.critere.numeroBonDeCommande']", "1512933394") in page.fills
+    assert "#GFR_RechercheFactureEtatAcompteRecus_Criteres_BoutonRechercher" in page.clicks
+    export_key = "cpro/exports/1512933394_FAC9420075_20260101_20261231.csv"
+    with default_storage.open(export_key, "rb") as f:
+        assert f.read() == export_csv.read_bytes()
+
+    for id_cpro in ("333333333", "444444444"):
+        with default_storage.open(f"cpro/factures/facture_{id_cpro}.zip", "rb") as f:
+            with zipfile.ZipFile(f) as z:
+                assert f"<IdCPRO>{id_cpro}</IdCPRO>" in z.read("PivotS.xml").decode("utf-8")

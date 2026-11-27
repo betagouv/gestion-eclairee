@@ -176,7 +176,7 @@ class SearchParams:
         return f"[{', '.join(parts)}]" if parts else ""
 
 
-def parse_args():
+def parse_args(argv: list[str] | None = None):
     parser = optparse.OptionParser()
     parser.add_option("--start", dest="start", help="Start date in ISO format (YYYY-MM-DD)")
     parser.add_option("--end", dest="end", help="End date in ISO format (YYYY-MM-DD)")
@@ -228,7 +228,7 @@ def parse_args():
             "its heap. 0 disables recycling."
         ),
     )
-    options, args = parser.parse_args()
+    options, args = parser.parse_args(argv)
     return options
 
 
@@ -888,13 +888,13 @@ def search_and_download(page, params: SearchParams, downloaded_ids: set[str] | N
     return total
 
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> None:
     import django
 
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "gesec.settings")
     django.setup()
 
-    options = parse_args()
+    options = parse_args(argv)
 
     # Setup logging
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -1057,3 +1057,7 @@ if __name__ == "__main__":
             except PlaywrightError as e:
                 logger.warning(f"Failed to close context cleanly (driver may already be dead): {e}")
             logger.info("Context closed.")
+
+
+if __name__ == "__main__":
+    main()
